@@ -155,3 +155,299 @@ before application coding begins.
   data an AI feature can access or act on).
 - No specific AI capabilities, providers, or integration points have been
   decided yet.
+
+## Detailed Conceptual Architecture
+
+This section builds on the Preliminary Architecture above now that the
+module structure ([module-map.md](module-map.md)) and workflows
+([workflows.md](workflows.md)) have been documented. It goes one level
+deeper conceptually — still without selecting specific libraries,
+frameworks, or infrastructure products, except where a specific choice
+carries a strong architectural reason (noted explicitly where used). It
+remains subject to the open business decisions tracked in
+[open-business-decisions.md](open-business-decisions.md), several of which
+will influence implementation detail (e.g. multi-company data scoping,
+approval workflows) without changing the shape described here.
+
+### Frontend architecture
+
+- A single React + TypeScript application, organized by business module
+  (mirroring [module-map.md](module-map.md)) rather than by technical
+  layer, so a module can be developed, tested, and eventually
+  parallel-run against its Odoo equivalent with minimal cross-module
+  coupling.
+- Cross-module shared concerns (authentication state, RBAC-driven
+  navigation/visibility, shared UI components, notifications) live in a
+  common layer used by every module's UI, so each module doesn't
+  reinvent them.
+- The frontend treats the backend as the sole source of truth and sole
+  place where business rules are enforced (per the "validate on both
+  frontend and backend" development rule) — frontend validation is a
+  usability layer, not a security boundary.
+- Because Reporting and the AI Assistant are cross-module by nature, they
+  are expected to consume the same per-module APIs as the modules'
+  own screens, rather than a separate privileged path.
+
+### Backend architecture
+
+- A Python/FastAPI backend, structured as a **modular monolith**: one
+  deployable service, internally organized into modules that mirror
+  [module-map.md](module-map.md), each owning its own data access and
+  business logic and exposing it to other modules through explicit
+  interfaces rather than direct cross-module database access.
+- Rationale for a modular monolith as the starting point (a specific
+  architectural choice, not a library choice): the phased,
+  module-by-module Odoo replacement strategy needs modules that can be
+  built, tested, and cut over independently, but a full microservices
+  split would add operational complexity (service discovery, distributed
+  transactions, multiple deployments) that isn't justified yet for a
+  single-company, single-team deployment. Splitting a well-bounded module
+  out into its own service later remains possible if a specific module
+  (e.g. Integrations, or a high-load Reporting/AI layer) needs to scale
+  or deploy independently.
+- Business logic is kept in a layer separate from the API/HTTP layer
+  (per the development rules), so the same business logic can be reused
+  by the API, background jobs, and integration/migration code without
+  duplicating rules.
+- Each module's business logic is the only code allowed to enforce that
+  module's business rules (e.g. only Service Contracts logic decides how
+  contract hours are deducted) — this keeps the eventual implementation
+  of the decisions in [open-business-decisions.md](open-business-decisions.md)
+  localized to one place per rule.
+
+### PostgreSQL architecture
+
+- PostgreSQL is the single system of record; each backend module owns a
+  distinct set of tables (once designed) rather than modules sharing
+  tables directly, mirroring the backend's module boundaries.
+- All schema changes go through migrations, applied in a controlled,
+  repeatable way across environments (development, testing, production).
+- The schema is expected to carry a company/entity reference on
+  company-scoped data from the outset, even though only one company
+  exists today, so that future multi-company support (per CLAUDE.md) does
+  not require a disruptive re-model — the exact mechanism (shared tables
+  with a company key vs. another approach) is an implementation decision
+  for the detailed data model, not decided here.
+- Financial and operational records are never hard-deleted; the schema is
+  expected to support soft-delete/archival (e.g. a status or archived
+  flag, and/or an archive strategy for old operational data) consistent
+  with the development rules, rather than relying on application code
+  alone to prevent deletion.
+- Historical data migrated from Odoo (future) is expected to coexist with
+  natively-created data in the same schema, distinguished by origin/
+  reference metadata (e.g. a source-system identifier) rather than a
+  separate parallel schema, so that Reporting and other modules can treat
+  it uniformly — subject to the still-open decision on which historical
+  data is "important" vs. archival-only.
+
+### Authentication
+
+- A single authentication mechanism is used across the whole system (all
+  modules, including Reporting and the AI Assistant) rather than
+  per-module logins.
+- Authentication is a Core / Administration concern; no other module
+  implements its own login or session handling.
+- The specific mechanism (session-based vs. token-based, and whether an
+  external identity provider/SSO is used) is not yet decided — this is
+  an implementation choice within Core / Administration, not a
+  cross-cutting architectural constraint, provided whatever is chosen
+  supports the RBAC model below.
+
+### RBAC (role-based access control)
+
+- Permissions are defined and enforced centrally by Core / Administration
+  and consulted by every module — modules do not define their own
+  independent permission systems.
+- Access control is expected to operate at two levels: which modules/
+  functions a role can use (e.g. can this user access Accounts Payable at
+  all), and which records within a module a user can see or act on (e.g.
+  only the customers they own) — the latter connects directly to the
+  ownership questions raised in
+  [open-business-decisions.md](open-business-decisions.md) (customer
+  ownership, sales ownership, service ownership).
+- RBAC must be enforced in the backend (the authority), with the frontend
+  using the same role/permission data only to shape what it displays —
+  consistent with backend validation being the security boundary.
+- The detailed role/permission catalogue is not yet decided (see
+  [open-business-decisions.md](open-business-decisions.md), item 8.4) —
+  this section fixes only where enforcement lives, not what the roles are.
+
+### Audit logging
+
+- Audit logging is a cross-cutting capability provided centrally (by
+  Core / Administration) and used by every module that creates or changes
+  financial or operational records, rather than each module inventing its
+  own logging.
+- An audit entry is expected to capture, at minimum: who performed the
+  action, when, what entity/record was affected, and what changed —
+  sufficient to reconstruct the history of a financial or operational
+  record without altering the original record (consistent with "never
+  permanently delete important business or financial records").
+- Audit logging is expected to sit close to where changes are committed
+  (e.g. triggered by the same backend business-logic layer that writes
+  the change) so that it cannot be bypassed by calling a data-access path
+  directly.
+- Reporting and the AI Assistant are expected to be read-only consumers
+  of business data; whether their own read/query activity is itself
+  audit-logged (relevant for PDPA) is an open question to track in
+  [open-business-decisions.md](open-business-decisions.md) once those
+  modules are designed in detail.
+
+### File / document storage
+
+- Documents/files (contracts, invoices, attachments, delivery/
+  installation records, etc.) are stored outside the relational database
+  itself, with only references (metadata, location) kept in PostgreSQL —
+  keeping large binary content out of the transactional database.
+- Storage is expected to be provider-agnostic at the architecture level
+  (e.g. accessed through an internal abstraction) so the specific storage
+  technology can change without affecting modules that merely attach or
+  retrieve files, in line with the "portable to AWS, Azure, or other
+  infrastructure" deployment requirement.
+- Access to stored files goes through the same authentication/RBAC checks
+  as the record they're attached to — a file is never reachable by a URL
+  that bypasses permission checks.
+
+### Background jobs
+
+- A background job mechanism runs work outside the request/response
+  cycle: recurring contract billing runs, scheduled reports, renewal
+  reminders, notification delivery, and (in future) Odoo sync and
+  InvoiceNow submission.
+- Background jobs call into the same module business-logic layer as the
+  API, so a job (e.g. "generate recurring contract invoices") enforces
+  the same rules as a user-triggered action would.
+- Jobs that create financial or operational records are audit-logged the
+  same way user-triggered actions are.
+
+### Notifications
+
+- The system needs to notify users of events across modules — e.g. ticket
+  assignment, SLA breach warnings, timesheet approval requests, contract
+  renewal reminders, invoice approval requests, commission approval
+  requests.
+- Notifications are treated as a cross-cutting capability triggered by
+  module business logic (e.g. Helpdesk triggers an assignment
+  notification) rather than each module building its own delivery
+  mechanism, so the channel(s) used (in-app, email, etc. — not yet
+  decided) can evolve without changing every module.
+- Notification content must respect RBAC/PDPA — a notification should
+  not leak data the recipient would not otherwise be permitted to see.
+
+### API design
+
+- The FastAPI backend exposes APIs organized per business module,
+  consumed primarily by the React frontend, and designed so the same
+  APIs can later serve other consumers (e.g. a future customer portal,
+  the AI Assistant, or integrations) without a separate API surface.
+- Backend validation is authoritative for every API (per the development
+  rules); frontend validation is a convenience layer only.
+- APIs are expected to be versioned in a way that allows a module's API
+  to evolve during its phased Odoo cutover without breaking other
+  modules that depend on it (see the dependency map in
+  [module-map.md](module-map.md)).
+
+### Integration architecture
+
+- Integrations (Odoo parallel-run sync, InvoiceNow/Peppol, and future
+  connections such as banking) are isolated in the Integrations module
+  behind clear interfaces, so an individual integration can be added,
+  changed, or retired without changes to unrelated modules.
+- Integrations call into the same module business-logic layer as the API
+  and background jobs, rather than writing directly to another module's
+  data — an Odoo sync job creating a Customer record, for example, goes
+  through Customer Management's own logic (and its audit logging), not
+  around it.
+- Because InvoiceNow/Peppol submission and any future banking integration
+  touch financial records, they participate in the same audit-logging
+  and RBAC model as manual actions.
+
+### Reporting
+
+- Reporting / Management Dashboard is architected as a read-only consumer
+  of data owned by other modules (per [module-map.md](module-map.md)), not
+  a module that owns its own copy of transactional truth.
+- Whether Reporting reads live operational data directly, or from a
+  separate read-optimized/aggregated store fed from the same PostgreSQL
+  database, is an implementation decision to be made once reporting
+  volume and complexity are better understood — not decided here, and not
+  a reason to duplicate business logic outside its owning module.
+- Reporting must respect the same RBAC as the underlying data — a user
+  should not see in a report what they could not see in the owning
+  module.
+
+### AI layer
+
+- The AI Assistant is architected as a consumer of existing module APIs
+  and Reporting data, operating within the requesting user's own
+  permissions — it is not a privileged path that bypasses RBAC to answer
+  a question.
+- Any AI feature that reads customer or personal data must be designed
+  with PDPA in mind (e.g. what data is sent to an AI provider, and
+  whether that provider processes it outside Singapore) — this will need
+  a specific decision once concrete AI capabilities are proposed, and is
+  not resolved by this document.
+- AI-driven actions that would change business data (as opposed to just
+  answering questions) are expected to go through the same module
+  business logic, validation, and audit logging as any other
+  user-triggered action, rather than a separate write path — no AI
+  capability is assumed to bypass the rules the rest of the system
+  follows.
+
+### Security
+
+- Security is layered: network/deployment-level controls (see Deployment
+  architecture), authentication, RBAC enforced in the backend, input
+  validation on both frontend and backend, and audit logging for
+  traceability.
+- All data in transit is expected to be encrypted (e.g. HTTPS); whether
+  data at rest requires additional encryption beyond what the hosting
+  environment provides is to be assessed once a deployment target is
+  chosen.
+- PDPA considerations apply to personal data anywhere it is stored,
+  displayed, exported, or sent to a third party (including any future AI
+  provider or integration) — this needs a dedicated data-handling review
+  once modules reach detailed design, tracked as a decision area in
+  [open-business-decisions.md](open-business-decisions.md).
+- Secrets/credentials (database, integration API keys, etc.) are kept out
+  of source control and out of the application database, managed through
+  the hosting environment's configuration/secrets mechanism — the
+  specific mechanism depends on the deployment target chosen.
+
+### Backup and disaster recovery
+
+- The PostgreSQL database is the primary backup target, given it holds
+  all transactional and financial data; backups must support
+  point-in-time recovery, as already noted in the Preliminary
+  Architecture.
+- File/document storage (see above) needs its own backup/durability
+  approach, consistent with whatever storage technology is chosen, since
+  it sits outside the database.
+- Disaster recovery should be considered at the level of "can the whole
+  system be restored on different infrastructure" — consistent with the
+  requirement to remain portable across cloud providers — rather than
+  assuming recovery only within the original hosting environment.
+- Specific backup frequency, retention period, and recovery time/point
+  objectives (RTO/RPO) have not been decided and should be confirmed with
+  Dennis before they are relied upon operationally.
+
+### Development / testing / production environments
+
+- At least three environment tiers are expected: development (active
+  work), testing/staging (validation before release, including validating
+  migrations and, during the phased rollout, Odoo parallel-run
+  comparisons), and production (live business use).
+- Each environment has its own PostgreSQL database — production data is
+  never used directly for development or testing (per the "never modify
+  production data directly" development rule); where realistic data is
+  needed for testing, it is expected to be anonymized/sanitized rather
+  than a raw production copy, for PDPA reasons.
+- Database migrations are applied the same way, in the same order, in
+  every environment, so testing/staging is a reliable predictor of what a
+  migration will do in production.
+- The parallel-run strategy for Odoo replacement implies that, for a
+  module in parallel-run, production Webmaster ERP and production Odoo
+  run side by side for real business use — this is a production-tier
+  concern, not something exercised only in staging, and will need its own
+  cutover checklist per module once that module's requirements are
+  detailed.

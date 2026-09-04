@@ -1,0 +1,695 @@
+# Module Map
+
+Status: **proposed / conceptual**. This document proposes a module structure
+for Webmaster ERP based on the business areas listed in
+[CLAUDE.md](../CLAUDE.md) and the project-level requirements in
+[business-requirements.md](business-requirements.md). It groups
+functionality, describes each module's purpose, and shows how modules
+depend on one another.
+
+Nothing here is final: module boundaries, and especially the business rules
+each module will enforce, are subject to the decisions tracked in
+[open-business-decisions.md](open-business-decisions.md). No database
+tables, APIs, or code follow from this document yet.
+
+## How to read this document
+
+For each module:
+
+- **Purpose** — why the module exists.
+- **Main users** — who is expected to use it day-to-day.
+- **Key functions** — the main capabilities it is expected to provide.
+- **Information managed** — the kinds of data it owns (conceptual, not a
+  schema).
+- **Depends on** — other modules it needs data or behaviour from.
+- **Depended on by** — other modules that need data or behaviour from it.
+
+"Depends on" / "Depended on by" describe expected data and functional
+relationships, not a mandated code/package structure — the actual backend
+layering (e.g. modular monolith vs. services) is an architecture decision
+covered in [system-architecture.md](system-architecture.md).
+
+## Module dependency overview
+
+```
+Core / Administration
+        │  (auth, RBAC, audit, company/multi-entity context — used by everything below)
+        ▼
+Customer Management ──► CRM ──► Sales ──► Service Contracts ──► Helpdesk / Service Operations
+        │                          │             │                        │
+        │                          │             ▼                        ▼
+        │                          │        Projects ───────────────► Timesheets
+        │                          │             │                        │
+        │                          ▼             ▼                        ▼
+        │                     Hardware Mgmt ◄─ Inventory ◄─ Purchasing    Billing
+        │                          │                              │           │
+        │                          └──────────────────────────────┴────► Accounts Receivable
+        │                                                                      │
+        │                                                          Commission Management
+        │                                                                      │
+        └──────────────────────────────────────────────────────────► Finance / Accounting
+                                                                              │
+                                                        Accounts Payable ◄────┘
+                                                                              │
+                                                    Reporting / Mgmt Dashboard ◄── (reads from all)
+                                                                              │
+                                                     Integrations ◄──► AI Assistant
+```
+
+This diagram is illustrative, not exhaustive — see each module's "Depends
+on" / "Depended on by" lists for the full picture.
+
+---
+
+## 1. Core / Administration
+
+**Purpose**
+Provide the foundational services every other module relies on: company
+identity, users, authentication, roles/permissions, system-wide settings,
+and the audit log. This is the module that makes the system multi-company
+ready in the future while serving a single company today.
+
+**Main users**
+System administrators, IT admin, senior management (for org-wide settings).
+
+**Key functions**
+- User account management (create/deactivate users, assign roles).
+- Company/entity management (single company today; structure to support
+  more later).
+- Role and permission definition (RBAC).
+- System-wide configuration (e.g. currencies, number sequences, business
+  calendar/holidays).
+- Central audit log service used by other modules.
+- Master reference data shared across modules (e.g. countries, tax
+  categories) where not owned by a more specific module.
+
+**Information managed**
+Companies/entities, users, employees (as system accounts), roles,
+permissions, audit log entries, system settings, shared reference/lookup
+data.
+
+**Depends on**
+None — this is the foundational module.
+
+**Depended on by**
+Every other module (CRM, Sales, Customer Management, Service Contracts,
+Helpdesk/Service Operations, Projects, Timesheets, Billing, Accounts
+Receivable, Accounts Payable, Purchasing, Inventory, Hardware Management,
+Commission Management, Finance/Accounting, Reporting, Integrations, AI
+Assistant) — all rely on it for authentication, RBAC, audit logging, and
+company context.
+
+---
+
+## 2. CRM
+
+**Purpose**
+Manage the pre-sales relationship: leads, opportunities, and the sales
+pipeline, before a customer has a confirmed order or contract.
+
+**Main users**
+Sales team, sales/business development management.
+
+**Key functions**
+- Lead capture and qualification.
+- Opportunity/pipeline management (stages, forecasted value, close date).
+- Activity tracking (calls, meetings, follow-ups) linked to leads/
+  opportunities.
+- Conversion of a qualified opportunity into a quotation (handed to Sales).
+
+**Information managed**
+Leads, opportunities, pipeline stages, sales activities/interactions,
+opportunity-to-contact/customer links.
+
+**Depends on**
+Core / Administration (users, RBAC, audit); Customer Management (existing
+customer/contact records, for opportunities tied to existing customers).
+
+**Depended on by**
+Sales (opportunities feed quotations); Reporting (pipeline/forecast
+reporting); AI Assistant (e.g. future lead scoring or pipeline insights).
+
+---
+
+## 3. Sales
+
+**Purpose**
+Turn qualified opportunities into formal commercial commitments:
+quotations and sales orders, including pricing.
+
+**Main users**
+Sales team, sales management, order desk/sales administration.
+
+**Key functions**
+- Quotation creation (from an opportunity or directly).
+- Pricing and discounting.
+- Sales order creation and confirmation from an accepted quotation.
+- Tracking order status through to fulfilment (contract setup, hardware
+  delivery, or project kickoff, depending on what was sold).
+
+**Information managed**
+Quotations, quotation lines, sales orders, sales order lines, pricing
+terms, sales ownership (which salesperson/account owns the deal).
+
+**Depends on**
+Core / Administration; CRM (originating opportunity); Customer Management
+(customer/contact/billing details); Inventory (product/hardware
+availability, where hardware is quoted); Finance / Accounting (tax
+treatment, currency).
+
+**Depended on by**
+Service Contracts (a contract may originate from a sales order); Projects
+(a project may originate from a sales order); Hardware Management (a sales
+order for hardware triggers delivery); Billing (sales orders/quotations
+feed invoicing); Commission Management (commission is calculated from
+sales); Reporting.
+
+---
+
+## 4. Customer Management
+
+**Purpose**
+Own the authoritative record of who the customer is: the customer/company
+record, its contacts, sites, and ownership — independent of any one deal,
+contract, or ticket.
+
+**Main users**
+Sales, account managers, customer service, finance (for billing details).
+
+**Key functions**
+- Customer/company master record management.
+- Contact management (people at a customer, roles, communication
+  preferences).
+- Site/location management (for on-site service or hardware delivery).
+- Customer ownership assignment (account owner).
+- Customer status (active, prospect, inactive/archived).
+
+**Information managed**
+Customers, contacts, customer sites/locations, customer ownership,
+customer classification/segmentation.
+
+**Depends on**
+Core / Administration.
+
+**Depended on by**
+CRM, Sales, Service Contracts, Helpdesk / Service Operations, Projects,
+Billing, Accounts Receivable, Hardware Management, Reporting — essentially
+every customer-facing module.
+
+---
+
+## 5. Service Contracts
+
+**Purpose**
+Manage recurring service commitments to customers: contract terms,
+included hours/scope, SLAs, and the renewal cycle.
+
+**Main users**
+Sales (at contract setup/renewal), service operations, contract
+administration, finance (for recurring billing terms).
+
+**Key functions**
+- Contract creation from a sales order/quotation.
+- Definition of contract lines (services covered, included hours/quantity,
+  SLA terms).
+- Tracking contract consumption (hours/quantity used vs. remaining) —
+  calculation rules are a business decision (see
+  [open-business-decisions.md](open-business-decisions.md)).
+- Contract status management (active, expiring, expired, renewed,
+  terminated).
+- Triggering renewal opportunities ahead of expiry.
+
+**Information managed**
+Contracts, contract lines, contract terms/SLAs, contract consumption
+records, renewal history.
+
+**Depends on**
+Core / Administration; Customer Management; Sales (originating quotation/
+order).
+
+**Depended on by**
+Helpdesk / Service Operations (tickets consume contract hours); Billing
+(recurring contract billing); CRM/Sales (renewal opportunities); Reporting.
+
+---
+
+## 6. Helpdesk / Service Operations
+
+**Purpose**
+Manage customer-reported issues and service requests from intake through
+resolution, and connect that work to contracts, staffing, and billing.
+
+**Main users**
+Service/support staff, service operations managers; customers may
+eventually raise tickets via a portal (not yet decided).
+
+**Key functions**
+- Ticket intake, categorization, and prioritization.
+- SLA tracking based on the customer's service contract.
+- Staff assignment and escalation.
+- Linking tickets to the relevant contract (for hour deduction) and/or
+  hardware asset.
+- Ticket resolution and closure tracking.
+
+**Information managed**
+Helpdesk tickets, ticket status/history, SLA timers, assignment records,
+ticket-to-contract and ticket-to-asset links.
+
+**Depends on**
+Core / Administration; Customer Management; Service Contracts (to know
+entitlement/hours and SLA); Hardware Management (when a ticket relates to
+a specific asset).
+
+**Depended on by**
+Timesheets (time logged against tickets); Billing (billable ticket work,
+work beyond contract entitlement); Reporting.
+
+---
+
+## 7. Projects
+
+**Purpose**
+Manage discrete, scoped bodies of work delivered to a customer (e.g.
+implementation projects), as distinct from ongoing contract-based support.
+
+**Main users**
+Project managers, consultants/engineers delivering the work, service
+operations management.
+
+**Key functions**
+- Project setup (scope, timeline, budget) — often from a sales order.
+- Task/milestone breakdown and assignment.
+- Progress tracking.
+- Linking project cost (via timesheets) to project billing.
+
+**Information managed**
+Projects, project tasks/milestones, project budgets, project status,
+project-to-customer and project-to-sales-order links.
+
+**Depends on**
+Core / Administration; Customer Management; Sales (originating sales
+order, where applicable).
+
+**Depended on by**
+Timesheets (time logged against project tasks); Billing (project billing,
+whether milestone-based or time-and-materials); Reporting.
+
+---
+
+## 8. Timesheets
+
+**Purpose**
+Capture how staff time is spent against helpdesk tickets, projects, or
+contracts, as the basis for cost tracking, contract hour deduction, and
+billing.
+
+**Main users**
+Any billable staff (engineers, consultants, support staff), with approval
+by managers.
+
+**Key functions**
+- Time entry (by employee, date, task/ticket/project).
+- Approval workflow for submitted time.
+- Classification of time as billable, non-billable, or contract-covered.
+- Feeding approved time into contract consumption, project cost, and
+  billing.
+
+**Information managed**
+Timesheet entries, approval status/history, time categorization
+(billable/non-billable/contract).
+
+**Depends on**
+Core / Administration (employees); Helpdesk / Service Operations (tickets
+time is logged against); Projects (tasks time is logged against); Service
+Contracts (to know whether time is covered by contract hours).
+
+**Depended on by**
+Billing (billable time becomes invoice lines); Service Contracts (approved
+time deducts from contract hours, per rules still to be decided);
+Commission Management (if commission considers delivered service, to be
+decided); Finance / Accounting (labour cost); Reporting.
+
+---
+
+## 9. Billing
+
+**Purpose**
+Generate invoices from the various sources of billable activity across
+the business: sales orders, contracts, helpdesk work, projects, and
+hardware.
+
+**Main users**
+Finance/billing team.
+
+**Key functions**
+- Consolidating billable items from Sales, Service Contracts, Helpdesk,
+  Projects, and Hardware Management into invoices.
+- Recurring billing for contracts (billing cycle to be decided).
+- One-off billing for sales orders/hardware/projects.
+- Draft invoice review and approval before issuance (approval rule to be
+  decided).
+- Credit note issuance (approval rule to be decided).
+- Handing finalized invoices to Accounts Receivable and, in future, to
+  Integrations for InvoiceNow/Peppol submission.
+
+**Information managed**
+Invoices, invoice lines, credit notes, billing runs/cycles, billing rules
+per contract/customer (where applicable).
+
+**Depends on**
+Core / Administration; Customer Management; Sales; Service Contracts;
+Helpdesk / Service Operations; Projects; Timesheets; Hardware Management;
+Finance / Accounting (tax/GST treatment).
+
+**Depended on by**
+Accounts Receivable (invoices become receivables); Finance / Accounting
+(revenue recognition/GL posting); Integrations (InvoiceNow/Peppol
+submission); Reporting.
+
+---
+
+## 10. Accounts Receivable
+
+**Purpose**
+Track what customers owe, record payments received, and manage the
+collections/reconciliation cycle.
+
+**Main users**
+Finance / accounts team.
+
+**Key functions**
+- Tracking invoice status (open, partially paid, paid, overdue).
+- Recording customer payments and allocating them to invoices (allocation
+  rule to be decided).
+- Aging analysis and outstanding balance reporting.
+- Reconciliation of payments to bank records (in coordination with
+  Finance / Accounting and, in future, Integrations).
+
+**Information managed**
+Customer payments, payment allocations, AR aging data, outstanding
+balances.
+
+**Depends on**
+Billing (source invoices); Customer Management; Finance / Accounting;
+Core / Administration.
+
+**Depended on by**
+Finance / Accounting (cash and revenue position); Commission Management
+(if commission payout is tied to customer payment, to be decided);
+Reporting.
+
+---
+
+## 11. Accounts Payable
+
+**Purpose**
+Track what the company owes to suppliers, and manage supplier invoice
+approval and payment.
+
+**Main users**
+Finance / accounts team, procurement (for invoice matching).
+
+**Key functions**
+- Recording supplier invoices, typically matched to a purchase order and
+  goods receipt.
+- Supplier invoice approval workflow (rule to be decided).
+- Scheduling and recording payments to suppliers.
+- Outstanding payable tracking and aging.
+
+**Information managed**
+Supplier invoices, payment records to suppliers, AP aging data.
+
+**Depends on**
+Purchasing (purchase orders and goods receipts to match against); Core /
+Administration; Finance / Accounting.
+
+**Depended on by**
+Finance / Accounting (cash and expense position); Reporting.
+
+---
+
+## 12. Purchasing
+
+**Purpose**
+Manage the procurement of goods (including hardware for resale/
+installation) and services from suppliers.
+
+**Main users**
+Procurement/purchasing staff, with approval by finance/management.
+
+**Key functions**
+- Supplier master data (may live here or in Core / Administration —
+  boundary to be confirmed during detailed design).
+- Purchase requisition and purchase order creation.
+- Purchase order approval workflow (rule to be decided).
+- Goods receipt recording.
+- Linking received goods to Inventory and, for hardware, to Hardware
+  Management.
+
+**Information managed**
+Suppliers (procurement-relevant data), purchase orders, purchase order
+lines, goods receipts.
+
+**Depends on**
+Core / Administration; Inventory (stock levels/reorder needs); Hardware
+Management (hardware-specific purchase needs); Finance / Accounting
+(budget/approval).
+
+**Depended on by**
+Accounts Payable (supplier invoices matched to POs/receipts); Inventory
+(goods receipt increases stock); Hardware Management (received hardware
+enters asset tracking); Reporting.
+
+---
+
+## 13. Inventory
+
+**Purpose**
+Track stock of physical items (including hardware) across locations, and
+record stock movements.
+
+**Main users**
+Warehouse/stock staff, procurement, hardware team.
+
+**Key functions**
+- Stock item master data (non-serialized items).
+- Stock level tracking by location.
+- Stock movement recording (receipt, issue, transfer, adjustment).
+- Stock adjustment workflow (rule to be decided).
+
+**Information managed**
+Inventory items, stock levels, stock movements, warehouse/location
+records.
+
+**Depends on**
+Core / Administration; Purchasing (goods receipt increases stock).
+
+**Depended on by**
+Hardware Management (serialized hardware assets originate from inventory
+receipt); Sales (product/hardware availability at quoting time); Billing
+(stock issued for a sale/installation feeds billing); Purchasing (stock
+levels inform reordering); Reporting.
+
+---
+
+## 14. Hardware Management
+
+**Purpose**
+Track individual hardware assets (serialized equipment) from receipt
+through delivery, customer installation, and ongoing service coverage —
+distinct from generic inventory quantity tracking.
+
+**Main users**
+Field engineers, warehouse/hardware team, service operations.
+
+**Key functions**
+- Serial/asset number tracking for hardware items.
+- Linking an asset to the sales order it was sold under.
+- Delivery and installation recording (including customer site).
+- Linking installed assets to helpdesk tickets and, where relevant, to
+  service contract coverage.
+- Warranty tracking (if applicable).
+
+**Information managed**
+Hardware assets (serial-tracked), asset status (in stock, delivered,
+installed, retired), asset-to-customer/site links, warranty information.
+
+**Depends on**
+Inventory (assets originate from stock receipt); Sales (asset sold under
+a sales order); Customer Management (installation site/customer);
+Purchasing (asset originates from a purchase).
+
+**Depended on by**
+Helpdesk / Service Operations (tickets linked to a specific asset);
+Service Contracts (contracts may cover specific assets); Billing
+(hardware sale/installation billing); Reporting.
+
+---
+
+## 15. Commission Management
+
+**Purpose**
+Calculate, approve, and track commission owed to sales staff based on
+sales performance.
+
+**Main users**
+Sales management, finance, (HR/payroll as a downstream consumer, not yet
+scoped).
+
+**Key functions**
+- Commission calculation from sales data (calculation rule to be
+  decided).
+- Commission approval workflow (approver and rule to be decided).
+- Tracking when commission becomes payable (trigger to be decided — e.g.
+  on invoicing vs. on customer payment).
+- Commission payment tracking (handed to Finance / Accounting / Accounts
+  Payable-style payout, mechanism to be decided).
+
+**Information managed**
+Commission calculations, commission approval status/history, commission
+payment records.
+
+**Depends on**
+Sales (source sales data); Accounts Receivable (if commission is tied to
+customer payment, to be decided); Core / Administration (sales
+employee/role); Finance / Accounting.
+
+**Depended on by**
+Finance / Accounting (commission as a payable/expense); Reporting.
+
+---
+
+## 16. Finance / Accounting
+
+**Purpose**
+Maintain the company's general ledger and financial records: the
+authoritative financial view that AR, AP, Billing, and Commission
+Management post into, and the basis for statutory/financial reporting
+(including GST).
+
+**Main users**
+Finance / accounting team, senior management.
+
+**Key functions**
+- Chart of accounts and general ledger.
+- Posting of transactions originating in Billing, Accounts Receivable,
+  Accounts Payable, and Commission Management.
+- GST treatment and reporting.
+- Financial statement production (structure/frequency to be decided).
+- Multi-company-ready ledger structure (future).
+
+**Information managed**
+Chart of accounts, journal entries/general ledger, tax records, financial
+statements/reports.
+
+**Depends on**
+Accounts Receivable, Accounts Payable, Billing, Commission Management
+(as sources of financial transactions); Core / Administration.
+
+**Depended on by**
+Reporting (financial reporting); Integrations (banking, tax filing,
+future auditor access).
+
+---
+
+## 17. Reporting / Management Dashboard
+
+**Purpose**
+Provide cross-module reporting and dashboards for operational and
+management decision-making, without owning transactional data itself.
+
+**Main users**
+Management, department heads, finance.
+
+**Key functions**
+- Operational dashboards (e.g. open tickets, project status, sales
+  pipeline).
+- Financial reporting (drawing from Finance / Accounting, AR, AP).
+- Management KPIs across business areas.
+- Ad hoc/cross-module reporting (scope to be refined during detailed
+  design).
+
+**Information managed**
+No data of its own by default — it reads and aggregates data owned by
+other modules. Whether it needs its own materialized/aggregated data
+stores is an architecture decision, not a business one.
+
+**Depends on**
+All other business modules, as a read-only consumer: Core / Administration,
+CRM, Sales, Customer Management, Service Contracts, Helpdesk / Service
+Operations, Projects, Timesheets, Billing, Accounts Receivable, Accounts
+Payable, Purchasing, Inventory, Hardware Management, Commission
+Management, Finance / Accounting.
+
+**Depended on by**
+None functionally required it — it is a top-level consumer, though the
+AI Assistant may use it as a data source.
+
+---
+
+## 18. Integrations
+
+**Purpose**
+Manage the system's connections to external systems: Odoo (during the
+phased migration/parallel-run), InvoiceNow/Peppol for e-invoicing, and
+other future external services (e.g. banking).
+
+**Main users**
+IT/system administrators, developers; not typically an end-user-facing
+module.
+
+**Key functions**
+- Odoo data sync/import during the parallel-run period (per module, as
+  each is phased in).
+- InvoiceNow / Peppol submission of invoices (Access Point integration —
+  provider not yet selected).
+- Other external integrations as identified (e.g. banking, tax filing).
+- Integration monitoring/error handling.
+
+**Information managed**
+Integration configuration, sync/import logs, mapping between Webmaster
+ERP records and external-system identifiers (e.g. Odoo IDs).
+
+**Depends on**
+Core / Administration; the specific module each integration serves (e.g.
+Billing for InvoiceNow, Finance / Accounting for banking); Customer
+Management and other master-data modules being synced from Odoo.
+
+**Depended on by**
+Billing (InvoiceNow submission); Finance / Accounting (banking/
+reconciliation); any module receiving Odoo data during its parallel-run
+phase.
+
+---
+
+## 19. AI Assistant
+
+**Purpose**
+Provide an AI-assisted layer across the ERP — e.g. natural-language
+queries over business data, suggestions, or automation assistance —
+subject to the same access control and audit requirements as the rest of
+the system.
+
+**Main users**
+All staff (as an assistant within their permitted scope), management (for
+insights).
+
+**Key functions**
+Not yet defined in detail. Candidate functions (not decided) include
+natural-language reporting queries, ticket/opportunity summarization, and
+proactive suggestions (e.g. renewal reminders). Any capability that reads
+or acts on business data must respect RBAC and PDPA.
+
+**Information managed**
+No transactional data of its own expected; it consumes data from other
+modules within the requesting user's permissions. Whether it needs its own
+logs (e.g. of AI interactions, for audit) is to be decided.
+
+**Depends on**
+Core / Administration (authentication, RBAC, audit); Reporting (as a
+likely data source); potentially any module it is asked to surface data
+from.
+
+**Depended on by**
+None currently — it is a consumer-facing layer. It may feed suggestions
+back into other modules in the future, which would be a further decision.
