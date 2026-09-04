@@ -79,8 +79,16 @@ an existing customer purchases a new contract directly.
 1. If the customer is new, a Customer Management record (and contacts/
    sites) is created or confirmed.
 2. A Service Contract is created from the sales order, with contract
-   lines defining scope, included hours/quantity, and SLA terms.
-3. Contract is activated (start date, initial status).
+   lines defining scope, included hours/quantity, and SLA terms. The
+   contract starts in **Draft** status (CONFIRMED lifecycle, SRV-001:
+   Draft → Active → Exceeded (if applicable) → Expired / Renewed). A
+   standard contract runs for **12 months** (SRV-001) and must specify at
+   least **10 contracted support hours** (SRV-002) — the system must
+   prevent creating a normal contract below that minimum unless a future
+   authorized override applies (mechanism not yet decided — see
+   [open-business-decisions.md](open-business-decisions.md)).
+3. Contract is activated (status moves from Draft to **Active**, with a
+   stored start date and expiry date per SRV-001).
 4. Service setup activities occur as needed (e.g. onboarding tasks,
    initial hardware installation via Workflow G, access provisioning) —
    the extent of "service setup" as a formal step is not yet defined.
@@ -120,65 +128,110 @@ value may be used for forecasting/reporting.
 
 ---
 
-## C. Customer Issue → Helpdesk Ticket → Staff Assignment → Timesheet → Contract Hour Deduction → Billing
+## C. Customer → Support Ticket → Assignment → Service Work → Timesheet → Contract Hour Validation → Contract Deduction OR Excess Review → Billing Decision → Invoice (if billable) → Complete / Auditable Record
+
+Status: steps 5–7 (hour validation, excess handling, and the "no
+permanently unbilled" requirement) are **CONFIRMED** per SRV-001 through
+SRV-006 in [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
+The remaining steps follow the same proposed/conceptual status as the
+rest of this document.
 
 **Trigger**
 A customer reports an issue or service request.
 
 **Steps**
-1. Ticket is logged in Helpdesk / Service Operations, linked to the
-   customer (and asset, if applicable via Hardware Management).
+1. **Support Ticket** is logged in Helpdesk / Service Operations, linked
+   to the customer (and asset, if applicable via Hardware Management).
 2. Ticket is categorized/prioritized; SLA timers start based on the
    customer's Service Contract.
-3. Ticket is assigned to a staff member (or escalated).
-4. Staff performs the work and logs time via Timesheets against the
-   ticket.
-5. Logged time is classified as contract-covered, billable (beyond
-   contract), or non-billable — **the classification rule is not yet
-   decided.**
-6. If contract-covered, the Service Contract's remaining hours/quantity
-   are reduced by the logged time — **the exact deduction rule (e.g.
-   rounding, minimum increments) is not yet decided.**
-7. If billable beyond contract entitlement, the time flows to Billing as
-   a billable line.
-8. Ticket is resolved and closed.
+3. **Assignment** — ticket is assigned to a staff member (or escalated).
+4. **Service Work** is performed by the assigned staff member.
+5. **Timesheet** — staff logs time against the ticket via Timesheets.
+   Timesheet approval is required before the entry affects contract
+   hours or billing (approver/threshold not yet decided — see
+   [open-business-decisions.md](open-business-decisions.md), item 9.1).
+6. **Contract Hour Validation** (CONFIRMED, SRV-003/SRV-004) — the
+   approved logged time is checked against the contract's remaining
+   usable balance:
+   - If hours remain on the contract, proceed to **Contract Deduction**:
+     the Service Contract's remaining balance is reduced by the logged
+     time. (The exact deduction granularity — e.g. rounding, minimum
+     increments — is not yet decided; see
+     [open-business-decisions.md](open-business-decisions.md), item 1.1.)
+     No further billing step is required for this time (Billing Decision
+     = "contract-covered, no invoice").
+   - If the contract's hours are already fully consumed, there is **no
+     grace period** (SRV-003): the logged time is immediately **Excess
+     Review** instead of being deducted. The contract balance is never
+     allowed to go negative (SRV-004).
+7. **Excess Review (Nico)** (CONFIRMED, SRV-004) — for any excess usage,
+   Nico (responsible for Service & Support) reviews it and decides its
+   treatment: billable excess support, approved non-billable support, or
+   another authorized treatment to be defined later. The decision and
+   reason are recorded for audit. The system does not auto-decide this.
+8. **Billing Decision** (CONFIRMED shape, SRV-006) — every completed
+   service activity must resolve to exactly one of: contract hours
+   consumed (no invoice), billable excess (proceed to invoicing),
+   approved non-billable excess (reason recorded, no invoice), or another
+   explicitly approved treatment. Nothing is left as indefinitely
+   "unbilled." (The billing rate applied to billable excess hours is not
+   yet decided — see
+   [open-business-decisions.md](open-business-decisions.md), item 1.4.)
+9. **Invoice (if billable)** — billable excess time flows to Billing as
+   a billable line and is invoiced.
+10. Ticket is resolved and closed; the full chain from ticket to
+    (non-)invoice is a **Complete / Auditable Record**.
 
 **Responsible user/department**
 Service/support staff (ticket handling, time logging); service operations
-management (assignment/escalation, SLA oversight); finance/billing team
-(billing step).
+management (assignment/escalation, SLA oversight); **Nico** (Service &
+Support — excess usage review and treatment decision, per SRV-004);
+finance/billing team (billing/invoicing step).
 
 **Data created**
-Helpdesk ticket, assignment/escalation history, timesheet entries, contract
-consumption records, (conditionally) billable line items for Billing.
+Helpdesk ticket, assignment/escalation history, timesheet entries,
+Contract Hour Consumption Records, Excess Usage Records (with Nico's
+decision and reason), (conditionally) billable line items and invoices.
 
 **Approval points**
 - Timesheet approval before it affects contract hours or billing (manager
-  approval expected, but the approver and threshold are not yet decided).
-- Approval for billing work that exceeds contract entitlement — **whether
-  customer sign-off is required before billing overage is not yet
-  decided.**
+  approval expected, but the approver and threshold are not yet decided —
+  [open-business-decisions.md](open-business-decisions.md), item 9.1).
+- Excess usage treatment decision by Nico (CONFIRMED, SRV-004) — this is
+  now a defined, mandatory approval point, not an open question. Who
+  stands in for Nico when unavailable is not yet decided —
+  [open-business-decisions.md](open-business-decisions.md), item 1.8.
 
 **Financial impact**
-No direct financial posting from the ticket itself. Financial impact
-occurs when billable time (beyond contract) is invoiced via Billing, or
-indirectly through contract cost-to-serve tracking (if used for
-profitability reporting — not yet decided).
+No financial posting for contract-covered time. Financial impact occurs
+when excess time is approved by Nico as billable and invoiced via
+Billing. Approved non-billable excess has no direct financial posting but
+must be recorded with its reason for audit and reporting.
 
 **Possible exceptions**
-- Ticket exceeds SLA (breach handling not yet decided).
-- Ticket requires more hours than remain on the contract — **what happens
-  when contract hours are exhausted (pause work, auto-bill overage,
-  require approval) is not yet decided; see
-  [open-business-decisions.md](open-business-decisions.md).**
+- Ticket exceeds SLA (breach handling not yet decided —
+  [open-business-decisions.md](open-business-decisions.md), item 1.5).
+- Contract hours are exhausted mid-ticket — CONFIRMED handling: no grace
+  period, excess usage routed to Nico's review rather than auto-billed or
+  auto-absorbed (SRV-003/SRV-004).
 - Ticket reassigned multiple times.
 - Work performed is later disputed by the customer.
+- Timesheet missing or submitted late for service work already performed
+  — flagged as part of the SRV-006 pre-expiry review (see Workflow I) and
+  the Service Operations dashboard.
 
 **Automation opportunities**
 - Auto-assignment based on staff availability/skill.
 - SLA breach alerts.
-- Automatic contract-hour deduction from approved timesheets.
-- Automatic flagging of tickets nearing contract hour exhaustion.
+- Automatic contract-hour validation and deduction from approved
+  timesheets (CONFIRMED as required behaviour; automation of the
+  underlying check, not just the rule, is a future implementation detail).
+- Automatic flagging of tickets nearing contract hour exhaustion, and
+  automatic creation of an Excess Usage Record (routed to Nico) once
+  exhausted, instead of a person having to notice manually.
+- Periodic scan for "Unaccounted Service Activity" per SRV-006 (see
+  Workflow I and the Service Operations dashboard requirements in
+  [business-requirements.md](business-requirements.md)).
 
 ---
 
@@ -449,10 +502,21 @@ reporting.
 
 ## I. Contract Expiry → Renewal Opportunity → Renewal Quotation → New Contract
 
+Status: the treatment of unused hours at expiry (step 6) is **CONFIRMED**
+per SRV-005 and SRV-006 in
+[business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
+The rest of this workflow remains proposed/conceptual.
+
 **Trigger**
 A Service Contract approaches its expiry date (lead time not yet decided).
 
 **Steps**
+0. **Pre-expiry accounting check (CONFIRMED requirement, SRV-006)** —
+   before a contract expires, the system identifies: open support
+   tickets, missing timesheets, unapproved excess hours, billable excess
+   hours not yet invoiced, and other service activities requiring
+   review. The goal is that at expiry, all service activities are
+   accounted for (billable items processed; remaining hours expired).
 1. Approaching expiry is detected (based on contract end date) and a
    renewal Opportunity is created/flagged in CRM.
 2. Sales reviews the account (usage, satisfaction, any issues) ahead of
@@ -461,39 +525,64 @@ A Service Contract approaches its expiry date (lead time not yet decided).
 3. A renewal Quotation is prepared in Sales (may repeat prior terms or
    propose changes).
 4. Customer accepts the renewal quotation.
-5. A new (or amended/extended) Service Contract is created/activated,
-   effective from the prior contract's expiry — **whether renewal creates
-   a new contract record or extends the existing one is not yet
-   decided.**
-6. Prior contract is closed out; any unused hours from the old contract
-   are handled — **whether unused hours expire, roll over, or are
-   forfeited is not yet decided (see
-   [open-business-decisions.md](open-business-decisions.md)).**
+5. A new Service Contract is created (status **Draft**, then **Active**
+   per SRV-001), effective from the prior contract's expiry. It receives
+   its own **new support-hour allocation** — it does not inherit the
+   expiring contract's remaining balance (CONFIRMED, SRV-005). Whether
+   this is implemented as a brand-new contract record or an extension of
+   the prior one is an implementation detail, not yet decided.
+6. Prior contract moves to **Expired** status (SRV-001). Any unused
+   contracted hours on it **expire completely** (CONFIRMED, SRV-005):
+   they do not carry forward automatically, do not carry forward on
+   renewal, do not convert to monetary credit, and do not transfer to
+   another contract. They are recorded as an **Expired Hours Record**,
+   kept visible for reporting and audit (e.g. 6 unused hours out of 20
+   contracted become 6 Expired Hours; the renewal starts its own fresh
+   allocation).
 
 **Responsible user/department**
 Sales (renewal opportunity and quotation); contract administration
-(contract closeout/activation); Customer Management (account status).
+(contract closeout/activation); service operations / Nico (pre-expiry
+accounting check per SRV-006); Customer Management (account status).
 
 **Data created**
-Renewal Opportunity, renewal Quotation, new/amended Contract record,
-contract closeout record.
+Pre-expiry review findings (open tickets, missing timesheets, unapproved/
+unbilled excess), Renewal Opportunity, renewal Quotation, new Contract
+record with its own allocation, Expired Hours Record for the prior
+contract.
 
 **Approval points**
 - Renewal terms approval, especially if pricing changes materially — not
   yet decided.
+- Sign-off that the pre-expiry accounting check (SRV-006) is complete
+  before the prior contract is allowed to close out — approver not yet
+  decided, though Nico is the confirmed reviewer for any excess usage
+  found (SRV-004).
 
 **Financial impact**
-No immediate financial transaction at expiry; the renewed contract
-resumes recurring billing (Billing) once active. A lapse between expiry
-and renewal (if any) may create a service gap — handling not yet decided.
+No immediate financial transaction at expiry itself, beyond any billable
+excess usage invoiced as part of the pre-expiry accounting check
+(SRV-006). Expired unused hours have no financial value (per SRV-005 —
+they do not convert to credit). The renewed contract resumes recurring
+billing (Billing) once active. A lapse between expiry and renewal (if
+any) may create a service gap — handling not yet decided.
 
 **Possible exceptions**
-- Customer does not renew (churn) — contract lapses; **what happens to
-  outstanding contract hours or open tickets is not yet decided.**
+- Customer does not renew (churn) — contract lapses; unused hours still
+  expire per SRV-005, but **what happens to open tickets with no
+  successor contract is not yet decided.**
 - Renewal negotiated with materially different terms.
 - Renewal delayed past the expiry date, creating a gap in coverage.
+- Pre-expiry check finds unresolved items (e.g. unapproved excess hours)
+  that cannot be closed out before the expiry date — escalation path not
+  yet decided.
 
 **Automation opportunities**
 - Automated renewal reminders at configurable lead times before expiry.
+- Automated pre-expiry scan for open tickets, missing timesheets, and
+  unapproved/unbilled excess hours (SRV-006), surfaced on the Service
+  Operations dashboard.
 - Auto-drafting a renewal quotation from the expiring contract's terms.
+- Automatic creation of the Expired Hours Record at expiry, and of the
+  new contract's fresh allocation on renewal.
 - Dashboard of upcoming contract expiries (Reporting).

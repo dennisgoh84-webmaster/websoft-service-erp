@@ -65,6 +65,147 @@ These are constraints to design for, not yet fully specified requirements.
 Detailed rules for each (e.g. GST rates/treatment, specific PDPA data
 handling procedures) are still to be gathered.
 
+## Service Operations Business Rules (CONFIRMED)
+
+Status: **CONFIRMED / DECIDED** (2026-09-04). Unlike most of this document,
+the following rules are finalized and are authoritative for Service
+Contracts, Helpdesk / Service Operations, Timesheets, and Billing. They
+supersede the corresponding open items in
+[open-business-decisions.md](open-business-decisions.md), which has been
+updated to reflect that — see that document for what remains open.
+
+### SRV-001 — Standard Service Contract Duration — CONFIRMED
+
+- The standard service contract duration is **12 months**.
+- Every contract stores a **start date** and an **expiry date**.
+- A contract's lifecycle is tracked through the following states:
+  **Draft → Active → Exceeded (if applicable) → Expired / Renewed.**
+  "Exceeded" reflects a contract that is still within its 12-month period
+  but has consumed all of its contracted hours (see SRV-003/SRV-004)
+  ahead of expiry.
+
+### SRV-002 — Minimum Contracted Support Hours — CONFIRMED
+
+- The minimum support hours for a normal service contract is **10
+  hours**.
+- The system must prevent creation of a normal service contract with
+  fewer than 10 hours.
+- An authorized override mechanism for going below this minimum may be
+  defined later, but **who can authorize it and how is not yet
+  decided** — tracked in
+  [open-business-decisions.md](open-business-decisions.md).
+
+### SRV-003 — No Grace Period — CONFIRMED
+
+- There is **no grace period** for exceeding contracted support hours.
+- Once contracted hours are fully consumed, the next unit of support
+  usage is immediately **excess usage** — it is not automatically
+  absorbed as free/bonus hours.
+
+### SRV-004 — Excess Hours Require Nico's Review — CONFIRMED
+
+- Once a customer reaches or exceeds contracted support hours, further
+  support usage must be reviewed by **Nico**, who is responsible for
+  Service & Support.
+- The system must **not** simply continue deducting excess usage
+  automatically from the contract.
+- A contract's usable balance can **never become negative**.
+- Excess usage is recorded **separately** from normal contract
+  consumption and must be clearly visible.
+- Nico decides the treatment of each instance of excess usage — for
+  example: billable excess support, approved non-billable support, or
+  another authorized treatment to be defined later.
+- Every such decision, and the reason for it, must be **auditable** (who
+  decided, when, what was decided, and why).
+- Who reviews excess usage when Nico is unavailable (a backup/delegate)
+  is **not yet decided** — tracked in
+  [open-business-decisions.md](open-business-decisions.md).
+
+### SRV-005 — Unused Hours Expire Completely — CONFIRMED
+
+- At the end of the 12-month contract period, all unused contracted
+  support hours **expire completely**.
+- Unused hours do **not**: carry forward automatically, carry forward
+  upon renewal, convert into monetary credit, or transfer to another
+  contract.
+- A renewal creates a **new support-hour allocation** — it does not
+  inherit or extend the expiring contract's remaining balance.
+- Historical expired hours must remain **visible for reporting and
+  audit purposes** (archived, not deleted).
+
+  *Example:* a contract with 20 contracted hours, of which 14 were used,
+  has 6 hours remaining at expiry. Those 6 hours become **Expired
+  Hours**; the usable balance becomes 0; the renewal contract receives
+  its own new allocation.
+
+### SRV-006 — No Unbilled Service Hours — CONFIRMED
+
+- The system must not allow normal service activity to remain
+  indefinitely in an "Unbilled Hours" state. Every completed service
+  activity must ultimately be accounted for as exactly one of:
+  1. Contract hours consumed — no additional invoice required.
+  2. Excess hours approved by Nico as billable — must proceed to
+     billing/invoicing.
+  3. Approved non-billable excess — the reason must be recorded.
+  4. Another explicitly approved treatment.
+- The system monitors for **"Unaccounted Service Activity"** rather than
+  treating unbilled hours as an acceptable permanent state.
+- Before a service contract expires, the system should identify: open
+  support tickets, missing timesheets, unapproved excess hours, billable
+  excess hours not yet invoiced, and other service activities requiring
+  review.
+- The objective at contract expiry is: **all service activities
+  accounted for** — all billable service items processed, and any
+  remaining contracted hours expired (per SRV-005).
+
+These rules directly resolve open items 1.2 and 1.3 in
+[open-business-decisions.md](open-business-decisions.md), and narrow
+(without fully closing) items 1.4 and 1.6 — see that document for what
+remains open, including the SRV-002 override mechanism, the pricing/rate
+for billable excess hours, and the backup reviewer for SRV-004.
+
+### Service Operations Workflow (CONFIRMED shape)
+
+The end-to-end service workflow these rules govern is:
+
+```
+Customer
+  → Support Ticket
+  → Assignment
+  → Service Work
+  → Timesheet
+  → Contract Hour Validation
+  → Contract Deduction OR Excess Review (Nico)
+  → Billing Decision
+  → Invoice (if billable)
+  → Complete / Auditable Record
+```
+
+See [workflows.md](workflows.md), Workflow C, for the detailed version of
+this workflow, including responsible parties, data created, and
+exceptions.
+
+### Service Operations Dashboard Requirements
+
+The Service Operations dashboard should eventually be able to identify:
+
+- Active contracts
+- Contracts expiring soon
+- Contracted hours
+- Used hours
+- Remaining usable hours
+- Expired hours
+- Excess hours
+- Excess hours awaiting Nico's review
+- Missing timesheets
+- Open tickets
+- Service activities requiring accounting/billing action
+- Renewals required
+
+This is a requirements list, not a design — see
+[module-map.md](module-map.md) (Reporting / Management Dashboard) for
+where this is expected to live architecturally.
+
 ## Conceptual Business Entities
 
 This section lists the major business entities Webmaster ERP is expected
@@ -100,9 +241,20 @@ are gathered per module.
 - Sales Order Line — one line within a Sales Order.
 
 **Service Contracts & Delivery**
-- Contract — a recurring service agreement with a Customer.
-- Contract Line — a specific service/entitlement (e.g. included hours)
-  within a Contract.
+- Contract — a recurring service agreement with a Customer, standard
+  duration 12 months (SRV-001), with a stored start/expiry date and a
+  lifecycle of Draft → Active → Exceeded (if applicable) → Expired /
+  Renewed.
+- Contract Line — a specific service/entitlement (e.g. included hours,
+  minimum 10 per SRV-002) within a Contract.
+- Contract Hour Consumption Record — a record of contracted hours used,
+  forming the contract's usable balance, which can never go negative
+  (SRV-004).
+- Excess Usage Record — a record of support usage beyond contracted
+  hours (SRV-003), recorded separately from normal consumption, pending
+  or carrying Nico's treatment decision and reason (SRV-004).
+- Expired Hours Record — the record of unused contracted hours forfeited
+  at contract expiry (SRV-005), retained for reporting/audit.
 - Helpdesk Ticket — a logged customer issue or service request.
 - Project — a scoped body of work delivered to a Customer.
 - Project Task — a unit of work within a Project.
@@ -162,7 +314,9 @@ are gathered per module.
   depending on what was sold.
 - A **Contract** has one or more **Contract Lines**, each defining an
   entitlement (e.g. included hours of a given service). A Contract
-  belongs to one Customer.
+  belongs to one Customer, and its lifecycle status governs whether
+  further consumption is checked, flagged as Exceeded, or blocked because
+  it has Expired or been Renewed.
 - A **Helpdesk Ticket** belongs to a Customer, optionally references a
   **Hardware Asset**, and is checked against the Customer's active
   **Contract** for entitlement/SLA.
@@ -170,8 +324,14 @@ are gathered per module.
   is broken into **Project Tasks**.
 - A **Timesheet Entry** belongs to an Employee and references exactly one
   of: a Helpdesk Ticket, a Project Task, or (indirectly, via either of
-  those) a Contract — recording time that may reduce a Contract Line's
-  remaining entitlement and/or become billable.
+  those) a Contract. An approved entry against a Contract is validated
+  against the Contract's remaining balance: if hours remain, it reduces
+  the **Contract Hour Consumption Record**; if the contract is already at
+  or beyond its entitlement (per SRV-003), it instead creates an
+  **Excess Usage Record** for Nico's review rather than reducing the
+  balance below zero (SRV-004). At contract expiry, any remaining balance
+  becomes an **Expired Hours Record** (SRV-005) rather than being
+  consumable further.
 - An **Invoice** belongs to a Customer and has one or more **Invoice
   Lines**, each of which may originate from a Sales Order Line, a
   Contract Line (recurring billing), a Timesheet Entry (billable time),

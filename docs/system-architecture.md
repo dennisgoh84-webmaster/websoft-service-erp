@@ -292,6 +292,12 @@ approval workflows) without changing the shape described here.
   audit-logged (relevant for PDPA) is an open question to track in
   [open-business-decisions.md](open-business-decisions.md) once those
   modules are designed in detail.
+- The confirmed Service Operations rules give a concrete example of this
+  requirement in practice: an excess-usage treatment decision (who
+  reviewed it, what was decided, and why) must be recorded in an
+  auditable way (SRV-004), consistent with the general audit-logging
+  approach above rather than a bespoke mechanism of its own — see
+  [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
 
 ### File / document storage
 
@@ -319,6 +325,12 @@ approval workflows) without changing the shape described here.
   the same rules as a user-triggered action would.
 - Jobs that create financial or operational records are audit-logged the
   same way user-triggered actions are.
+- A confirmed example of this pattern is the Service Operations
+  pre-expiry check (SRV-006): scanning for open tickets, missing
+  timesheets, unapproved excess usage, and unbilled billable excess ahead
+  of a contract's expiry is naturally a background/periodic job rather
+  than something a user must remember to run — see
+  [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
 
 ### Notifications
 
@@ -333,6 +345,9 @@ approval workflows) without changing the shape described here.
   decided) can evolve without changing every module.
 - Notification content must respect RBAC/PDPA — a notification should
   not leak data the recipient would not otherwise be permitted to see.
+- A confirmed example is routing excess service usage to Nico for review
+  as soon as a contract's hours are exhausted (SRV-004), rather than
+  requiring Nico to notice it by checking manually.
 
 ### API design
 

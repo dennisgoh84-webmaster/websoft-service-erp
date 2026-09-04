@@ -15,7 +15,10 @@ Each item below notes where it arises, so a decision can be traced to its
 impact. This list is expected to grow as detailed requirements gathering
 continues per module — it is not necessarily exhaustive yet.
 
-Status legend: all items are **OPEN** (undecided) unless noted otherwise.
+Status legend: **OPEN** (undecided), **DECIDED** (resolved — see the
+pointer for where the rule is documented), or **PARTIALLY DECIDED** (the
+overall approach is decided but a sub-detail remains open — the open
+sub-detail is called out explicitly).
 
 ---
 
@@ -23,37 +26,88 @@ Status legend: all items are **OPEN** (undecided) unless noted otherwise.
 
 1.1. **How do service contracts calculate consumed hours?**
    e.g. actual time logged, rounded to a minimum increment, per-ticket
-   minimum charge, etc.
+   minimum charge, etc. **Status: OPEN.** SRV-003/SRV-004 (see
+   [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed))
+   confirm that consumption stops exactly at the contracted amount with
+   no grace period, but the granularity of how logged time converts into
+   consumed hours (rounding, minimum increments) is still undecided.
    *Arises in:* Service Contracts, Timesheets; Workflow C.
 
 1.2. **Do unused contract hours expire, roll over, or get forfeited** at
    the end of a contract period, and if they roll over, is there a cap?
+   **Status: DECIDED — SRV-005.** Unused hours expire completely at the
+   end of the 12-month contract period: no automatic carry-forward, no
+   carry-forward on renewal, no conversion to credit, no transfer to
+   another contract. See
+   [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
    *Arises in:* Service Contracts; Workflow I.
 
 1.3. **What happens when contract hours are exhausted mid-contract?**
-   Options might include pausing further work, requiring customer
-   approval to continue, or automatically billing overage — but the
-   choice is Webmaster's.
+   **Status: DECIDED — SRV-003 and SRV-004.** There is no grace period;
+   the contract balance is never reduced below zero; the next unit of
+   usage beyond entitlement becomes Excess Usage requiring Nico's
+   (Service & Support) review and decision, recorded and auditable. The
+   system does not auto-continue deducting and does not auto-bill without
+   that review. See
+   [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
    *Arises in:* Service Contracts, Helpdesk / Service Operations, Billing;
    Workflow C.
 
 1.4. **How is support/work beyond contract entitlement billed?**
-   Rate basis, minimum billing increments, and whether customer
-   pre-approval is required before billing overage.
+   **Status: PARTIALLY DECIDED.** SRV-004 confirms the *process*: Nico
+   decides the treatment of each instance of excess usage (billable,
+   approved non-billable, or another authorized treatment), and the
+   decision/reason is auditable. **Still OPEN:** the rate basis and
+   minimum billing increments applied when Nico approves excess usage as
+   billable, and whether customer pre-approval is required before
+   invoicing it.
    *Arises in:* Billing, Helpdesk / Service Operations; Workflow C.
 
 1.5. **What SLA terms apply, and how are SLA breaches handled?**
-   (e.g. penalties, escalation, reporting.)
+   (e.g. penalties, escalation, reporting.) **Status: OPEN** — not
+   addressed by the confirmed SRV-001–SRV-006 rules.
    *Arises in:* Service Contracts, Helpdesk / Service Operations;
    Workflow C.
 
 1.6. **Does contract renewal create a new contract record or extend the
    existing one**, and how is a coverage gap (if renewal is late) handled?
+   **Status: PARTIALLY DECIDED.** SRV-005 confirms that renewal creates a
+   **new support-hour allocation**, separate from the expiring contract's
+   balance. **Still OPEN:** whether this is implemented as a new Contract
+   record or an extension of the existing one (an implementation
+   question, not just a business one), and how a coverage gap from a late
+   renewal is handled.
    *Arises in:* Service Contracts; Workflow I.
 
 1.7. **Is a customer credit check or credit limit required before
    activating a new contract?**
    *Arises in:* Service Contracts, Customer Management; Workflow B.
+
+1.8. **Who is the backup/delegate reviewer for excess usage when Nico is
+   unavailable?**
+   SRV-004 names Nico as the responsible reviewer but does not define a
+   backup, and the confirmed rule that excess usage must not sit
+   undecided (SRV-006) implies one may be needed.
+   *Arises in:* Service Contracts, Helpdesk / Service Operations;
+   Workflow C.
+
+1.9. **What is the authorized override mechanism for a service contract
+   below the SRV-002 minimum of 10 hours?**
+   SRV-002 anticipates such an override existing but does not define who
+   can authorize it or under what conditions.
+   *Arises in:* Service Contracts, Sales; Workflow B.
+
+1.10. **What other treatments (beyond billable excess / approved
+   non-billable excess) may apply to excess usage under SRV-004/SRV-006,
+   and what rules govern each?**
+   Both SRV-004 and SRV-006 explicitly leave room for "another authorized
+   treatment to be defined later."
+   *Arises in:* Service Contracts, Billing; Workflow C.
+
+1.11. **What lead time before contract expiry should the SRV-006
+   pre-expiry accounting check (open tickets, missing timesheets,
+   unapproved/unbilled excess) begin?**
+   *Arises in:* Service Contracts, Reporting; Workflow I.
 
 ## 2. Billing & Invoicing
 
@@ -200,9 +254,19 @@ Status legend: all items are **OPEN** (undecided) unless noted otherwise.
 
 9.2. **How is time classified as billable, non-billable, or
    contract-covered**, and can staff choose, or is it determined by the
-   ticket/project/contract context automatically?
+   ticket/project/contract context automatically? **Status: PARTIALLY
+   DECIDED** — SRV-003/SRV-004 confirm that the contract balance itself
+   determines whether logged time is contract-covered or Excess Usage
+   requiring Nico's review; still open is how billable vs. non-billable
+   is classified once work is not tied to a contract at all (e.g. pure
+   project time).
    *Arises in:* Timesheets, Helpdesk / Service Operations, Projects,
    Service Contracts; Workflow C.
+
+9.3. **What is the expected timeframe for submitting timesheets**, such
+   that a "missing timesheet" can be flagged (e.g. for the SRV-006
+   pre-expiry accounting check and the Service Operations dashboard)?
+   *Arises in:* Timesheets, Service Contracts; Workflow C, Workflow I.
 
 ## 10. Data & Scope (carried over from business requirements)
 
