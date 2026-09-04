@@ -44,6 +44,33 @@ eventual project.
 - Management Reporting
 - AI Assistant
 
+## Approved Architecture Decisions
+
+The following architecture decisions have been approved for the initial
+Webmaster ERP project. These decisions must not be changed without
+explaining the reason first (see Development Rules below).
+
+1. **Backend:** Python + FastAPI
+2. **Frontend:** React + TypeScript
+3. **Database:** PostgreSQL
+4. **Initial deployment:** Cloud/VPS deployment, with the architecture kept
+   portable to AWS, Azure, or other infrastructure later.
+5. **Odoo replacement strategy:** Phased, module-by-module replacement with
+   a parallel-run period. A big-bang migration will not be used.
+6. **Odoo historical data:** Important historical data will eventually be
+   migrated into Webmaster ERP. Older data may be archived rather than
+   fully operational.
+7. **Multi-company:** The architecture should support multiple
+   companies/entities in the future. The initial implementation is for
+   Webmaster Consultancy Pte Ltd only.
+8. **Singapore requirements:** The architecture must anticipate:
+   - GST
+   - InvoiceNow / Peppol
+   - PDPA
+   - Financial audit trails
+   - Role-based access control
+   - Data backup and recovery
+
 ## Development Rules
 
 - Use a modular and maintainable architecture.
