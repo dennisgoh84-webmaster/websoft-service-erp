@@ -67,8 +67,9 @@ handling procedures) are still to be gathered.
 
 ## Service Operations Business Rules (CONFIRMED)
 
-Status: **CONFIRMED / DECIDED** (2026-09-04). Unlike most of this document,
-the following rules are finalized and are authoritative for Service
+Status: **CONFIRMED / DECIDED** — first round 2026-09-04 (SRV-001–006),
+second round 2026-09-06 (SRV-007–015). Unlike most of this document, the
+following rules are finalized and are authoritative for Service
 Contracts, Helpdesk / Service Operations, Timesheets, and Billing. They
 supersede the corresponding open items in
 [open-business-decisions.md](open-business-decisions.md), which has been
@@ -90,10 +91,8 @@ updated to reflect that — see that document for what remains open.
   hours**.
 - The system must prevent creation of a normal service contract with
   fewer than 10 hours.
-- An authorized override mechanism for going below this minimum may be
-  defined later, but **who can authorize it and how is not yet
-  decided** — tracked in
-  [open-business-decisions.md](open-business-decisions.md).
+- **No override mechanism exists** — 10 hours is a hard minimum, with no
+  exceptions, until Dennis decides otherwise (CONFIRMED, SRV-012).
 
 ### SRV-003 — No Grace Period — CONFIRMED
 
@@ -117,9 +116,8 @@ updated to reflect that — see that document for what remains open.
   another authorized treatment to be defined later.
 - Every such decision, and the reason for it, must be **auditable** (who
   decided, when, what was decided, and why).
-- Who reviews excess usage when Nico is unavailable (a backup/delegate)
-  is **not yet decided** — tracked in
-  [open-business-decisions.md](open-business-decisions.md).
+- When Nico is unavailable, **Cherish (Sales Manager)** is the confirmed
+  backup/delegate reviewer for excess usage (CONFIRMED, SRV-011).
 
 ### SRV-005 — Unused Hours Expire Completely — CONFIRMED
 
@@ -158,11 +156,97 @@ updated to reflect that — see that document for what remains open.
   accounted for** — all billable service items processed, and any
   remaining contracted hours expired (per SRV-005).
 
-These rules directly resolve open items 1.2 and 1.3 in
-[open-business-decisions.md](open-business-decisions.md), and narrow
-(without fully closing) items 1.4 and 1.6 — see that document for what
-remains open, including the SRV-002 override mechanism, the pricing/rate
-for billable excess hours, and the backup reviewer for SRV-004.
+SRV-001 through SRV-006 directly resolve open items 1.2 and 1.3 in
+[open-business-decisions.md](open-business-decisions.md). A second round
+of decisions (SRV-007 through SRV-015 below, confirmed 2026-09-06)
+resolves the remaining Service Operations items from that document: 1.1,
+1.4, 1.5 (deferred), 1.6, 1.8, 1.9, 1.10, 1.11, and 9.3.
+
+### SRV-007 — Hour Rounding — CONFIRMED
+
+- Each timesheet entry logged against a contract is **rounded up to the
+  nearest 15 minutes** before it is deducted from the contract's usable
+  balance (e.g. 23 minutes logged deducts 30 minutes; 5 minutes logged
+  deducts 15 minutes).
+- This rounding applies before the SRV-003 "no grace period" check — i.e.
+  the rounded amount is what is compared against the remaining balance.
+
+### SRV-008 — Excess Hour Billing Rate — CONFIRMED
+
+- When Nico (or Cherish, per SRV-011) approves excess usage as billable,
+  it is charged at the **contract's own blended rate** — the contract's
+  total value divided by its contracted hours — not a separate flat or
+  premium overage rate.
+- **No customer pre-approval is required** before invoicing billable
+  excess usage: the customer is invoiced and then notified, not asked to
+  approve in advance.
+
+### SRV-009 — SLA Targets Deferred — CONFIRMED (deferred)
+
+- Formal SLA response/resolution time targets by ticket priority are
+  **not defined at this time** — this is an explicit decision to defer,
+  not an oversight.
+- The system still tracks ticket priority and relevant timestamps (e.g.
+  logged, assigned, resolved) so that formal targets can be layered on
+  later without a data-model change.
+- No breach-handling behaviour is defined, since no targets exist to
+  breach yet.
+
+### SRV-010 — Renewal Record & Coverage Continuity — CONFIRMED
+
+- A contract renewal creates a **new Contract record** (not an extension
+  of the expiring one), consistent with SRV-005's "new support-hour
+  allocation." The new record references the prior contract for
+  continuity/history.
+- The new contract's start date is **backdated to immediately follow**
+  the prior contract's expiry date, so there is **no coverage gap**
+  between an expiring and a renewed contract, provided renewal happens
+  within a reasonable window after expiry.
+- The maximum window within which a renewal still qualifies for seamless
+  backdating (as opposed to being treated as a fresh, non-contiguous
+  contract) has **not been specified** and remains open.
+
+### SRV-011 — Backup Reviewer for Excess Usage — CONFIRMED
+
+- **Cherish (Sales Manager)** is the confirmed backup/delegate reviewer
+  for excess usage decisions (per SRV-004) when Nico is unavailable.
+- The same requirements apply to Cherish's decisions as to Nico's: the
+  treatment decision and reason must be recorded and auditable.
+
+### SRV-012 — No Override for Minimum Hours — CONFIRMED
+
+- There is **no override mechanism** for the SRV-002 minimum of 10
+  contracted support hours.
+- 10 hours is a **hard minimum** for a normal service contract; the
+  system must block creation below it with no exceptions, until Dennis
+  decides otherwise.
+
+### SRV-013 — Additional Excess Usage Treatment Categories — CONFIRMED
+
+- Beyond "billable excess support" and "approved non-billable support"
+  (SRV-004), two further treatment categories are confirmed:
+  - **Warranty / Goodwill** — excess work performed as a goodwill
+    gesture or to address a product/service issue; not billed, reason
+    recorded as goodwill.
+  - **Internal Write-off** — excess work absorbed as an internal cost
+    (e.g. an estimation miss or staff error); not billed, reason
+    recorded as a write-off.
+- As with every other treatment under SRV-004, the choice of category and
+  the reason for it must be recorded and auditable.
+
+### SRV-014 — Pre-Expiry Review Lead Time — CONFIRMED
+
+- The SRV-006 pre-expiry accounting check (open tickets, missing
+  timesheets, unapproved/unbilled excess) begins **30 days before** a
+  contract's expiry date.
+
+### SRV-015 — Timesheet Submission Timeframe — CONFIRMED
+
+- Staff must submit timesheets for work performed **within 3 business
+  days** of doing the work.
+- A timesheet not submitted within that window is flagged as a
+  **missing timesheet** — feeding both the SRV-014 pre-expiry check and
+  the Service Operations dashboard.
 
 ### Service Operations Workflow (CONFIRMED shape)
 

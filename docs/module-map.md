@@ -216,25 +216,35 @@ administration, finance (for recurring billing terms).
   **minimum of 10 contracted support hours** (CONFIRMED, SRV-001/SRV-002
   — see
   [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed));
-  creation below that minimum is blocked pending a future override
-  mechanism (not yet decided).
-- Tracking contract consumption (hours/quantity used vs. remaining). The
-  balance can **never go negative**; once fully consumed, further usage
-  is Excess Usage requiring Nico's review rather than continued deduction
-  (CONFIRMED, SRV-003/SRV-004). The exact deduction granularity (rounding,
-  minimum increments) remains a business decision (see
-  [open-business-decisions.md](open-business-decisions.md)).
-- Recording Excess Usage separately and visibly, with Nico's treatment
-  decision and reason kept as an auditable record (CONFIRMED, SRV-004).
+  creation below that minimum is blocked with **no override mechanism**
+  (CONFIRMED, SRV-012) — 10 hours is a hard minimum until Dennis decides
+  otherwise.
+- Tracking contract consumption (hours/quantity used vs. remaining), with
+  each logged time entry **rounded up to the nearest 15 minutes** before
+  deduction (CONFIRMED, SRV-007). The balance can **never go negative**;
+  once fully consumed, further usage is Excess Usage requiring Nico's (or
+  Cherish's, as backup — CONFIRMED, SRV-011) review rather than continued
+  deduction (CONFIRMED, SRV-003/SRV-004).
+- Recording Excess Usage separately and visibly, with the reviewer's
+  treatment decision and reason kept as an auditable record (CONFIRMED,
+  SRV-004). Treatment categories are: billable excess (billed at the
+  contract's blended rate, no customer pre-approval needed — CONFIRMED,
+  SRV-008), approved non-billable, Warranty/Goodwill, or Internal
+  Write-off (CONFIRMED categories, SRV-013).
 - Contract lifecycle/status management: **Draft → Active → Exceeded (if
   applicable) → Expired / Renewed** (CONFIRMED, SRV-001).
 - Expiring all unused contract hours completely at the end of the
   12-month period — no roll-over, no credit conversion, no transfer —
   and retaining an Expired Hours record for reporting/audit (CONFIRMED,
-  SRV-005); a renewal receives its own new hour allocation.
+  SRV-005). A renewal creates a **new Contract record** (referencing the
+  prior one for history) with its own new hour allocation, backdated to
+  immediately follow the prior contract's expiry so there is no coverage
+  gap within a reasonable window (CONFIRMED, SRV-010; the exact maximum
+  window is still open).
 - Triggering renewal opportunities ahead of expiry, including a
-  pre-expiry check for open tickets, missing timesheets, and
-  unapproved/unbilled excess usage (CONFIRMED requirement, SRV-006).
+  pre-expiry check — starting **30 days before expiry** (CONFIRMED,
+  SRV-014) — for open tickets, missing timesheets, and unapproved/unbilled
+  excess usage (CONFIRMED requirement, SRV-006).
 
 **Information managed**
 Contracts (with lifecycle status, start/expiry dates), contract lines,
@@ -264,14 +274,18 @@ eventually raise tickets via a portal (not yet decided).
 
 **Key functions**
 - Ticket intake, categorization, and prioritization.
-- SLA tracking based on the customer's service contract.
+- Tracking ticket priority and timestamps; **no formal SLA response/
+  resolution targets are defined at this time** (CONFIRMED deferral,
+  SRV-009) — the data is captured so targets can be added later without
+  a data-model change.
 - Staff assignment and escalation.
 - Linking tickets to the relevant contract (for hour validation) and/or
   hardware asset.
 - Validating logged service time against the contract's remaining
   balance before deduction, and routing usage beyond entitlement to
-  Nico's Excess Review instead of auto-deducting or auto-billing
-  (CONFIRMED, SRV-003/SRV-004 — see Service Contracts above).
+  Nico's (or Cherish's, as backup) Excess Review instead of
+  auto-deducting or auto-billing (CONFIRMED, SRV-003/SRV-004/SRV-011 —
+  see Service Contracts above).
 - Ticket resolution and closure tracking, feeding the pre-expiry
   "Unaccounted Service Activity" check (CONFIRMED, SRV-006).
 
@@ -332,17 +346,21 @@ Any billable staff (engineers, consultants, support staff), with approval
 by managers.
 
 **Key functions**
-- Time entry (by employee, date, task/ticket/project).
+- Time entry (by employee, date, task/ticket/project), required within
+  **3 business days** of the work being performed (CONFIRMED, SRV-015);
+  later entries are flagged as missing.
 - Approval workflow for submitted time.
 - Classification of time as billable, non-billable, or contract-covered
   — for contract-linked time, this classification is driven by the
-  Service Contracts hour validation (CONFIRMED, SRV-003/SRV-004): covered
-  if hours remain, otherwise routed as Excess Usage.
+  Service Contracts hour validation (CONFIRMED, SRV-003/SRV-004), with
+  entries rounded up to the nearest 15 minutes before deduction
+  (CONFIRMED, SRV-007): covered if hours remain, otherwise routed as
+  Excess Usage.
 - Feeding approved time into contract consumption, project cost, and
   billing.
-- Surfacing missing/overdue timesheets, which feed the SRV-006 pre-expiry
-  "Unaccounted Service Activity" check (submission timeframe not yet
-  decided — see [open-business-decisions.md](open-business-decisions.md)).
+- Surfacing missing/overdue timesheets (per the SRV-015 3-business-day
+  window), which feed the SRV-006/SRV-014 pre-expiry "Unaccounted Service
+  Activity" check.
 
 **Information managed**
 Timesheet entries, approval status/history, time categorization
@@ -376,11 +394,14 @@ Finance/billing team.
   Projects, and Hardware Management into invoices.
 - Recurring billing for contracts (billing cycle to be decided).
 - One-off billing for sales orders/hardware/projects.
-- Invoicing excess service usage that Nico has approved as billable
-  (CONFIRMED, SRV-004), and ensuring no completed service activity is
-  left permanently unaccounted for: every item must resolve to
-  contract-covered, billed, approved non-billable, or another explicitly
-  approved treatment (CONFIRMED requirement, SRV-006).
+- Invoicing excess service usage approved as billable by Nico (or
+  Cherish, as backup), at the **contract's own blended rate** with **no
+  customer pre-approval required** before invoicing (CONFIRMED, SRV-004/
+  SRV-008/SRV-011), and ensuring no completed service activity is left
+  permanently unaccounted for: every item must resolve to
+  contract-covered, billed, approved non-billable, Warranty/Goodwill,
+  Internal Write-off, or another explicitly approved treatment
+  (CONFIRMED requirement, SRV-006/SRV-013).
 - Draft invoice review and approval before issuance (approval rule to be
   decided).
 - Credit note issuance (approval rule to be decided).
@@ -645,10 +666,13 @@ Management, department heads, finance.
   design).
 - **Service Operations dashboard** (CONFIRMED requirement — see
   [business-requirements.md](business-requirements.md#service-operations-dashboard-requirements)),
-  covering: active contracts, contracts expiring soon, contracted hours,
-  used hours, remaining usable hours, expired hours, excess hours, excess
-  hours awaiting Nico's review, missing timesheets, open tickets, service
-  activities requiring accounting/billing action, and renewals required.
+  covering: active contracts, contracts expiring soon (flagged starting
+  30 days before expiry — CONFIRMED, SRV-014), contracted hours, used
+  hours, remaining usable hours, expired hours, excess hours, excess
+  hours awaiting review by Nico or Cherish (CONFIRMED backup, SRV-011),
+  missing timesheets (per the SRV-015 3-business-day submission window),
+  open tickets, service activities requiring accounting/billing action,
+  and renewals required.
 
 **Information managed**
 No data of its own by default — it reads and aggregates data owned by

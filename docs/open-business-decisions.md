@@ -25,12 +25,9 @@ sub-detail is called out explicitly).
 ## 1. Service Contracts & Hours
 
 1.1. **How do service contracts calculate consumed hours?**
-   e.g. actual time logged, rounded to a minimum increment, per-ticket
-   minimum charge, etc. **Status: OPEN.** SRV-003/SRV-004 (see
-   [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed))
-   confirm that consumption stops exactly at the contracted amount with
-   no grace period, but the granularity of how logged time converts into
-   consumed hours (rounding, minimum increments) is still undecided.
+   **Status: DECIDED — SRV-007.** Each timesheet entry is rounded up to
+   the nearest 15 minutes before deduction from the contract balance. See
+   [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
    *Arises in:* Service Contracts, Timesheets; Workflow C.
 
 1.2. **Do unused contract hours expire, roll over, or get forfeited** at
@@ -54,29 +51,29 @@ sub-detail is called out explicitly).
    Workflow C.
 
 1.4. **How is support/work beyond contract entitlement billed?**
-   **Status: PARTIALLY DECIDED.** SRV-004 confirms the *process*: Nico
-   decides the treatment of each instance of excess usage (billable,
-   approved non-billable, or another authorized treatment), and the
-   decision/reason is auditable. **Still OPEN:** the rate basis and
-   minimum billing increments applied when Nico approves excess usage as
-   billable, and whether customer pre-approval is required before
-   invoicing it.
+   **Status: DECIDED — SRV-008.** Billable excess usage is charged at the
+   contract's own blended rate (contract value ÷ contracted hours); no
+   customer pre-approval is required before invoicing — the customer is
+   billed then notified.
    *Arises in:* Billing, Helpdesk / Service Operations; Workflow C.
 
 1.5. **What SLA terms apply, and how are SLA breaches handled?**
-   (e.g. penalties, escalation, reporting.) **Status: OPEN** — not
-   addressed by the confirmed SRV-001–SRV-006 rules.
+   **Status: DECIDED (deferred) — SRV-009.** No formal SLA response/
+   resolution targets are defined at this time; this is an explicit
+   decision to defer, not an open gap. Ticket priority and timestamps
+   are still tracked so targets can be added later without a data-model
+   change.
    *Arises in:* Service Contracts, Helpdesk / Service Operations;
    Workflow C.
 
 1.6. **Does contract renewal create a new contract record or extend the
    existing one**, and how is a coverage gap (if renewal is late) handled?
-   **Status: PARTIALLY DECIDED.** SRV-005 confirms that renewal creates a
-   **new support-hour allocation**, separate from the expiring contract's
-   balance. **Still OPEN:** whether this is implemented as a new Contract
-   record or an extension of the existing one (an implementation
-   question, not just a business one), and how a coverage gap from a late
-   renewal is handled.
+   **Status: DECIDED — SRV-010.** Renewal creates a new Contract record
+   (referencing the prior one for history), backdated to immediately
+   follow the prior contract's expiry so there is no coverage gap — as
+   long as renewal happens within a reasonable window. The maximum window
+   for that backdating to still apply is not specified (see item 1.12
+   below).
    *Arises in:* Service Contracts; Workflow I.
 
 1.7. **Is a customer credit check or credit limit required before
@@ -85,29 +82,40 @@ sub-detail is called out explicitly).
 
 1.8. **Who is the backup/delegate reviewer for excess usage when Nico is
    unavailable?**
-   SRV-004 names Nico as the responsible reviewer but does not define a
-   backup, and the confirmed rule that excess usage must not sit
-   undecided (SRV-006) implies one may be needed.
+   **Status: DECIDED — SRV-011.** Cherish (Sales Manager) is the confirmed
+   backup reviewer; the same recording/auditability requirements apply
+   to her decisions as to Nico's.
    *Arises in:* Service Contracts, Helpdesk / Service Operations;
    Workflow C.
 
 1.9. **What is the authorized override mechanism for a service contract
    below the SRV-002 minimum of 10 hours?**
-   SRV-002 anticipates such an override existing but does not define who
-   can authorize it or under what conditions.
+   **Status: DECIDED — SRV-012.** There is no override mechanism; 10
+   hours is a hard minimum with no exceptions until Dennis decides
+   otherwise.
    *Arises in:* Service Contracts, Sales; Workflow B.
 
 1.10. **What other treatments (beyond billable excess / approved
    non-billable excess) may apply to excess usage under SRV-004/SRV-006,
    and what rules govern each?**
-   Both SRV-004 and SRV-006 explicitly leave room for "another authorized
-   treatment to be defined later."
+   **Status: DECIDED — SRV-013.** Two further categories are confirmed:
+   Warranty / Goodwill, and Internal Write-off. Both require the same
+   recorded, auditable reason as any other treatment under SRV-004.
    *Arises in:* Service Contracts, Billing; Workflow C.
 
 1.11. **What lead time before contract expiry should the SRV-006
    pre-expiry accounting check (open tickets, missing timesheets,
    unapproved/unbilled excess) begin?**
+   **Status: DECIDED — SRV-014.** The check begins 30 days before a
+   contract's expiry date.
    *Arises in:* Service Contracts, Reporting; Workflow I.
+
+1.12. **What is the maximum window after expiry within which a renewal
+   still qualifies for seamless (backdated, no-gap) coverage under
+   SRV-010?**
+   A late renewal within this window is backdated to avoid a coverage
+   gap; SRV-010 does not specify how late is "too late."
+   *Arises in:* Service Contracts; Workflow I.
 
 ## 2. Billing & Invoicing
 
@@ -264,8 +272,11 @@ sub-detail is called out explicitly).
    Service Contracts; Workflow C.
 
 9.3. **What is the expected timeframe for submitting timesheets**, such
-   that a "missing timesheet" can be flagged (e.g. for the SRV-006
-   pre-expiry accounting check and the Service Operations dashboard)?
+   that a "missing timesheet" can be flagged?
+   **Status: DECIDED — SRV-015.** Timesheets must be submitted within 3
+   business days of the work being performed; a timesheet not submitted
+   within that window is flagged as missing, feeding the SRV-014
+   pre-expiry check and the Service Operations dashboard.
    *Arises in:* Timesheets, Service Contracts; Workflow C, Workflow I.
 
 ## 10. Data & Scope (carried over from business requirements)
