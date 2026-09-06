@@ -688,8 +688,9 @@ module.
 - Integration monitoring/error handling.
 
 **Information managed**
-Integration configuration, sync/import logs, mapping between Webmaster
-ERP records and external-system identifiers (e.g. Odoo IDs).
+Integration configuration, sync/import logs, mapping between Websoft
+Service ERP Solution records and external-system identifiers (e.g. Odoo
+IDs).
 
 **Depends on**
 Core / Administration; the specific module each integration serves (e.g.
