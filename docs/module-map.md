@@ -1,7 +1,7 @@
 # Module Map
 
 Status: **proposed / conceptual**. This document proposes a module structure
-for Webmaster ERP based on the business areas listed in
+for Websoft Service ERP Solution based on the business areas listed in
 [CLAUDE.md](../CLAUDE.md) and the project-level requirements in
 [business-requirements.md](business-requirements.md). It groups
 functionality, describes each module's purpose, and shows how modules

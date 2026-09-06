@@ -2,7 +2,7 @@
 
 Placeholder document.
 
-This file will contain the detailed system architecture for Webmaster ERP,
+This file will contain the detailed system architecture for Websoft Service ERP Solution,
 including the application stack, module boundaries, database design
 conventions, authentication/authorization approach, and integration
 strategy — consistent with the development rules in the root
@@ -131,7 +131,7 @@ before application coding begins.
 - Odoo will be replaced in phases, module by module, with a parallel-run
   period for each module rather than a big-bang cutover.
 - Important historical data will eventually be migrated from Odoo into
-  Webmaster ERP; some historical data may be migrated into an archival
+  Websoft Service ERP Solution; some historical data may be migrated into an archival
   form rather than as fully operational records.
 - A dedicated migration approach (e.g. ETL scripts, one-time import jobs,
   ongoing sync during parallel-run) will need to be designed once the
@@ -461,7 +461,7 @@ approval workflows) without changing the shape described here.
   every environment, so testing/staging is a reliable predictor of what a
   migration will do in production.
 - The parallel-run strategy for Odoo replacement implies that, for a
-  module in parallel-run, production Webmaster ERP and production Odoo
+  module in parallel-run, production Websoft Service ERP Solution and production Odoo
   run side by side for real business use — this is a production-tier
   concern, not something exercised only in staging, and will need its own
   cutover checklist per module once that module's requirements are

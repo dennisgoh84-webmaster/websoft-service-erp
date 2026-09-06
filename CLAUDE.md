@@ -1,10 +1,11 @@
-# Webmaster ERP
+# Websoft Service ERP Solution
 
 ## Project Overview
 
 | Key | Value |
 |---|---|
-| Project Name | Webmaster ERP |
+| Project Name | Websoft Service ERP Solution |
+| Repository | [github.com/dennisgoh84-webmaster/websoft-service-erp](https://github.com/dennisgoh84-webmaster/websoft-service-erp) |
 | Company | Webmaster Consultancy Pte Ltd |
 | Country | Singapore |
 | Currency | SGD |
@@ -47,7 +48,7 @@ eventual project.
 ## Approved Architecture Decisions
 
 The following architecture decisions have been approved for the initial
-Webmaster ERP project. These decisions must not be changed without
+Websoft Service ERP Solution project. These decisions must not be changed without
 explaining the reason first (see Development Rules below).
 
 1. **Backend:** Python + FastAPI
@@ -58,7 +59,7 @@ explaining the reason first (see Development Rules below).
 5. **Odoo replacement strategy:** Phased, module-by-module replacement with
    a parallel-run period. A big-bang migration will not be used.
 6. **Odoo historical data:** Important historical data will eventually be
-   migrated into Webmaster ERP. Older data may be archived rather than
+   migrated into Websoft Service ERP Solution. Older data may be archived rather than
    fully operational.
 7. **Multi-company:** The architecture should support multiple
    companies/entities in the future. The initial implementation is for

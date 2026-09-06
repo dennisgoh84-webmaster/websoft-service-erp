@@ -2,7 +2,7 @@
 
 Placeholder document.
 
-This file will contain the detailed business requirements for Webmaster ERP,
+This file will contain the detailed business requirements for Websoft Service ERP Solution,
 covering the business areas listed in the root [CLAUDE.md](../CLAUDE.md)
 (CRM, Sales, Customer Management, Service Contracts, Helpdesk, Service
 Operations, Projects, Timesheets, Billing, Accounts Receivable, Accounts
@@ -22,7 +22,7 @@ must respect.
 
 ### Odoo replacement strategy
 
-- Webmaster ERP will replace Odoo through a **phased, module-by-module
+- Websoft Service ERP Solution will replace Odoo through a **phased, module-by-module
   replacement**, not a big-bang cutover.
 - Each replaced module will go through a **parallel-run period** alongside
   the corresponding Odoo module before Odoo is retired for that module.
@@ -31,7 +31,7 @@ must respect.
 ### Historical data from Odoo
 
 - Important historical data currently in Odoo will eventually need to be
-  migrated into Webmaster ERP.
+  migrated into Websoft Service ERP Solution.
 - Not all historical data needs to remain fully operational — older data
   may be migrated into an **archival** form rather than into live,
   actively-used records.
@@ -208,7 +208,7 @@ where this is expected to live architecturally.
 
 ## Conceptual Business Entities
 
-This section lists the major business entities Webmaster ERP is expected
+This section lists the major business entities Websoft Service ERP Solution is expected
 to eventually need, and describes how they relate to one another
 conceptually. This is **not** a database schema — there are no tables,
 columns, or keys here. It exists to give a shared vocabulary for the
