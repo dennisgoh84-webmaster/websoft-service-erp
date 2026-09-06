@@ -68,12 +68,12 @@ sub-detail is called out explicitly).
 
 1.6. **Does contract renewal create a new contract record or extend the
    existing one**, and how is a coverage gap (if renewal is late) handled?
-   **Status: DECIDED — SRV-010.** Renewal creates a new Contract record
-   (referencing the prior one for history), backdated to immediately
-   follow the prior contract's expiry so there is no coverage gap — as
-   long as renewal happens within a reasonable window. The maximum window
-   for that backdating to still apply is not specified (see item 1.12
-   below).
+   **Status: DECIDED — SRV-010/SRV-016.** Renewal creates a new Contract
+   record (referencing the prior one for history), backdated to
+   immediately follow the prior contract's expiry so there is no coverage
+   gap — as long as renewal happens within **2 weeks** of expiry
+   (SRV-016; see item 1.12). Beyond that window it is not backdated (see
+   item 1.13 for what happens then).
    *Arises in:* Service Contracts; Workflow I.
 
 1.7. **Is a customer credit check or credit limit required before
@@ -113,9 +113,17 @@ sub-detail is called out explicitly).
 1.12. **What is the maximum window after expiry within which a renewal
    still qualifies for seamless (backdated, no-gap) coverage under
    SRV-010?**
-   A late renewal within this window is backdated to avoid a coverage
-   gap; SRV-010 does not specify how late is "too late."
+   **Status: DECIDED — SRV-016.** The maximum window is **2 weeks**. A
+   renewal within 2 weeks of expiry is backdated to avoid a coverage gap;
+   beyond 2 weeks, it's treated as a fresh, non-contiguous contract (see
+   item 1.13 for what happens in that later case).
    *Arises in:* Service Contracts; Workflow I.
+
+1.13. **How is a renewal handled if it happens more than 2 weeks after
+   expiry** (per SRV-016) — is there a real coverage gap, and what
+   happens to service activity (tickets, support requests) during it?
+   *Arises in:* Service Contracts, Helpdesk / Service Operations;
+   Workflow I.
 
 ## 2. Billing & Invoicing
 

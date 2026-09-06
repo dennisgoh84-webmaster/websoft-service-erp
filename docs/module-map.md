@@ -239,8 +239,9 @@ administration, finance (for recurring billing terms).
   SRV-005). A renewal creates a **new Contract record** (referencing the
   prior one for history) with its own new hour allocation, backdated to
   immediately follow the prior contract's expiry so there is no coverage
-  gap within a reasonable window (CONFIRMED, SRV-010; the exact maximum
-  window is still open).
+  gap, provided renewal happens within **2 weeks** of expiry (CONFIRMED
+  maximum window, SRV-010/SRV-016). Beyond 2 weeks, the renewal is a
+  fresh, non-contiguous contract (handling not yet decided).
 - Triggering renewal opportunities ahead of expiry, including a
   pre-expiry check — starting **30 days before expiry** (CONFIRMED,
   SRV-014) — for open tickets, missing timesheets, and unapproved/unbilled

@@ -201,10 +201,11 @@ resolves the remaining Service Operations items from that document: 1.1,
 - The new contract's start date is **backdated to immediately follow**
   the prior contract's expiry date, so there is **no coverage gap**
   between an expiring and a renewed contract, provided renewal happens
-  within a reasonable window after expiry.
-- The maximum window within which a renewal still qualifies for seamless
-  backdating (as opposed to being treated as a fresh, non-contiguous
-  contract) has **not been specified** and remains open.
+  within **2 weeks** of expiry (CONFIRMED, SRV-016).
+- Beyond that 2-week window, a renewal is **not** eligible for seamless
+  backdating and is instead treated as a fresh, non-contiguous contract
+  — how that case is handled (e.g. whether a coverage gap exists, and
+  what happens to any service activity in that gap) is not yet decided.
 
 ### SRV-011 — Backup Reviewer for Excess Usage — CONFIRMED
 
@@ -247,6 +248,20 @@ resolves the remaining Service Operations items from that document: 1.1,
 - A timesheet not submitted within that window is flagged as a
   **missing timesheet** — feeding both the SRV-014 pre-expiry check and
   the Service Operations dashboard.
+
+### SRV-016 — Maximum Renewal Backdating Window — CONFIRMED
+
+- The maximum window after a contract's expiry within which a renewal
+  still qualifies for seamless, backdated coverage (per SRV-010) is
+  **2 weeks**.
+- A renewal confirmed within 2 weeks of expiry is backdated to
+  immediately follow the prior contract's expiry, so there is no
+  coverage gap.
+- A renewal that happens **more than 2 weeks after expiry** is **not**
+  eligible for this backdating — it is instead treated as a fresh,
+  non-contiguous contract. How that later case is handled (e.g. whether
+  a real coverage gap exists, and what happens to any service activity
+  during it) is not yet decided.
 
 ### Service Operations Workflow (CONFIRMED shape)
 

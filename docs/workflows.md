@@ -511,8 +511,9 @@ reporting.
 ## I. Contract Expiry → Renewal Opportunity → Renewal Quotation → New Contract
 
 Status: the treatment of unused hours at expiry (step 6), the pre-expiry
-lead time, and the renewal record mechanics (step 5) are **CONFIRMED**
-per SRV-005, SRV-006, SRV-010, and SRV-014 in
+lead time, and the renewal record mechanics and backdating window
+(step 5) are **CONFIRMED** per SRV-005, SRV-006, SRV-010, SRV-014, and
+SRV-016 in
 [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
 The rest of this workflow remains proposed/conceptual.
 
@@ -539,10 +540,13 @@ begins **30 days before expiry** (CONFIRMED, SRV-014).
    **Active** per SRV-001), referencing the prior contract for history
    (CONFIRMED, SRV-010) — not an extension of the existing record. Its
    start date is **backdated to immediately follow** the prior
-   contract's expiry, so there is no coverage gap, as long as renewal
-   happens within a reasonable window (the exact maximum window is not
-   yet decided). It receives its own **new support-hour allocation** — it
-   does not inherit the expiring contract's remaining balance (CONFIRMED,
+   contract's expiry, so there is no coverage gap, **as long as renewal
+   happens within 2 weeks of expiry** (CONFIRMED maximum window,
+   SRV-016). Beyond 2 weeks, the renewal is not eligible for backdating
+   and is treated as a fresh, non-contiguous contract (handling for that
+   case not yet decided). It receives its own **new support-hour
+   allocation** — it does not inherit the expiring contract's remaining
+   balance (CONFIRMED,
    SRV-005).
 6. Prior contract moves to **Expired** status (SRV-001). Any unused
    contracted hours on it **expire completely** (CONFIRMED, SRV-005):
@@ -578,19 +582,20 @@ No immediate financial transaction at expiry itself, beyond any billable
 excess usage invoiced as part of the pre-expiry accounting check
 (SRV-006). Expired unused hours have no financial value (per SRV-005 —
 they do not convert to credit). The renewed contract resumes recurring
-billing (Billing) once active. A renewal within a reasonable window after
-expiry is backdated to avoid a service gap (CONFIRMED, SRV-010); the
-maximum window for that is not yet decided.
+billing (Billing) once active. A renewal within **2 weeks** of expiry is
+backdated to avoid a service gap (CONFIRMED maximum window, SRV-016);
+beyond that, it is not backdated and handling is not yet decided.
 
 **Possible exceptions**
 - Customer does not renew (churn) — contract lapses; unused hours still
   expire per SRV-005, but **what happens to open tickets with no
   successor contract is not yet decided.**
 - Renewal negotiated with materially different terms.
-- Renewal delayed past the expiry date but within the (not yet specified)
-  backdating window — still treated as seamless per SRV-010. Beyond that
-  window, whether it becomes a non-contiguous contract with a real gap is
-  not yet decided.
+- Renewal delayed past the expiry date but within the **2-week**
+  backdating window (SRV-016) — still treated as seamless per SRV-010.
+  Beyond 2 weeks, the renewal is a non-contiguous contract and whether a
+  real coverage gap exists (and how any service activity in it is
+  handled) is not yet decided.
 - Pre-expiry check finds unresolved items (e.g. unapproved excess hours)
   that cannot be closed out before the expiry date — escalation path not
   yet decided.
