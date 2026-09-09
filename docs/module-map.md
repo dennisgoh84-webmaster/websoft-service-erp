@@ -143,6 +143,9 @@ Sales team, sales management, order desk/sales administration.
 **Key functions**
 - Quotation creation (from an opportunity or directly).
 - Pricing and discounting.
+- **Quotation approval by Cherish (Sales Manager)** before it is sent to
+  the customer — every quotation, no threshold exemption (CONFIRMED,
+  BILL-006).
 - Sales order creation and confirmation from an accepted quotation.
 - Tracking order status through to fulfilment (contract setup, hardware
   delivery, or project kickoff, depending on what was sold).
@@ -319,7 +322,9 @@ operations management.
 - Project setup (scope, timeline, budget) — often from a sales order.
 - Task/milestone breakdown and assignment.
 - Progress tracking.
-- Linking project cost (via timesheets) to project billing.
+- Linking project cost (via timesheets) to project billing — billed on a
+  **fixed price / milestone** basis, not time-and-materials (CONFIRMED,
+  BILL-004).
 
 **Information managed**
 Projects, project tasks/milestones, project budgets, project status,
@@ -330,8 +335,8 @@ Core / Administration; Customer Management; Sales (originating sales
 order, where applicable).
 
 **Depended on by**
-Timesheets (time logged against project tasks); Billing (project billing,
-whether milestone-based or time-and-materials); Reporting.
+Timesheets (time logged against project tasks); Billing (milestone-based
+project billing, CONFIRMED BILL-004); Reporting.
 
 ---
 
@@ -393,8 +398,10 @@ Finance/billing team.
 **Key functions**
 - Consolidating billable items from Sales, Service Contracts, Helpdesk,
   Projects, and Hardware Management into invoices.
-- Recurring billing for contracts (billing cycle to be decided).
-- One-off billing for sales orders/hardware/projects.
+- Recurring contract billing: **annual upfront** — full 12-month value
+  billed at contract start/renewal (CONFIRMED, BILL-001).
+- Milestone-based billing for Projects (CONFIRMED, BILL-004); one-off
+  billing for sales orders/hardware.
 - Invoicing excess service usage approved as billable by Nico (or
   Cherish, as backup), at the **contract's own blended rate** with **no
   customer pre-approval required** before invoicing (CONFIRMED, SRV-004/
@@ -403,9 +410,13 @@ Finance/billing team.
   contract-covered, billed, approved non-billable, Warranty/Goodwill,
   Internal Write-off, or another explicitly approved treatment
   (CONFIRMED requirement, SRV-006/SRV-013).
-- Draft invoice review and approval before issuance (approval rule to be
-  decided).
-- Credit note issuance (approval rule to be decided).
+- **No approval required before issuing an invoice** — system-generated
+  invoices are issued directly (CONFIRMED, BILL-002).
+- **Credit note issuance**: approved by finance or Cherish for routine
+  cases; above a value threshold, Dennis approves (CONFIRMED, BILL-003;
+  exact threshold not yet specified).
+- Revenue recognized **on invoice** for contracts, projects, and hardware
+  alike (CONFIRMED, BILL-005).
 - Handing finalized invoices to Accounts Receivable and, in future, to
   Integrations for InvoiceNow/Peppol submission.
 
@@ -436,9 +447,15 @@ Finance / accounts team.
 
 **Key functions**
 - Tracking invoice status (open, partially paid, paid, overdue).
-- Recording customer payments and allocating them to invoices (allocation
-  rule to be decided).
-- Aging analysis and outstanding balance reporting.
+- Recording customer payments and **allocating them manually**, based on
+  remittance information — no automatic allocation rule (CONFIRMED,
+  AR-001).
+- Aging analysis and outstanding balance reporting; a **disputed
+  invoice continues through normal collections/aging** with no automatic
+  hold (CONFIRMED, AR-003).
+- Write-offs of small unreconciled differences or bad debt: finance can
+  write off small amounts directly; above a threshold, Dennis approves
+  (CONFIRMED, AR-002; exact threshold not yet specified).
 - Reconciliation of payments to bank records (in coordination with
   Finance / Accounting and, in future, Integrations).
 
@@ -467,9 +484,12 @@ approval and payment.
 Finance / accounts team, procurement (for invoice matching).
 
 **Key functions**
-- Recording supplier invoices, typically matched to a purchase order and
-  goods receipt.
-- Supplier invoice approval workflow (rule to be decided).
+- Recording supplier invoices, matched against the **Purchase Order only
+  — 2-way matching**, not a separate goods-receipt match (CONFIRMED,
+  PUR-002).
+- Supplier invoice payment is **auto-approved once it matches the PO**
+  (CONFIRMED, PUR-003); a mismatch is handled as an exception (handling
+  not yet decided).
 - Scheduling and recording payments to suppliers.
 - Outstanding payable tracking and aging.
 
@@ -477,8 +497,8 @@ Finance / accounts team, procurement (for invoice matching).
 Supplier invoices, payment records to suppliers, AP aging data.
 
 **Depends on**
-Purchasing (purchase orders and goods receipts to match against); Core /
-Administration; Finance / Accounting.
+Purchasing (purchase orders to match against); Core / Administration;
+Finance / Accounting.
 
 **Depended on by**
 Finance / Accounting (cash and expense position); Reporting.
@@ -498,7 +518,9 @@ Procurement/purchasing staff, with approval by finance/management.
 - Supplier master data (may live here or in Core / Administration —
   boundary to be confirmed during detailed design).
 - Purchase requisition and purchase order creation.
-- Purchase order approval workflow (rule to be decided).
+- Purchase order approval: **value-based** — below a threshold,
+  procurement/finance approve directly; above it, Dennis approves
+  (CONFIRMED, PUR-001; exact threshold not yet specified).
 - Goods receipt recording.
 - Linking received goods to Inventory and, for hardware, to Hardware
   Management.
@@ -530,9 +552,11 @@ Warehouse/stock staff, procurement, hardware team.
 
 **Key functions**
 - Stock item master data (non-serialized items).
-- Stock level tracking by location.
+- Stock level tracking by location, valued at **weighted average cost**
+  (CONFIRMED, INV-002).
 - Stock movement recording (receipt, issue, transfer, adjustment).
-- Stock adjustment workflow (rule to be decided).
+- Stock adjustments **require manager approval** before taking effect
+  (CONFIRMED, INV-001) — staff cannot adjust stock unilaterally.
 
 **Information managed**
 Inventory items, stock levels, stock movements, warehouse/location
@@ -563,9 +587,13 @@ Field engineers, warehouse/hardware team, service operations.
 - Serial/asset number tracking for hardware items.
 - Linking an asset to the sales order it was sold under.
 - Delivery and installation recording (including customer site).
+- **Customer sign-off/acceptance is required** before an installation is
+  considered complete and billable (CONFIRMED, HW-001) — the installing
+  engineer's own confirmation is not sufficient on its own.
 - Linking installed assets to helpdesk tickets and, where relevant, to
   service contract coverage.
-- Warranty tracking (if applicable).
+- Warranty tracking (terms not yet decided) and RMA/replacement handling
+  for hardware failures (process not yet decided).
 
 **Information managed**
 Hardware assets (serial-tracked), asset status (in stock, delivered,

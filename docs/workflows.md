@@ -27,7 +27,9 @@ prospecting).
    continues (calls, meetings — tracked in CRM).
 4. Sales prepares a Quotation (in Sales) from the opportunity, including
    products/services/hardware and pricing.
-5. Quotation is sent to the customer for review; revisions may occur.
+5. **Cherish (Sales Manager) approves the quotation** (CONFIRMED,
+   BILL-006), then it is sent to the customer for review; revisions may
+   occur (each revision re-enters approval).
 6. Customer accepts the quotation.
 7. Quotation is converted into a confirmed Sales Order.
 8. Sales Order is handed off to the relevant fulfilment path: Service
@@ -42,9 +44,8 @@ Lead record, Opportunity record, Quotation and quotation lines, Sales
 Order and sales order lines, activity/interaction history.
 
 **Approval points**
-- Quotation approval before sending to customer — **whether an internal
-  approval step exists, and for what discount/value thresholds, is not
-  yet decided.**
+- **Cherish (Sales Manager) approves every quotation** before it is sent
+  to the customer (CONFIRMED, BILL-006) — no threshold exemption.
 - Sales Order confirmation — likely requires explicit customer acceptance,
   but the confirmation mechanism (signed quote, PO from customer, verbal)
   is not yet decided.
@@ -106,13 +107,15 @@ record, service setup/onboarding records (if tracked).
 **Approval points**
 - Contract terms approval before activation (who signs off on
   non-standard terms is not yet decided).
-- Customer credit check before contract activation — **whether a credit
-  check/limit process exists is not yet decided.**
+- **No customer credit check is required** before contract activation
+  (CONFIRMED, SRV-017) — contracts activate on the commercial agreement
+  alone.
 
 **Financial impact**
-No immediate revenue recognition at contract creation; recurring billing
-(Workflow under Billing) will draw on the contract once active. Contract
-value may be used for forecasting/reporting.
+Contract value is invoiced **annually upfront** at contract start
+(CONFIRMED, BILL-001) — the full 12-month value is billed immediately
+rather than recognized progressively; see Workflow H for the billing
+mechanics. Contract value may also be used for forecasting/reporting.
 
 **Possible exceptions**
 - Contract creation without a prior sales order (e.g. manually entered).
@@ -256,11 +259,10 @@ directly for an existing engagement.
 4. Logged (approved) time contributes to project cost tracking (labour
    cost) — cost rate source (e.g. standard cost per role) is not yet
    decided.
-5. Project revenue is recognized according to the project's billing
-   method (time-and-materials vs. fixed price/milestone) — **which
-   billing method(s) apply, and how, is not yet decided.**
-6. Billing generates invoices from project billing events (time-based
-   lines or milestone completion).
+5. Project revenue is recognized **on invoice** (CONFIRMED, BILL-005),
+   using the project's confirmed **fixed price / milestone** billing
+   method (CONFIRMED, BILL-004) — not time-and-materials.
+6. Billing generates invoices from milestone completion events.
 
 **Responsible user/department**
 Project managers (setup, task assignment, progress tracking); project
@@ -278,10 +280,9 @@ accumulation, billing events/lines.
   re-approval if it exceeds budget is not yet decided.**
 
 **Financial impact**
-Project cost accrues as time is logged; revenue is recognized when billed
-(and potentially before, if accrual-based revenue recognition is used —
-not yet decided). Both cost and revenue feed Finance / Accounting and
-project profitability reporting.
+Project cost accrues as time is logged; revenue is recognized **on
+invoice** at each milestone (CONFIRMED, BILL-004/BILL-005). Both cost and
+revenue feed Finance / Accounting and project profitability reporting.
 
 **Possible exceptions**
 - Project runs over budget or over timeline.
@@ -290,8 +291,8 @@ project profitability reporting.
 
 **Automation opportunities**
 - Budget-vs-actual alerts as timesheets are logged.
-- Automatic draft invoice generation on milestone completion or at the
-  end of a billing period for time-and-materials work.
+- Automatic draft invoice generation on milestone completion (CONFIRMED
+  billing method, BILL-004).
 - Project status dashboards (Reporting).
 
 ---
@@ -356,16 +357,20 @@ hardware needed for a confirmed sale, general procurement need).
 
 **Steps**
 1. Purchase requisition/request is raised in Purchasing.
-2. Purchase Order is created and sent to the supplier — **approval
-   threshold(s) before a PO can be sent are not yet decided.**
+2. Purchase Order is created and sent to the supplier — **value-based
+   approval** (CONFIRMED, PUR-001): below a threshold, procurement/
+   finance approve directly; above it, Dennis approves (exact threshold
+   not yet specified).
 3. Goods (or services) are received; Goods Receipt is recorded in
    Purchasing, updating Inventory (and Hardware Management, for
-   serialized hardware).
+   serialized hardware). Note: per PUR-002, the Goods Receipt is not
+   used for invoice matching — see step 4.
 4. Supplier sends an invoice; it is recorded in Accounts Payable and
-   matched against the PO and goods receipt (2-way/3-way matching — not
-   yet decided which is required).
-5. Supplier invoice is approved for payment — **approval rule not yet
-   decided.**
+   matched against the PO only (**2-way matching**, CONFIRMED, PUR-002 —
+   no separate goods-receipt match).
+5. Supplier invoice is **auto-approved for payment once it matches the
+   PO** (CONFIRMED, PUR-003); a mismatch is handled as an exception
+   (handling not yet decided).
 6. Payment to the supplier is scheduled and recorded.
 
 **Responsible user/department**
@@ -379,14 +384,16 @@ Supplier Invoice, payment records, updated Inventory/Hardware Management
 records.
 
 **Approval points**
-- PO approval before sending to supplier.
-- Supplier invoice approval before payment, including handling of
-  mismatches between PO, receipt, and invoice (rule not yet decided).
+- PO approval before sending to supplier — value-based (CONFIRMED,
+  PUR-001; exact threshold not yet specified).
+- Supplier invoice payment is auto-approved on a successful PO match
+  (CONFIRMED, PUR-002/PUR-003); a mismatch requires human handling (rule
+  not yet decided).
 
 **Financial impact**
 A liability (Accounts Payable) is created when the supplier invoice is
-recorded; cash decreases when payment is made. Goods receipt may also
-affect inventory valuation (valuation method not yet decided).
+recorded; cash decreases when payment is made. Goods receipt affects
+inventory valuation using **weighted average cost** (CONFIRMED, INV-002).
 
 **Possible exceptions**
 - Partial delivery / partial goods receipt.
@@ -397,7 +404,8 @@ affect inventory valuation (valuation method not yet decided).
 
 **Automation opportunities**
 - Auto-reorder suggestions from Inventory stock levels.
-- Automated 2-way/3-way match checking with exception flagging.
+- Automated 2-way match checking (PUR-002) with exception flagging on
+  mismatch.
 - Payment run scheduling based on supplier terms.
 
 ---
@@ -420,7 +428,10 @@ confirmed customer sale.
    provides the site/address).
 5. Hardware is installed; installation is recorded against the asset,
    including installation date and location.
-6. Asset status is updated to "installed" and linked to the customer's
+6. **Customer signs off / confirms acceptance** (CONFIRMED, HW-001) —
+   installation is not considered complete or billable until this
+   happens; an engineer's own confirmation is not sufficient.
+7. Asset status is updated to "installed" and linked to the customer's
    Service Contract, if the asset is covered by one.
 
 **Responsible user/department**
@@ -434,14 +445,15 @@ delivery records, installation records, asset-to-customer/site/contract
 links.
 
 **Approval points**
-- None obviously required by default, but **whether installation requires
-  customer sign-off/acceptance is not yet decided.**
+- **Customer sign-off/acceptance is required** before installation is
+  considered complete and billable (CONFIRMED, HW-001).
 
 **Financial impact**
 Inventory value moves from stock to cost-of-goods-sold upon
-delivery/installation (exact timing and valuation method not yet
-decided). Hardware sale revenue is recognized through Billing, typically
-at delivery or installation (not yet decided).
+delivery/installation, valued at **weighted average cost** (CONFIRMED,
+INV-002). Hardware sale revenue is recognized **on invoice** (CONFIRMED,
+BILL-005), which per HW-001 cannot happen until the customer has signed
+off.
 
 **Possible exceptions**
 - Hardware fails on installation and must be replaced (RMA process not
@@ -469,9 +481,10 @@ Workflows A–G that result in billable activity).
    see Integrations).
 2. Invoice is recorded as an open receivable in Accounts Receivable.
 3. Customer makes a payment (in full or in part).
-4. Payment is recorded and allocated against the invoice(s) — **the
-   allocation rule when a payment doesn't exactly match an invoice
-   amount, or covers multiple invoices, is not yet decided.**
+4. Payment is recorded and allocated against the invoice(s) — **finance
+   specifies the allocation manually**, based on remittance information
+   from the customer (CONFIRMED, AR-001; no automatic FIFO or other
+   fixed rule).
 5. Payment is reconciled against bank records (manually or via future
    banking integration).
 6. Outstanding balance (if any) is tracked and aged for follow-up.
@@ -484,11 +497,13 @@ Payment records, payment allocations, reconciliation records, AR aging
 data.
 
 **Approval points**
-- Write-off of a small unreconciled difference or bad debt — **approval
-  rule not yet decided.**
-- Credit note issuance if the invoice needs correction — **approval rule
-  not yet decided (see also Workflow Billing in
-  [module-map.md](module-map.md)).**
+- Write-off of a small unreconciled difference or bad debt — **finance
+  can write off small amounts directly; above a threshold, Dennis
+  approves** (CONFIRMED, AR-002; exact threshold not yet specified).
+- Credit note issuance if the invoice needs correction — **finance or
+  Cherish approves; above a value threshold, Dennis approves**
+  (CONFIRMED, BILL-003; exact threshold not yet specified — see also
+  [module-map.md](module-map.md), Billing module).
 
 **Financial impact**
 Direct: reduces the customer's outstanding balance and increases recorded
@@ -498,11 +513,15 @@ reporting.
 **Possible exceptions**
 - Overpayment or underpayment by the customer.
 - Payment received with no clear invoice reference.
-- Disputed invoice held while resolution is pending.
-- Bad debt / non-payment beyond a threshold.
+- **Disputed invoice — continues through normal collections/aging**
+  (CONFIRMED, AR-003); no automatic hold while the dispute is resolved
+  internally.
+- Bad debt / non-payment beyond a threshold (per AR-002).
 
 **Automation opportunities**
-- Automated payment matching (e.g. by reference number/amount).
+- Automated payment-matching *suggestions* (e.g. by reference number/
+  amount) to speed up finance's manual allocation (AR-001 keeps the
+  final allocation decision manual, not automatic).
 - Automated aging reports and overdue reminders.
 - Bank feed integration for reconciliation (future, via Integrations).
 

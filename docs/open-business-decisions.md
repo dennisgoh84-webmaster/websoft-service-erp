@@ -78,6 +78,8 @@ sub-detail is called out explicitly).
 
 1.7. **Is a customer credit check or credit limit required before
    activating a new contract?**
+   **Status: DECIDED — SRV-017.** Not required for now; contracts
+   activate based on the commercial/sales agreement alone.
    *Arises in:* Service Contracts, Customer Management; Workflow B.
 
 1.8. **Who is the backup/delegate reviewer for excess usage when Nico is
@@ -120,80 +122,117 @@ sub-detail is called out explicitly).
    *Arises in:* Service Contracts; Workflow I.
 
 1.13. **How is a renewal handled if it happens more than 2 weeks after
-   expiry** (per SRV-016) — is there a real coverage gap, and what
-   happens to service activity (tickets, support requests) during it?
+   expiry** (per SRV-016)?
+   **Status: DECIDED — SRV-018.** No fixed rule; handled case-by-case by
+   Nico, Cherish, or Dennis.
    *Arises in:* Service Contracts, Helpdesk / Service Operations;
    Workflow I.
 
 ## 2. Billing & Invoicing
 
-2.1. **What is the recurring billing cycle for contracts** (e.g. monthly
-   in advance, monthly in arrears, quarterly, annual)? Can it vary by
-   customer/contract?
+2.1. **What is the recurring billing cycle for contracts?**
+   **Status: DECIDED — BILL-001.** Annual upfront — the full 12-month
+   contract value is billed at contract start/renewal.
    *Arises in:* Billing, Service Contracts.
 
 2.2. **What invoice approval rules apply** before an invoice is issued to
-   a customer (e.g. value thresholds, who approves)?
+   a customer?
+   **Status: DECIDED — BILL-002.** No approval required; invoices issue
+   directly.
    *Arises in:* Billing.
 
 2.3. **What is the credit note approval process** (who can approve, at
    what value)?
+   **Status: PARTIALLY DECIDED — BILL-003.** Finance or Cherish approves
+   routine credit notes; above a value threshold, Dennis approves. **Still
+   OPEN:** the exact threshold (see item 2.7).
    *Arises in:* Billing.
 
-2.4. **What billing method applies to projects** — time-and-materials,
-   fixed price/milestone billing, or a mix, and how is this decided per
-   project?
+2.4. **What billing method applies to projects**?
+   **Status: DECIDED — BILL-004.** Fixed price / milestone billing.
    *Arises in:* Billing, Projects; Workflow D.
 
 2.5. **When is revenue recognized** for contracts, projects, and hardware
-   sales (e.g. on invoice, on delivery/installation, over the contract
-   period)?
+   sales?
+   **Status: DECIDED — BILL-005.** On invoice, for all three.
    *Arises in:* Billing, Finance / Accounting; Workflows B, D, G.
 
 2.6. **How are quotations internally approved** before being sent to a
-   customer (e.g. discount thresholds requiring management sign-off)?
+   customer?
+   **Status: DECIDED — BILL-006.** Cherish (Sales Manager) approves every
+   quotation — no threshold exemption.
    *Arises in:* Sales; Workflow A.
+
+2.7. **What is the value threshold above which a credit note requires
+   Dennis's approval** (per BILL-003)?
+   *Arises in:* Billing.
 
 ## 3. Payments & Accounts Receivable
 
 3.1. **How are customer payments allocated** when a payment does not
    exactly match one invoice, or covers multiple invoices?
+   **Status: DECIDED — AR-001.** Finance specifies the allocation
+   manually, based on remittance information — no automatic rule.
    *Arises in:* Accounts Receivable; Workflow H.
 
-3.2. **What is the write-off / bad debt process** for small unreconciled
-   differences or uncollectable balances, and who approves it?
+3.2. **What is the write-off / bad debt process**, and who approves it?
+   **Status: PARTIALLY DECIDED — AR-002.** Finance can write off small
+   amounts directly; above a threshold, Dennis approves. **Still OPEN:**
+   the exact threshold (see item 3.4).
    *Arises in:* Accounts Receivable; Workflow H.
 
-3.3. **What happens to an invoice under dispute** (e.g. hold collections,
-   partial payment handling)?
+3.3. **What happens to an invoice under dispute?**
+   **Status: DECIDED — AR-003.** It continues through normal
+   collections/aging; no automatic hold.
    *Arises in:* Accounts Receivable, Billing; Workflow H.
+
+3.4. **What is the value threshold above which a write-off requires
+   Dennis's approval** (per AR-002)?
+   *Arises in:* Accounts Receivable.
 
 ## 4. Purchasing & Accounts Payable
 
-4.1. **What purchase order approval thresholds apply** (e.g. value-based
-   approval levels)?
+4.1. **What purchase order approval thresholds apply?**
+   **Status: PARTIALLY DECIDED — PUR-001.** Value-based: below a
+   threshold, procurement/finance approve directly; above it, Dennis
+   approves. **Still OPEN:** the exact threshold (see item 4.4).
    *Arises in:* Purchasing; Workflow F.
 
-4.2. **Is 2-way or 3-way matching required** for supplier invoices
-   (PO vs. receipt vs. invoice), and how are mismatches handled?
+4.2. **Is 2-way or 3-way matching required** for supplier invoices?
+   **Status: DECIDED — PUR-002.** 2-way matching (PO + invoice only); no
+   separate goods-receipt match required.
    *Arises in:* Accounts Payable, Purchasing; Workflow F.
 
 4.3. **What is the supplier invoice approval process** before payment is
    released?
+   **Status: DECIDED — PUR-003.** Auto-approved once the invoice matches
+   the PO (per PUR-002); a mismatch is an exception (handling not yet
+   decided — see item 4.5).
    *Arises in:* Accounts Payable; Workflow F.
+
+4.4. **What is the value threshold above which a purchase order requires
+   Dennis's approval** (per PUR-001)?
+   *Arises in:* Purchasing.
+
+4.5. **How are PO/invoice matching mismatches handled** under the PUR-002
+   2-way match (e.g. price or quantity discrepancy)?
+   *Arises in:* Accounts Payable, Purchasing; Workflow F.
 
 ## 5. Inventory & Hardware
 
-5.1. **What stock adjustment rules apply** (who can adjust stock, what
-   approval/reason-code is required for discrepancies)?
+5.1. **What stock adjustment rules apply?**
+   **Status: DECIDED — INV-001.** Requires manager approval before
+   taking effect.
    *Arises in:* Inventory.
 
-5.2. **What inventory valuation method is used** (e.g. FIFO, weighted
-   average, standard cost)?
+5.2. **What inventory valuation method is used?**
+   **Status: DECIDED — INV-002.** Weighted average cost.
    *Arises in:* Inventory, Finance / Accounting; Workflow G.
 
 5.3. **Does hardware installation require customer sign-off/acceptance**
    before it is considered complete (and billable)?
+   **Status: DECIDED — HW-001.** Yes, customer sign-off is required;
+   internal confirmation alone is not sufficient.
    *Arises in:* Hardware Management; Workflow G.
 
 5.4. **What is the RMA / hardware failure and replacement process**?

@@ -259,9 +259,24 @@ resolves the remaining Service Operations items from that document: 1.1,
   coverage gap.
 - A renewal that happens **more than 2 weeks after expiry** is **not**
   eligible for this backdating — it is instead treated as a fresh,
-  non-contiguous contract. How that later case is handled (e.g. whether
-  a real coverage gap exists, and what happens to any service activity
-  during it) is not yet decided.
+  non-contiguous contract (see SRV-018).
+
+### SRV-017 — No Customer Credit Check Required — CONFIRMED
+
+- A customer credit check or credit limit is **not required** before
+  activating a new service contract, for now.
+- Contracts activate based on the commercial/sales agreement alone; this
+  may be revisited later if collections experience warrants it.
+
+### SRV-018 — Late Renewal (Beyond 2-Week Window) — CONFIRMED
+
+- A renewal that happens more than 2 weeks after the prior contract's
+  expiry (i.e. outside the SRV-016 window) is **not** automatically
+  backdated.
+- There is no fixed rule for this case: it is handled **case-by-case**,
+  at the discretion of Nico, Cherish, or Dennis, depending on
+  circumstances (e.g. whether to treat it as a true coverage gap, or
+  make a judgment call to backdate anyway).
 
 ### Service Operations Workflow (CONFIRMED shape)
 
@@ -304,6 +319,125 @@ The Service Operations dashboard should eventually be able to identify:
 This is a requirements list, not a design — see
 [module-map.md](module-map.md) (Reporting / Management Dashboard) for
 where this is expected to live architecturally.
+
+## Billing & Invoicing Business Rules (CONFIRMED)
+
+Status: **CONFIRMED / DECIDED** (2026-09-09). These resolve items 2.1–2.6
+in [open-business-decisions.md](open-business-decisions.md).
+
+### BILL-001 — Recurring Contract Billing Cycle — CONFIRMED
+
+- Service contracts are billed **annually upfront**: the full 12-month
+  contract value is invoiced at contract start (and at each renewal),
+  matching the SRV-001 12-month term. There is no monthly/quarterly
+  recurring billing cycle for standard contracts.
+
+### BILL-002 — Invoice Approval — CONFIRMED
+
+- **No approval is required** before an invoice is issued to a customer.
+  System-generated invoices (e.g. annual contract billing, hardware
+  sales) are issued directly.
+
+### BILL-003 — Credit Note Approval — CONFIRMED
+
+- Credit notes are approved by **finance or Cherish (Sales Manager)** for
+  routine cases.
+- Credit notes above a value threshold are **escalated to Dennis** for
+  approval. The exact threshold is not yet specified (tracked as a new
+  open item).
+
+### BILL-004 — Project Billing Method — CONFIRMED
+
+- Projects (as distinct from Service Contracts) are billed on a **fixed
+  price / milestone** basis — billed amounts are tied to project
+  milestones, not to actual hours logged (i.e. not time-and-materials).
+
+### BILL-005 — Revenue Recognition — CONFIRMED
+
+- Revenue is recognized **on invoice** — i.e. when the invoice is issued
+  — for contracts, projects, and hardware sales alike. This is the
+  simplest approach and may be revisited later for formal accounting
+  standards (e.g. spreading contract revenue over its term), but is the
+  confirmed starting rule.
+
+### BILL-006 — Quotation Approval — CONFIRMED
+
+- **Cherish (Sales Manager) approves all quotations** before they are
+  sent to a customer — there is no discount/value threshold that
+  exempts a quotation from this review; every quotation goes through
+  Cherish.
+
+## Accounts Receivable Business Rules (CONFIRMED)
+
+Status: **CONFIRMED / DECIDED** (2026-09-09). These resolve items 3.1–3.3
+in [open-business-decisions.md](open-business-decisions.md).
+
+### AR-001 — Payment Allocation — CONFIRMED
+
+- When a customer payment does not exactly match one invoice, or covers
+  multiple invoices, **finance specifies the allocation manually** (based
+  on remittance information from the customer) — there is no automatic
+  FIFO or other fixed allocation rule.
+
+### AR-002 — Write-off / Bad Debt Process — CONFIRMED
+
+- **Finance can write off small amounts directly.**
+- Write-offs above a threshold require **Dennis's approval**. The exact
+  threshold is not yet specified (tracked as a new open item).
+
+### AR-003 — Disputed Invoice Handling — CONFIRMED
+
+- A disputed invoice **continues through normal collections/aging** —
+  there is no automatic hold on reminders or collection activity while a
+  dispute is being resolved internally.
+
+## Purchasing & Accounts Payable Business Rules (CONFIRMED)
+
+Status: **CONFIRMED / DECIDED** (2026-09-09). These resolve items 4.1–4.3
+in [open-business-decisions.md](open-business-decisions.md).
+
+### PUR-001 — Purchase Order Approval — CONFIRMED
+
+- PO approval is **value-based**: purchase orders below a threshold can
+  be approved by procurement/finance staff directly; above the threshold,
+  Dennis's approval is required. The exact threshold is not yet specified
+  (tracked as a new open item).
+
+### PUR-002 — Supplier Invoice Matching — CONFIRMED
+
+- Supplier invoices use **2-way matching**: the invoice is matched
+  against the Purchase Order only — a separate Goods Receipt match is
+  not required.
+
+### PUR-003 — Supplier Invoice Approval — CONFIRMED
+
+- A supplier invoice is **auto-approved for payment once it matches** the
+  PO (per PUR-002) — no separate manual approval step is required beyond
+  that match succeeding. A mismatch is handled as an exception (process
+  not yet decided — see [open-business-decisions.md](open-business-decisions.md)).
+
+## Inventory & Hardware Business Rules (CONFIRMED)
+
+Status: **CONFIRMED / DECIDED** (2026-09-09). These resolve items
+5.1–5.3 in [open-business-decisions.md](open-business-decisions.md).
+Items 5.4 (RMA process) and 5.5 (warranty terms) remain open.
+
+### INV-001 — Stock Adjustment Approval — CONFIRMED
+
+- Stock adjustments (for discrepancies, damage, loss, etc.) **require
+  manager approval** before taking effect — warehouse/hardware staff
+  cannot adjust stock unilaterally.
+
+### INV-002 — Inventory Valuation Method — CONFIRMED
+
+- Inventory is valued using **weighted average cost**: the cost per unit
+  is the average cost of all units currently in stock.
+
+### HW-001 — Hardware Installation Sign-off — CONFIRMED
+
+- Hardware installation is **not considered complete (or billable)**
+  until the **customer signs off / confirms acceptance** — internal
+  confirmation by the installing engineer alone is not sufficient.
 
 ## Conceptual Business Entities
 
