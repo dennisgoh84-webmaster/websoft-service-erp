@@ -173,7 +173,19 @@ def update_company(
 
     old_value: dict[str, object] = {}
     new_value: dict[str, object] = {}
-    for field in ("name", "country", "currency", "timezone", "is_active", "logo"):
+    for field in (
+        "name",
+        "country",
+        "currency",
+        "timezone",
+        "is_active",
+        "logo",
+        "address",
+        "gst_registration_no",
+        "write_off_approval_threshold_sgd",
+        "credit_note_approval_threshold_sgd",
+        "po_approval_threshold_sgd",
+    ):
         if field not in fields:
             continue
         old = getattr(company, field)

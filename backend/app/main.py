@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.routers import (
+    accounts_receivable,
     auth,
     billing,
     companies,
@@ -69,6 +70,7 @@ app.include_router(job_orders.router)
 app.include_router(service_records.router)
 app.include_router(excess_usage.router)
 app.include_router(billing.router)
+app.include_router(accounts_receivable.router)
 app.include_router(dashboard.router)
 
 

@@ -368,6 +368,130 @@ class InvoiceOut(BaseModel):
     issued_at: datetime
 
 
+# ---- Accounts Receivable ----
+class PaymentAllocationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    invoice_id: uuid.UUID
+    invoice_number: str | None = None
+    amount_sgd: float
+
+
+class PaymentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    payment_date: date
+    amount_sgd: float
+    allocated_sgd: float
+    unallocated_sgd: float
+    method: str
+    reference: str | None
+    notes: str | None
+    allocations: list[PaymentAllocationOut] = []
+
+    @classmethod
+    def from_model(cls, payment, invoice_numbers: dict | None = None) -> "PaymentOut":
+        numbers = invoice_numbers or {}
+        return cls(
+            id=payment.id,
+            customer_id=payment.customer_id,
+            payment_date=payment.payment_date,
+            amount_sgd=float(payment.amount_sgd),
+            allocated_sgd=float(payment.allocated_sgd),
+            unallocated_sgd=float(payment.unallocated_sgd),
+            method=payment.method.value,
+            reference=payment.reference,
+            notes=payment.notes,
+            allocations=[
+                PaymentAllocationOut(
+                    id=a.id,
+                    invoice_id=a.invoice_id,
+                    invoice_number=numbers.get(a.invoice_id),
+                    amount_sgd=float(a.amount_sgd),
+                )
+                for a in payment.allocations
+            ],
+        )
+
+
+class PaymentAllocationEntry(BaseModel):
+    invoice_id: uuid.UUID
+    amount_sgd: float = Field(gt=0)
+
+
+class PaymentCreate(BaseModel):
+    customer_id: uuid.UUID
+    payment_date: date
+    amount_sgd: float = Field(gt=0)
+    method: str = "bank_transfer"
+    reference: str | None = None
+    notes: str | None = None
+    # AR-001: allocation is manual, so it is optional here -- a receipt
+    # can be recorded first and allocated later.
+    allocations: list[PaymentAllocationEntry] = []
+
+
+class AllocateRequest(BaseModel):
+    allocations: list[PaymentAllocationEntry]
+
+
+class InvoiceWriteOffRequest(BaseModel):
+    reason: str = Field(min_length=1)
+
+
+class InvoiceDisputeRequest(BaseModel):
+    # AR-003: flags the dispute for Finance; collections continue.
+    is_disputed: bool
+    note: str | None = None
+
+
+class AgingRow(BaseModel):
+    customer_id: uuid.UUID
+    customer_name: str
+    current: float
+    days_1_30: float
+    days_31_60: float
+    days_61_90: float
+    over_90: float
+    total: float
+
+
+class AgingReport(BaseModel):
+    as_at: date
+    rows: list[AgingRow]
+    current: float
+    days_1_30: float
+    days_31_60: float
+    days_61_90: float
+    over_90: float
+    total: float
+
+
+class StatementLine(BaseModel):
+    invoice_id: uuid.UUID
+    invoice_number: str
+    description: str
+    issued_on: date
+    due_date: date | None
+    total_amount_sgd: float
+    amount_paid_sgd: float
+    outstanding_sgd: float
+    status: str
+    is_disputed: bool
+    days_overdue: int
+
+
+class CustomerStatement(BaseModel):
+    customer_id: uuid.UUID
+    customer_name: str
+    as_at: date
+    payment_terms_days: int | None
+    lines: list[StatementLine]
+    total_outstanding_sgd: float
+    unallocated_credit_sgd: float
+
+
 # ---- Module Control / licensing ----
 class ModuleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

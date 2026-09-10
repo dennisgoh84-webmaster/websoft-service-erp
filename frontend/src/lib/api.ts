@@ -247,6 +247,73 @@ export interface Invoice {
   issued_at: string
 }
 
+// ---- Accounts Receivable ----
+export interface PaymentAllocation {
+  id: string
+  invoice_id: string
+  invoice_number: string | null
+  amount_sgd: number
+}
+
+export interface Payment {
+  id: string
+  customer_id: string
+  payment_date: string
+  amount_sgd: number
+  allocated_sgd: number
+  unallocated_sgd: number
+  method: string
+  reference: string | null
+  notes: string | null
+  allocations: PaymentAllocation[]
+}
+
+export interface AgingRow {
+  customer_id: string
+  customer_name: string
+  current: number
+  days_1_30: number
+  days_31_60: number
+  days_61_90: number
+  over_90: number
+  total: number
+}
+
+export interface AgingReport {
+  as_at: string
+  rows: AgingRow[]
+  current: number
+  days_1_30: number
+  days_31_60: number
+  days_61_90: number
+  over_90: number
+  total: number
+}
+
+export interface StatementLine {
+  invoice_id: string
+  invoice_number: string
+  description: string
+  issued_on: string
+  due_date: string | null
+  total_amount_sgd: number
+  amount_paid_sgd: number
+  outstanding_sgd: number
+  status: InvoiceStatus
+  is_disputed: boolean
+  days_overdue: number
+}
+
+export interface CustomerStatement {
+  customer_id: string
+  customer_name: string
+  as_at: string
+  payment_terms_days: number | null
+  lines: StatementLine[]
+  total_outstanding_sgd: number
+  unallocated_credit_sgd: number
+}
+
 export type LicenseType = 'included' | 'add_on' | 'trial'
 
 export interface ModuleInfo {
@@ -423,6 +490,46 @@ export const api = {
 
   listInvoices: (filters: { customer_id?: string; contract_id?: string } = {}) =>
     request<Invoice[]>(`/invoices${qs(filters)}`),
+
+  // Accounts Receivable
+  listPayments: (filters: { customer_id?: string; unallocated_only?: boolean } = {}) =>
+    request<Payment[]>(
+      `/accounts-receivable/payments${qs({
+        customer_id: filters.customer_id,
+        unallocated_only: filters.unallocated_only ? 'true' : undefined,
+      })}`,
+    ),
+  recordPayment: (payload: {
+    customer_id: string
+    payment_date: string
+    amount_sgd: number
+    method?: string
+    reference?: string
+    notes?: string
+    allocations?: { invoice_id: string; amount_sgd: number }[]
+  }) =>
+    request<Payment>('/accounts-receivable/payments', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  allocatePayment: (id: string, allocations: { invoice_id: string; amount_sgd: number }[]) =>
+    request<Payment>(`/accounts-receivable/payments/${id}/allocate`, {
+      method: 'POST',
+      body: JSON.stringify({ allocations }),
+    }),
+  arAging: () => request<AgingReport>('/accounts-receivable/aging'),
+  customerStatement: (customerId: string) =>
+    request<CustomerStatement>(`/accounts-receivable/statement/${customerId}`),
+  writeOffInvoice: (invoiceId: string, reason: string) =>
+    request<Invoice>(`/accounts-receivable/invoices/${invoiceId}/write-off`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  flagInvoiceDispute: (invoiceId: string, is_disputed: boolean, note?: string) =>
+    request<Invoice>(`/accounts-receivable/invoices/${invoiceId}/dispute`, {
+      method: 'POST',
+      body: JSON.stringify({ is_disputed, note }),
+    }),
 
   // Event Logs
   listEventLogs: (filters: EventLogFilters & { limit?: number; offset?: number } = {}) =>
