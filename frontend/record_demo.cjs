@@ -1,9 +1,10 @@
 // Records a video walkthrough of Websoft Service ERP Solution's updated
 // UI: the Bright/Dark theme toggle, the confirmed Service Operations
 // workflow (SRV-001..018), Module Control, Staff Master (list + detail,
-// including password reset and the per-account activity trail), Group
-// Authority (RBAC), Event Logs (the audit trail), and Company Setup +
-// multi-company switching between two entities.
+// including password reset, the per-account activity trail, and the
+// per-company Group assignment), Group Authority (RBAC), Event Logs
+// (the audit trail), and Company Setup + multi-company switching
+// between two entities.
 //
 // Run with: node record_demo.cjs
 // (requires the backend + frontend dev servers running, and a freshly
@@ -115,7 +116,21 @@ async function main() {
   await page.locator('input[type="password"]').fill('newdemo1234')
   await pause(500)
   await page.getByRole('button', { name: 'Reset password' }).click()
-  await pause(1800) // let the viewer read the confirmation + activity trail
+  await pause(1500)
+
+  // 11b. Company access & Groups -- a staff member holds a Group PER
+  //      COMPANY. Wei Ling works in one company only; Dennis works in
+  //      both and holds a different Group in each.
+  const accessCard = page.locator('.card', { hasText: 'Company access' })
+  await accessCard.scrollIntoViewIfNeeded()
+  await pause(2500)
+
+  await page.getByRole('link', { name: 'Staff Master', exact: true }).click()
+  await pause(900)
+  await page.getByRole('link', { name: 'Dennis (Owner)' }).click()
+  await pause(1000)
+  await page.locator('.card', { hasText: 'Company access' }).scrollIntoViewIfNeeded()
+  await pause(3000) // Owner / Admin in one entity, Finance Team in the other
 
   // 12. Group Authority -- open a Group and change one module's access level
   await page.getByRole('link', { name: 'Group Authority', exact: true }).click()
