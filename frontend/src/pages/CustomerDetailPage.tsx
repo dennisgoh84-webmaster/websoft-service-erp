@@ -1,6 +1,14 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, type AuditLogEntry, type Contact, type Customer, type CustomerType } from '../lib/api'
+import {
+  api,
+  type AuditLogEntry,
+  type Branch,
+  type Contact,
+  type Customer,
+  type CustomerGroup,
+  type CustomerType,
+} from '../lib/api'
 
 const ACTION_LABELS: Record<string, string> = {
   created: 'Created',
@@ -13,6 +21,7 @@ function emptyForm() {
   return {
     customer_type: 'company' as CustomerType,
     name: '',
+    customer_group_id: '',
     legacy_customer_code: '',
     contact_person: '',
     uen: '',
@@ -29,7 +38,21 @@ function emptyForm() {
     address_country: '',
     tags: '',
     terms_and_conditions: '',
+    memo: '',
+    billing_notes: '',
     payment_terms_days: '',
+  }
+}
+
+function emptyBranchForm() {
+  return {
+    branch_name: '',
+    branch_code: '',
+    address_line1: '',
+    address_city: '',
+    address_postal_code: '',
+    address_country: '',
+    phone: '',
   }
 }
 
@@ -39,6 +62,8 @@ export default function CustomerDetailPage() {
 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [groups, setGroups] = useState<CustomerGroup[]>([])
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -51,6 +76,14 @@ export default function CustomerDetailPage() {
   const [contactName, setContactName] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [contactPhone, setContactPhone] = useState('')
+  const [contactDirectLine, setContactDirectLine] = useState('')
+
+  // New-branch form
+  const [branchForm, setBranchForm] = useState(emptyBranchForm())
+
+  // Inline "new group" entry, since a group of companies may not exist
+  // yet when you first need to tag a customer into one.
+  const [newGroupName, setNewGroupName] = useState('')
 
   function refresh() {
     if (!id) return
@@ -61,6 +94,7 @@ export default function CustomerDetailPage() {
         setForm({
           customer_type: c.customer_type,
           name: c.name,
+          customer_group_id: c.customer_group_id ?? '',
           legacy_customer_code: c.legacy_customer_code ?? '',
           contact_person: c.contact_person ?? '',
           uen: c.uen ?? '',
@@ -77,16 +111,22 @@ export default function CustomerDetailPage() {
           address_country: c.address_country ?? '',
           tags: c.tags ?? '',
           terms_and_conditions: c.terms_and_conditions ?? '',
+          memo: c.memo ?? '',
+          billing_notes: c.billing_notes ?? '',
           payment_terms_days: c.payment_terms_days === null ? '' : String(c.payment_terms_days),
         })
         setExcludeAutoSent(c.exclude_auto_sent)
       })
       .catch(() => setNotFound(true))
     api.listContacts(id, true).then(setContacts).catch((e) => setError(e.message))
+    api.listBranches(id, true).then(setBranches).catch((e) => setError(e.message))
     api.getCustomerAuditLog(id).then(setAuditLog).catch((e) => setError(e.message))
   }
 
   useEffect(refresh, [id])
+  useEffect(() => {
+    api.listCustomerGroups().then(setGroups).catch((e) => setError(e.message))
+  }, [])
 
   async function onSave(e: FormEvent) {
     e.preventDefault()
@@ -97,6 +137,7 @@ export default function CustomerDetailPage() {
       await api.updateCustomer(id, {
         customer_type: form.customer_type,
         name: form.name,
+        customer_group_id: form.customer_group_id || null,
         legacy_customer_code: form.legacy_customer_code || null,
         contact_person: form.contact_person || null,
         uen: form.uen || null,
@@ -114,6 +155,8 @@ export default function CustomerDetailPage() {
         tags: form.tags || null,
         exclude_auto_sent: excludeAutoSent,
         terms_and_conditions: form.terms_and_conditions || null,
+        memo: form.memo || null,
+        billing_notes: form.billing_notes || null,
         payment_terms_days: form.payment_terms_days === '' ? null : parseInt(form.payment_terms_days, 10),
       })
       refresh()
@@ -145,10 +188,12 @@ export default function CustomerDetailPage() {
         name: contactName,
         email: contactEmail || undefined,
         phone: contactPhone || undefined,
+        direct_line: contactDirectLine || undefined,
       })
       setContactName('')
       setContactEmail('')
       setContactPhone('')
+      setContactDirectLine('')
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add contact')
@@ -167,6 +212,52 @@ export default function CustomerDetailPage() {
     }
   }
 
+  async function onAddBranch(e: FormEvent) {
+    e.preventDefault()
+    if (!id) return
+    setError(null)
+    try {
+      await api.createBranch(id, {
+        branch_name: branchForm.branch_name,
+        branch_code: branchForm.branch_code || undefined,
+        address_line1: branchForm.address_line1 || undefined,
+        address_city: branchForm.address_city || undefined,
+        address_postal_code: branchForm.address_postal_code || undefined,
+        address_country: branchForm.address_country || undefined,
+        phone: branchForm.phone || undefined,
+      })
+      setBranchForm(emptyBranchForm())
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add branch')
+    }
+  }
+
+  async function onToggleBranch(branch: Branch) {
+    if (!id) return
+    setError(null)
+    try {
+      if (branch.is_active) await api.deactivateBranch(id, branch.id)
+      else await api.reactivateBranch(id, branch.id)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update branch')
+    }
+  }
+
+  async function onAddGroup(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    try {
+      const group = await api.createCustomerGroup({ name: newGroupName })
+      setNewGroupName('')
+      setGroups((prev) => [...prev, group])
+      setForm((p) => ({ ...p, customer_group_id: group.id }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create customer group')
+    }
+  }
+
   if (notFound) return <p>Customer not found. <Link to="/customers">Back to Customers</Link></p>
   if (!customer) return <p>Loading...</p>
 
@@ -175,6 +266,14 @@ export default function CustomerDetailPage() {
       value: form[key],
       onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
         setForm((prev) => ({ ...prev, [key]: e.target.value })),
+    }
+  }
+
+  function branchField(key: keyof ReturnType<typeof emptyBranchForm>) {
+    return {
+      value: branchForm[key],
+      onChange: (e: ChangeEvent<HTMLInputElement>) =>
+        setBranchForm((prev) => ({ ...prev, [key]: e.target.value })),
     }
   }
 
@@ -213,6 +312,39 @@ export default function CustomerDetailPage() {
             <label>Name</label>
             <input {...field('name')} required />
           </div>
+          <div className="form-row">
+            <label>Group of companies</label>
+            <select
+              value={form.customer_group_id}
+              onChange={(e) => setForm((p) => ({ ...p, customer_group_id: e.target.value }))}
+            >
+              <option value="">Not grouped</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-row">
+            <label></label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="New group name, e.g. XYZ Holdings Group"
+                style={{ flex: 1 }}
+              />
+              <button type="button" className="secondary" disabled={!newGroupName} onClick={onAddGroup}>
+                Create group &amp; assign
+              </button>
+            </div>
+          </div>
+          <p className="muted">
+            Tags this customer as part of a group of companies (e.g. 5 separate legal entities under
+            one holding) so they can be found together -- each stays its own full account with its
+            own contracts and invoices.
+          </p>
           <div className="form-row">
             <label>Contact person</label>
             <input {...field('contact_person')} placeholder="Quick reference, e.g. Mr Tan Wei Ming" />
@@ -288,6 +420,18 @@ export default function CustomerDetailPage() {
             <textarea {...field('terms_and_conditions')} rows={3} />
           </div>
           <div className="form-row">
+            <label>Memo (internal only)</label>
+            <textarea {...field('memo')} rows={3} placeholder="Never shown on any customer-facing document" />
+          </div>
+          <div className="form-row">
+            <label>Billing notes</label>
+            <textarea
+              {...field('billing_notes')}
+              rows={3}
+              placeholder="For billing/AR staff, e.g. &quot;requires PO number on every invoice&quot;"
+            />
+          </div>
+          <div className="form-row">
             <label>
               <input
                 type="checkbox"
@@ -309,7 +453,7 @@ export default function CustomerDetailPage() {
       </div>
 
       <div className="card">
-        <h2>Contact people</h2>
+        <h2>Contact Person</h2>
         <p className="muted">Individual contacts at this customer -- separate from the quick "Contact person" field above.</p>
         <table>
           <thead>
@@ -317,6 +461,7 @@ export default function CustomerDetailPage() {
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
+              <th>Direct line</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -327,6 +472,7 @@ export default function CustomerDetailPage() {
                 <td>{c.name}</td>
                 <td>{c.email ?? '-'}</td>
                 <td>{c.phone ?? '-'}</td>
+                <td>{c.direct_line ?? '-'}</td>
                 <td>
                   <span className={`badge ${c.is_active ? 'active' : 'draft'}`}>
                     {c.is_active ? 'Active' : 'Inactive'}
@@ -341,8 +487,8 @@ export default function CustomerDetailPage() {
             ))}
             {contacts.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
-                  No contact people recorded yet.
+                <td colSpan={6} className="muted">
+                  No contact person recorded yet.
                 </td>
               </tr>
             )}
@@ -362,7 +508,92 @@ export default function CustomerDetailPage() {
             <label>Phone (optional)</label>
             <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
           </div>
+          <div className="form-row">
+            <label>Direct line (optional)</label>
+            <input value={contactDirectLine} onChange={(e) => setContactDirectLine(e.target.value)} />
+          </div>
           <button type="submit">Add contact person</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h2>Branches</h2>
+        <p className="muted">
+          Branch locations of this same customer -- not separate billing accounts, just other
+          addresses and telephone numbers for the same company.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Branch</th>
+              <th>Code</th>
+              <th>Address</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {branches.map((b) => (
+              <tr key={b.id}>
+                <td>{b.branch_name}</td>
+                <td className="muted">{b.branch_code ?? '-'}</td>
+                <td className="muted">
+                  {[b.address_line1, b.address_city, b.address_country].filter(Boolean).join(', ') || '-'}
+                </td>
+                <td>{b.phone ?? '-'}</td>
+                <td>
+                  <span className={`badge ${b.is_active ? 'active' : 'draft'}`}>
+                    {b.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td>
+                  <button className="secondary" onClick={() => onToggleBranch(b)}>
+                    {b.is_active ? 'Deactivate' : 'Reactivate'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {branches.length === 0 && (
+              <tr>
+                <td colSpan={6} className="muted">
+                  No branches recorded yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        <form onSubmit={onAddBranch} style={{ marginTop: 14 }}>
+          <div className="form-row">
+            <label>Branch name</label>
+            <input {...branchField('branch_name')} required placeholder="e.g. Jurong Branch" />
+          </div>
+          <div className="form-row">
+            <label>Branch code</label>
+            <input {...branchField('branch_code')} />
+          </div>
+          <div className="form-row">
+            <label>Address line 1</label>
+            <input {...branchField('address_line1')} />
+          </div>
+          <div className="form-row">
+            <label>City</label>
+            <input {...branchField('address_city')} />
+          </div>
+          <div className="form-row">
+            <label>Postal code</label>
+            <input {...branchField('address_postal_code')} />
+          </div>
+          <div className="form-row">
+            <label>Country</label>
+            <input {...branchField('address_country')} placeholder="e.g. Singapore" />
+          </div>
+          <div className="form-row">
+            <label>Telephone</label>
+            <input {...branchField('phone')} />
+          </div>
+          <button type="submit">Add branch</button>
         </form>
       </div>
 

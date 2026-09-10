@@ -1,14 +1,18 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.core import AuditLogEntry, User
-from app.models.customers import Contact, Customer
+from app.models.customers import Branch, Contact, Customer
 from app.models.groups import AccessLevel
 from app.schemas.schemas import (
     AuditLogEntryOut,
+    BranchCreate,
+    BranchOut,
+    BranchUpdate,
     ContactCreate,
     ContactOut,
     ContactUpdate,
@@ -25,6 +29,7 @@ MODULE = "customer_management"
 CUSTOMER_FIELDS = (
     "customer_type",
     "name",
+    "customer_group_id",
     "legacy_customer_code",
     "contact_person",
     "uen",
@@ -42,6 +47,8 @@ CUSTOMER_FIELDS = (
     "tags",
     "exclude_auto_sent",
     "terms_and_conditions",
+    "memo",
+    "billing_notes",
     "payment_terms_days",
 )
 
@@ -59,6 +66,13 @@ def _contact_or_404(db: Session, customer: Customer, contact_id: uuid.UUID) -> C
     if not contact or contact.customer_id != customer.id:
         raise HTTPException(status_code=404, detail="Contact not found")
     return contact
+
+
+def _branch_or_404(db: Session, customer: Customer, branch_id: uuid.UUID) -> Branch:
+    branch = db.get(Branch, branch_id)
+    if not branch or branch.customer_id != customer.id:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    return branch
 
 
 @router.post("", response_model=CustomerOut)
@@ -168,10 +182,37 @@ def reactivate_customer(
 
 @router.get("", response_model=list[CustomerOut])
 def list_customers(
+    q: str | None = None,
+    customer_group_id: uuid.UUID | None = None,
+    include_inactive: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    return db.query(Customer).filter(Customer.company_id == current_user.company_id).all()
+    """Dynamic filter for the Customer master: free-text `q` matches
+    across name/email/phone/mobile/UEN/legacy code/tags, and
+    `customer_group_id` narrows to one group of companies at a time --
+    so you can search for a particular customer or pull up a whole
+    group together."""
+    query = db.query(Customer).filter(Customer.company_id == current_user.company_id)
+    if not include_inactive:
+        query = query.filter(Customer.is_active)
+    if customer_group_id:
+        query = query.filter(Customer.customer_group_id == customer_group_id)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            or_(
+                Customer.name.ilike(like),
+                Customer.billing_email.ilike(like),
+                Customer.phone.ilike(like),
+                Customer.mobile.ilike(like),
+                Customer.contact_person.ilike(like),
+                Customer.uen.ilike(like),
+                Customer.legacy_customer_code.ilike(like),
+                Customer.tags.ilike(like),
+            )
+        )
+    return query.order_by(Customer.name).all()
 
 
 @router.get("/{customer_id}", response_model=CustomerOut)
@@ -230,7 +271,13 @@ def create_contact(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
     customer = _customer_or_404(db, customer_id, current_user.company_id)
-    contact = Contact(customer_id=customer.id, name=payload.name, email=payload.email, phone=payload.phone)
+    contact = Contact(
+        customer_id=customer.id,
+        name=payload.name,
+        email=payload.email,
+        phone=payload.phone,
+        direct_line=payload.direct_line,
+    )
     db.add(contact)
     db.flush()
     audit.record(
@@ -240,7 +287,12 @@ def create_contact(
         action="created",
         actor_user_id=current_user.id,
         details=f"customer={customer.name}, name={payload.name}",
-        new_value={"name": payload.name, "email": payload.email, "phone": payload.phone},
+        new_value={
+            "name": payload.name,
+            "email": payload.email,
+            "phone": payload.phone,
+            "direct_line": payload.direct_line,
+        },
     )
     db.commit()
     db.refresh(contact)
@@ -261,7 +313,7 @@ def update_contact(
     fields = payload.model_dump(exclude_unset=True)
     old_value: dict[str, object] = {}
     new_value: dict[str, object] = {}
-    for field in ("name", "email", "phone"):
+    for field in ("name", "email", "phone", "direct_line"):
         if field not in fields or getattr(contact, field) == fields[field]:
             continue
         old_value[field] = getattr(contact, field)
@@ -328,3 +380,133 @@ def reactivate_contact(
     db.commit()
     db.refresh(contact)
     return contact
+
+
+# ---- Branches (branch locations of a customer) ------------------------
+# A branch is the same customer/legal entity at a different address --
+# not a separate billing account. See models/customers.py docstring.
+
+
+@router.get("/{customer_id}/branches", response_model=list[BranchOut])
+def list_branches(
+    customer_id: uuid.UUID,
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    query = db.query(Branch).filter(Branch.customer_id == customer.id)
+    if not include_inactive:
+        query = query.filter(Branch.is_active)
+    return query.order_by(Branch.branch_name).all()
+
+
+@router.post("/{customer_id}/branches", response_model=BranchOut)
+def create_branch(
+    customer_id: uuid.UUID,
+    payload: BranchCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    branch = Branch(customer_id=customer.id, **payload.model_dump())
+    db.add(branch)
+    db.flush()
+    audit.record(
+        db,
+        entity_type="branch",
+        entity_id=branch.id,
+        action="created",
+        actor_user_id=current_user.id,
+        details=f"customer={customer.name}, branch={payload.branch_name}",
+        new_value={"branch_name": payload.branch_name, "branch_code": payload.branch_code},
+    )
+    db.commit()
+    db.refresh(branch)
+    return branch
+
+
+@router.patch("/{customer_id}/branches/{branch_id}", response_model=BranchOut)
+def update_branch(
+    customer_id: uuid.UUID,
+    branch_id: uuid.UUID,
+    payload: BranchUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    branch = _branch_or_404(db, customer, branch_id)
+
+    fields = payload.model_dump(exclude_unset=True)
+    old_value: dict[str, object] = {}
+    new_value: dict[str, object] = {}
+    for field in (
+        "branch_name", "branch_code", "address_line1", "address_line2", "address_city",
+        "address_state", "address_postal_code", "address_country", "phone",
+    ):
+        if field not in fields or getattr(branch, field) == fields[field]:
+            continue
+        old_value[field] = getattr(branch, field)
+        new_value[field] = fields[field]
+        setattr(branch, field, fields[field])
+
+    audit.record(
+        db,
+        entity_type="branch",
+        entity_id=branch.id,
+        action="updated",
+        actor_user_id=current_user.id,
+        old_value=old_value or None,
+        new_value=new_value or None,
+    )
+    db.commit()
+    db.refresh(branch)
+    return branch
+
+
+@router.post("/{customer_id}/branches/{branch_id}/deactivate", response_model=BranchOut)
+def deactivate_branch(
+    customer_id: uuid.UUID,
+    branch_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    branch = _branch_or_404(db, customer, branch_id)
+    branch.is_active = False
+    audit.record(
+        db,
+        entity_type="branch",
+        entity_id=branch.id,
+        action="deactivated",
+        actor_user_id=current_user.id,
+        old_value={"is_active": True},
+        new_value={"is_active": False},
+    )
+    db.commit()
+    db.refresh(branch)
+    return branch
+
+
+@router.post("/{customer_id}/branches/{branch_id}/reactivate", response_model=BranchOut)
+def reactivate_branch(
+    customer_id: uuid.UUID,
+    branch_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    branch = _branch_or_404(db, customer, branch_id)
+    branch.is_active = True
+    audit.record(
+        db,
+        entity_type="branch",
+        entity_id=branch.id,
+        action="reactivated",
+        actor_user_id=current_user.id,
+        old_value={"is_active": False},
+        new_value={"is_active": True},
+    )
+    db.commit()
+    db.refresh(branch)
+    return branch

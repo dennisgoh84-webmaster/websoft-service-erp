@@ -44,7 +44,7 @@ from sqlalchemy import text
 
 from app.core.database import Base, SessionLocal, engine
 from app.models.core import Company, User, UserCompanyAccess, UserRole
-from app.models.customers import Contact, Customer, CustomerType
+from app.models.customers import Branch, Contact, Customer, CustomerGroup, CustomerType
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
@@ -430,9 +430,20 @@ def main():
             ]
         )
 
+        # A demo group of companies -- Acme is tagged into it to show how
+        # "search for a particular customer or a group of customers"
+        # works; the other 4 entities aren't seeded, just the tag itself.
+        acme_group = CustomerGroup(
+            company_id=company.id, name="Acme Holdings Group",
+            description="Acme Manufacturing and its related entities.",
+        )
+        db.add(acme_group)
+        db.flush()
+
         customer = Customer(
             company_id=company.id, name="Acme Manufacturing Pte Ltd",
             customer_type=CustomerType.company,
+            customer_group_id=acme_group.id,
             legacy_customer_code="100CASE01",  # carried over from Odoo
             contact_person="Mr Tan Wei Ming",
             uen="201012345A",
@@ -441,6 +452,8 @@ def main():
             phone="6555 1010", mobile="9123 4567",
             address_line1="10 Factory Road", address_city="Singapore",
             address_postal_code="100010", address_country="Singapore",
+            memo="Long-standing customer since 2019; prefers email over phone.",
+            billing_notes="Requires PO number on every invoice.",
             payment_terms_days=30,  # terms vary per customer (confirmed)
         )
         # Company 2's own customer -- switching companies swaps the whole
@@ -460,10 +473,21 @@ def main():
 
         db.add_all(
             [
-                Contact(customer_id=customer.id, name="Mr Tan Wei Ming", email="wm.tan@acme-mfg.test", phone="9123 4567"),
+                Contact(
+                    customer_id=customer.id, name="Mr Tan Wei Ming", email="wm.tan@acme-mfg.test",
+                    phone="9123 4567", direct_line="6555 1011",
+                ),
                 Contact(customer_id=customer.id, name="Ms Farah Aziz", email="farah.aziz@acme-mfg.test", phone="9876 5432"),
                 Contact(customer_id=customer2.id, name="Ms Lim Hui Fen", email="hf.lim@northwind-retail.test", phone="9234 5678"),
             ]
+        )
+        db.add(
+            Branch(
+                customer_id=customer.id, branch_name="Jurong Branch", branch_code="JB-01",
+                address_line1="88 Jurong Ave", address_city="Singapore",
+                address_postal_code="600088", address_country="Singapore",
+                phone="6555 1088",
+            )
         )
 
         contract = contract_svc.create_contract(

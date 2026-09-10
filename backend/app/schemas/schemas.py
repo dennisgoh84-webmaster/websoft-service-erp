@@ -199,10 +199,32 @@ class GroupAuthoritiesUpdateRequest(BaseModel):
     authorities: list[GroupAuthoritySet]
 
 
+# ---- Customer Groups (tag linking separate companies in one group) --
+class CustomerGroupCreate(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class CustomerGroupUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    is_active: bool | None = None
+
+
+class CustomerGroupOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    description: str | None
+    is_active: bool
+    created_at: datetime
+
+
 # ---- Customers ----
 class CustomerCreate(BaseModel):
     customer_type: CustomerType = CustomerType.company
     name: str
+    customer_group_id: uuid.UUID | None = None
     legacy_customer_code: str | None = None
     contact_person: str | None = None
     uen: str | None = None
@@ -220,6 +242,8 @@ class CustomerCreate(BaseModel):
     tags: str | None = None
     exclude_auto_sent: bool = False
     terms_and_conditions: str | None = None
+    memo: str | None = None
+    billing_notes: str | None = None
     # Days from invoice date. Terms vary per customer (confirmed
     # 2026-09-10); null means not yet agreed, and invoices carry no due
     # date until they are.
@@ -229,6 +253,7 @@ class CustomerCreate(BaseModel):
 class CustomerUpdate(BaseModel):
     customer_type: CustomerType | None = None
     name: str | None = None
+    customer_group_id: uuid.UUID | None = None
     legacy_customer_code: str | None = None
     contact_person: str | None = None
     uen: str | None = None
@@ -246,6 +271,8 @@ class CustomerUpdate(BaseModel):
     tags: str | None = None
     exclude_auto_sent: bool | None = None
     terms_and_conditions: str | None = None
+    memo: str | None = None
+    billing_notes: str | None = None
     payment_terms_days: int | None = Field(default=None, ge=0)
 
 
@@ -254,6 +281,7 @@ class CustomerOut(BaseModel):
     id: uuid.UUID
     customer_type: CustomerType
     name: str
+    customer_group_id: uuid.UUID | None
     legacy_customer_code: str | None
     contact_person: str | None
     uen: str | None
@@ -271,6 +299,8 @@ class CustomerOut(BaseModel):
     tags: str | None
     exclude_auto_sent: bool
     terms_and_conditions: str | None
+    memo: str | None
+    billing_notes: str | None
     payment_terms_days: int | None
     is_active: bool
     created_at: datetime
@@ -280,12 +310,14 @@ class ContactCreate(BaseModel):
     name: str
     email: str | None = None
     phone: str | None = None
+    direct_line: str | None = None
 
 
 class ContactUpdate(BaseModel):
     name: str | None = None
     email: str | None = None
     phone: str | None = None
+    direct_line: str | None = None
 
 
 class ContactOut(BaseModel):
@@ -294,6 +326,47 @@ class ContactOut(BaseModel):
     customer_id: uuid.UUID
     name: str
     email: str | None
+    phone: str | None
+    direct_line: str | None
+    is_active: bool
+
+
+class BranchCreate(BaseModel):
+    branch_name: str
+    branch_code: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    address_city: str | None = None
+    address_state: str | None = None
+    address_postal_code: str | None = None
+    address_country: str | None = None
+    phone: str | None = None
+
+
+class BranchUpdate(BaseModel):
+    branch_name: str | None = None
+    branch_code: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    address_city: str | None = None
+    address_state: str | None = None
+    address_postal_code: str | None = None
+    address_country: str | None = None
+    phone: str | None = None
+
+
+class BranchOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    branch_name: str
+    branch_code: str | None
+    address_line1: str | None
+    address_line2: str | None
+    address_city: str | None
+    address_state: str | None
+    address_postal_code: str | None
+    address_country: str | None
     phone: str | None
     is_active: bool
 

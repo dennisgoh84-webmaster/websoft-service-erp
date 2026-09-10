@@ -22,6 +22,7 @@ from app.routers import (
     billing,
     companies,
     contracts,
+    customer_groups,
     customers,
     dashboard,
     event_logs,
@@ -68,6 +69,7 @@ app.include_router(groups.router)
 app.include_router(modules.router)
 app.include_router(event_logs.router)
 app.include_router(customers.router)
+app.include_router(customer_groups.router)
 app.include_router(contracts.router)
 app.include_router(job_orders.router)
 app.include_router(service_records.router)

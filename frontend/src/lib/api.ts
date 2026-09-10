@@ -153,10 +153,21 @@ export interface Group {
 
 export type CustomerType = 'individual' | 'company'
 
+export interface CustomerGroup {
+  id: string
+  name: string
+  description: string | null
+  is_active: boolean
+  created_at: string
+}
+
 export interface Customer {
   id: string
   customer_type: CustomerType
   name: string
+  /** Tag linking this customer to others in the same group of
+   * companies -- each stays its own full account. */
+  customer_group_id: string | null
   /** The customer's code from the Odoo system being replaced -- manual,
    * for matching during the eventual historical-data migration. */
   legacy_customer_code: string | null
@@ -177,6 +188,10 @@ export interface Customer {
   /** Reserved -- nothing reads this yet, no automated emailing exists. */
   exclude_auto_sent: boolean
   terms_and_conditions: string | null
+  /** Internal-only note, never shown on any customer-facing document. */
+  memo: string | null
+  /** Billing/AR-specific note (e.g. "requires PO number on invoice"). */
+  billing_notes: string | null
   /** Days from invoice date. Terms vary per customer; null = not agreed yet. */
   payment_terms_days: number | null
   is_active: boolean
@@ -189,12 +204,30 @@ export interface Contact {
   name: string
   email: string | null
   phone: string | null
+  /** Direct dial line, distinct from the general phone (mobile/shared). */
+  direct_line: string | null
+  is_active: boolean
+}
+
+export interface Branch {
+  id: string
+  customer_id: string
+  branch_name: string
+  branch_code: string | null
+  address_line1: string | null
+  address_line2: string | null
+  address_city: string | null
+  address_state: string | null
+  address_postal_code: string | null
+  address_country: string | null
+  phone: string | null
   is_active: boolean
 }
 
 export type CustomerFields = Partial<{
   customer_type: CustomerType
   name: string
+  customer_group_id: string | null
   legacy_customer_code: string | null
   contact_person: string | null
   uen: string | null
@@ -212,6 +245,8 @@ export type CustomerFields = Partial<{
   tags: string | null
   exclude_auto_sent: boolean
   terms_and_conditions: string | null
+  memo: string | null
+  billing_notes: string | null
   payment_terms_days: number | null
 }>
 
@@ -618,7 +653,17 @@ export const api = {
   toggleModule: (key: string, enabled: boolean) =>
     request<ModuleInfo>(`/modules/${key}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
 
-  listCustomers: () => request<Customer[]>('/customers'),
+  // Dynamic filter: free-text `q` matches name/email/phone/mobile/UEN/
+  // legacy code/tags; customer_group_id pulls up a whole group of
+  // companies together; includeInactive reveals deactivated customers.
+  listCustomers: (filters: { q?: string; customer_group_id?: string; include_inactive?: boolean } = {}) =>
+    request<Customer[]>(
+      `/customers${qs({
+        q: filters.q,
+        customer_group_id: filters.customer_group_id,
+        include_inactive: filters.include_inactive ? 'true' : undefined,
+      })}`,
+    ),
   getCustomer: (id: string) => request<Customer>(`/customers/${id}`),
   createCustomer: (payload: CustomerFields & { name: string }) =>
     request<Customer>('/customers', { method: 'POST', body: JSON.stringify(payload) }),
@@ -628,14 +673,24 @@ export const api = {
   reactivateCustomer: (id: string) => request<Customer>(`/customers/${id}/reactivate`, { method: 'POST' }),
   getCustomerAuditLog: (id: string) => request<AuditLogEntry[]>(`/customers/${id}/audit-log`),
 
+  // Customer Groups (tag linking separate companies in one group)
+  listCustomerGroups: (includeInactive = false) =>
+    request<CustomerGroup[]>(`/customer-groups${includeInactive ? '?include_inactive=true' : ''}`),
+  createCustomerGroup: (payload: { name: string; description?: string }) =>
+    request<CustomerGroup>('/customer-groups', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCustomerGroup: (id: string, payload: { name?: string; description?: string; is_active?: boolean }) =>
+    request<CustomerGroup>(`/customer-groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
   listContacts: (customerId: string, includeInactive = false) =>
     request<Contact[]>(`/customers/${customerId}/contacts${includeInactive ? '?include_inactive=true' : ''}`),
-  createContact: (customerId: string, payload: { name: string; email?: string; phone?: string }) =>
-    request<Contact>(`/customers/${customerId}/contacts`, { method: 'POST', body: JSON.stringify(payload) }),
+  createContact: (
+    customerId: string,
+    payload: { name: string; email?: string; phone?: string; direct_line?: string },
+  ) => request<Contact>(`/customers/${customerId}/contacts`, { method: 'POST', body: JSON.stringify(payload) }),
   updateContact: (
     customerId: string,
     contactId: string,
-    payload: { name?: string; email?: string | null; phone?: string | null },
+    payload: { name?: string; email?: string | null; phone?: string | null; direct_line?: string | null },
   ) =>
     request<Contact>(`/customers/${customerId}/contacts/${contactId}`, {
       method: 'PATCH',
@@ -645,6 +700,46 @@ export const api = {
     request<Contact>(`/customers/${customerId}/contacts/${contactId}/deactivate`, { method: 'POST' }),
   reactivateContact: (customerId: string, contactId: string) =>
     request<Contact>(`/customers/${customerId}/contacts/${contactId}/reactivate`, { method: 'POST' }),
+
+  listBranches: (customerId: string, includeInactive = false) =>
+    request<Branch[]>(`/customers/${customerId}/branches${includeInactive ? '?include_inactive=true' : ''}`),
+  createBranch: (
+    customerId: string,
+    payload: {
+      branch_name: string
+      branch_code?: string
+      address_line1?: string
+      address_line2?: string
+      address_city?: string
+      address_state?: string
+      address_postal_code?: string
+      address_country?: string
+      phone?: string
+    },
+  ) => request<Branch>(`/customers/${customerId}/branches`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateBranch: (
+    customerId: string,
+    branchId: string,
+    payload: Partial<{
+      branch_name: string
+      branch_code: string | null
+      address_line1: string | null
+      address_line2: string | null
+      address_city: string | null
+      address_state: string | null
+      address_postal_code: string | null
+      address_country: string | null
+      phone: string | null
+    }>,
+  ) =>
+    request<Branch>(`/customers/${customerId}/branches/${branchId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  deactivateBranch: (customerId: string, branchId: string) =>
+    request<Branch>(`/customers/${customerId}/branches/${branchId}/deactivate`, { method: 'POST' }),
+  reactivateBranch: (customerId: string, branchId: string) =>
+    request<Branch>(`/customers/${customerId}/branches/${branchId}/reactivate`, { method: 'POST' }),
 
   listContracts: (filters: { status?: string; customer_id?: string } = {}) =>
     request<Contract[]>(`/contracts${qs(filters)}`),

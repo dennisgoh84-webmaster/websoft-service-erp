@@ -11,6 +11,21 @@ rather than a guess:
   - "Exclude Auto Sent" -> `exclude_auto_sent`: stored now so it
     carries over correctly, but nothing reads it yet -- there is no
     automated invoice/reminder emailing built in this system yet.
+
+Branches and Customer Groups (added 2026-09-10) answer two follow-up
+asks:
+  - "Company with branches" -> `Branch`: a customer (usually
+    customer_type=company) can have multiple branch locations, each
+    with its own address/telephone/branch code. A branch is a location
+    of the SAME legal entity/customer -- it doesn't bill separately.
+  - "Group of companies... how do I group them?" -> `CustomerGroup`:
+    confirmed 2026-09-10 as a lightweight tag, not a merged account --
+    each of (e.g.) 5 separate company names stays its own Customer
+    record with its own contracts/invoices/AR, but can be tagged with
+    a shared CustomerGroup so the Customer list can be filtered/found
+    by group. This is deliberately not a parent/child billing
+    hierarchy; that would be a much bigger, undecided feature
+    (consolidated statements etc.) -- see open-business-decisions.md.
 """
 import enum
 import uuid
@@ -28,6 +43,26 @@ class CustomerType(str, enum.Enum):
     company = "company"
 
 
+class CustomerGroup(Base):
+    """A lightweight tag linking separate Customer records that belong
+    to the same group of companies (e.g. a holding structure). Each
+    tagged Customer remains its own full account -- see module
+    docstring. Company-scoped like every other master record."""
+
+    __tablename__ = "customer_groups"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    customers: Mapped[list["Customer"]] = relationship(back_populates="customer_group")
+
+
 class Customer(Base):
     __tablename__ = "customers"
 
@@ -43,6 +78,13 @@ class Customer(Base):
         Enum(CustomerType, name="customer_type"), nullable=False, default=CustomerType.company
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # Optional tag linking this customer to others in the same group of
+    # companies. See CustomerGroup docstring -- confirmed 2026-09-10 as
+    # a tag, not a shared billing account.
+    customer_group_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("customer_groups.id"), nullable=True
+    )
 
     # Carries the customer's code from the Odoo system being replaced,
     # for matching during the eventual historical-data migration.
@@ -65,7 +107,9 @@ class Customer(Base):
     website: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Structured address (replaces the old single free-text
-    # billing_address column -- see migration for the backfill).
+    # billing_address column -- see migration for the backfill). This is
+    # the main/registered address; branch-specific addresses live on
+    # Branch below.
     address_line1: Mapped[str | None] = mapped_column(String(255), nullable=True)
     address_line2: Mapped[str | None] = mapped_column(String(255), nullable=True)
     address_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -82,6 +126,12 @@ class Customer(Base):
     exclude_auto_sent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     terms_and_conditions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Internal-only notes, never shown on any customer-facing document.
+    memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Billing-specific notes (e.g. "requires PO number on every invoice") --
+    # kept separate from `memo` since billing/AR staff and general staff
+    # often need different notes surfaced to them.
+    billing_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # AR: how long this customer has to pay, in days from the invoice
     # date. Confirmed 2026-09-10 that terms vary per customer, so there
@@ -93,6 +143,8 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     contacts: Mapped[list["Contact"]] = relationship(back_populates="customer")
+    branches: Mapped[list["Branch"]] = relationship(back_populates="customer")
+    customer_group: Mapped["CustomerGroup | None"] = relationship(back_populates="customers")
 
 
 class Contact(Base):
@@ -105,9 +157,38 @@ class Contact(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # A direct dial line, distinct from the general `phone` above (which
+    # may be a mobile or a shared extension).
+    direct_line: Mapped[str | None] = mapped_column(String(50), nullable=True)
     # Soft-delete, matching every other master record in this system
     # (Customer, Supplier, Staff, Account, Company) -- never hard-delete
     # a business contact, just stop showing it as active.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     customer: Mapped["Customer"] = relationship(back_populates="contacts")
+
+
+class Branch(Base):
+    """A branch location of a Customer -- same legal entity/account,
+    different address. Not a separate billing account (that would be a
+    separate Customer record); just where the customer's contacts and
+    correspondence for that location live. See module docstring."""
+
+    __tablename__ = "branches"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    branch_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    branch_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    address_line1: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address_line2: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    address_state: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    address_postal_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    address_country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    customer: Mapped["Customer"] = relationship(back_populates="branches")

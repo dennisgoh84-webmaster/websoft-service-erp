@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type Customer, type CustomerType } from '../lib/api'
+import { api, type Customer, type CustomerGroup, type CustomerType } from '../lib/api'
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [groups, setGroups] = useState<CustomerGroup[]>([])
   const [name, setName] = useState('')
   const [customerType, setCustomerType] = useState<CustomerType>('company')
   const [email, setEmail] = useState('')
@@ -11,11 +12,34 @@ export default function CustomersPage() {
   const [terms, setTerms] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  // Dynamic filter -- search for a particular customer, or pull up a
+  // whole group of companies together.
+  const [q, setQ] = useState('')
+  const [filterGroup, setFilterGroup] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
+
   function refresh() {
-    api.listCustomers().then(setCustomers).catch((e) => setError(e.message))
+    api
+      .listCustomers({ q: q || undefined, customer_group_id: filterGroup || undefined, include_inactive: showInactive })
+      .then(setCustomers)
+      .catch((e) => setError(e.message))
   }
 
-  useEffect(refresh, [])
+  useEffect(refresh, [q, filterGroup, showInactive])
+  useEffect(() => {
+    api.listCustomerGroups().then(setGroups).catch((e) => setError(e.message))
+  }, [])
+
+  function groupName(id: string | null) {
+    if (!id) return null
+    return groups.find((g) => g.id === id)?.name ?? null
+  }
+
+  function resetFilters() {
+    setQ('')
+    setFilterGroup('')
+    setShowInactive(false)
+  }
 
   async function onCreate(e: FormEvent) {
     e.preventDefault()
@@ -47,8 +71,8 @@ export default function CustomersPage() {
       <div className="card" style={{ marginTop: 20 }}>
         <h2>Add customer</h2>
         <p className="muted">
-          This is a quick add -- everything else (address, UEN, GST no., contact people, terms &amp;
-          conditions) is filled in from the customer's own page after it's created.
+          This is a quick add -- everything else (address, UEN, GST no., contact people, branches,
+          terms &amp; conditions) is filled in from the customer's own page after it's created.
         </p>
         <form onSubmit={onCreate}>
           <div className="form-row">
@@ -86,11 +110,41 @@ export default function CustomersPage() {
       </div>
 
       <div className="card">
-        <h2>All customers</h2>
+        <div className="filter-bar">
+          <div className="form-row" style={{ margin: 0, minWidth: 220 }}>
+            <label>Search</label>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Name, email, phone, UEN, tag..."
+            />
+          </div>
+          <div className="form-row" style={{ margin: 0 }}>
+            <label>Group of companies</label>
+            <select value={filterGroup} onChange={(e) => setFilterGroup(e.target.value)}>
+              <option value="">All</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+            Show inactive
+          </label>
+          <button type="button" className="secondary" onClick={resetFilters}>
+            Reset filters
+          </button>
+        </div>
+
+        <h2>Customers ({customers.length})</h2>
         <table>
           <thead>
             <tr>
               <th>Name</th>
+              <th>Group</th>
               <th>Type</th>
               <th>Email</th>
               <th>Phone</th>
@@ -106,6 +160,7 @@ export default function CustomersPage() {
                 <td>
                   <Link to={`/customers/${c.id}`}>{c.name}</Link>
                 </td>
+                <td className="muted">{groupName(c.customer_group_id) ?? '-'}</td>
                 <td className="muted">{c.customer_type === 'individual' ? 'Individual' : 'Company'}</td>
                 <td>{c.billing_email ?? '-'}</td>
                 <td>{c.phone ?? '-'}</td>
@@ -132,8 +187,8 @@ export default function CustomersPage() {
             ))}
             {customers.length === 0 && (
               <tr>
-                <td colSpan={8} className="muted">
-                  No customers yet.
+                <td colSpan={9} className="muted">
+                  No customers match these filters.
                 </td>
               </tr>
             )}
