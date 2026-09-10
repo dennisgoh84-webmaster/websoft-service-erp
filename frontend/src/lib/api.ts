@@ -314,6 +314,18 @@ export interface CustomerStatement {
   unallocated_credit_sgd: number
 }
 
+// ---- Chart of Accounts ----
+export type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expense'
+
+export interface Account {
+  id: string
+  code: string
+  name: string
+  account_type: AccountType
+  description: string | null
+  is_active: boolean
+}
+
 export type LicenseType = 'included' | 'add_on' | 'trial'
 
 export interface ModuleInfo {
@@ -517,6 +529,20 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ allocations }),
     }),
+  listAccounts: (filters: { include_inactive?: boolean; account_type?: string } = {}) =>
+    request<Account[]>(
+      `/accounts${qs({
+        include_inactive: filters.include_inactive ? 'true' : undefined,
+        account_type: filters.account_type,
+      })}`,
+    ),
+  createAccount: (payload: { code: string; name: string; account_type: AccountType }) =>
+    request<Account>('/accounts', { method: 'POST', body: JSON.stringify(payload) }),
+  updateAccount: (
+    id: string,
+    payload: { code?: string; name?: string; account_type?: AccountType; is_active?: boolean },
+  ) => request<Account>(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
   arAging: () => request<AgingReport>('/accounts-receivable/aging'),
   customerStatement: (customerId: string) =>
     request<CustomerStatement>(`/accounts-receivable/statement/${customerId}`),

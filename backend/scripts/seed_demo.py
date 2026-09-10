@@ -48,6 +48,7 @@ from app.models.customers import Customer
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
+from app.models.accounting import Account, AccountType
 from app.models.tax import TaxCode
 from app.services import billing as billing_svc
 from app.services import contracts as contract_svc
@@ -82,7 +83,7 @@ MODULE_CATALOG = [
     ("inventory", "Inventory", False, False),
     ("hardware_management", "Hardware Management", False, False),
     ("commission_management", "Commission Management", False, False),  # deferred
-    ("finance_accounting", "Finance / Accounting", False, False),
+    ("finance_accounting", "Finance / Accounting", True, True),
     ("reporting", "Reporting / Management Dashboard", True, True),
     ("integrations", "Integrations (incl. Odoo migration)", False, False),  # deferred
     ("ai_assistant", "AI Assistant", False, False),
@@ -146,6 +147,7 @@ GROUP_CATALOG = {
         {
             "billing": FULL,
             "accounts_receivable": FULL,
+            "finance_accounting": FULL,
             "service_contracts": VIEW,
             "customer_management": VIEW,
             "service_operations": NONE,
@@ -227,6 +229,67 @@ def seed_tax_codes(db, company: Company):
     db.flush()
 
 
+# A conventional Singapore SME chart of accounts, seeded as a STARTING
+# POINT (confirmed approach with Dennis, 2026-09-10) -- not a decided
+# chart. Every line can be renamed, added to or retired from the Chart
+# of Accounts screen. Nothing posts to these yet; GL posting arrives
+# with the Finance / Accounting module, so no assumption is made here
+# about which account a given transaction hits.
+CHART_OF_ACCOUNTS = [
+    # Assets (1xxx)
+    ("1000", "Cash at bank", AccountType.ASSET),
+    ("1010", "Petty cash", AccountType.ASSET),
+    ("1100", "Accounts receivable", AccountType.ASSET),
+    ("1150", "Accrued revenue", AccountType.ASSET),
+    ("1200", "Prepayments", AccountType.ASSET),
+    ("1300", "Inventory", AccountType.ASSET),
+    ("1500", "Office equipment", AccountType.ASSET),
+    ("1510", "Accumulated depreciation -- office equipment", AccountType.ASSET),
+    # Liabilities (2xxx)
+    ("2000", "Accounts payable", AccountType.LIABILITY),
+    ("2100", "GST output tax (collected on sales)", AccountType.LIABILITY),
+    ("2110", "GST input tax (paid on purchases)", AccountType.LIABILITY),
+    ("2200", "Accruals", AccountType.LIABILITY),
+    ("2300", "Deferred revenue (unearned contract income)", AccountType.LIABILITY),
+    ("2400", "CPF payable", AccountType.LIABILITY),
+    ("2500", "Corporate tax payable", AccountType.LIABILITY),
+    # Equity (3xxx)
+    ("3000", "Share capital", AccountType.EQUITY),
+    ("3100", "Retained earnings", AccountType.EQUITY),
+    # Revenue (4xxx)
+    ("4000", "Service contract revenue", AccountType.REVENUE),
+    ("4010", "Excess usage revenue", AccountType.REVENUE),
+    ("4020", "Project revenue", AccountType.REVENUE),
+    ("4030", "Hardware sales", AccountType.REVENUE),
+    ("4900", "Other income", AccountType.REVENUE),
+    # Expenses (5xxx-6xxx)
+    ("5000", "Cost of services", AccountType.EXPENSE),
+    ("5010", "Cost of hardware sold", AccountType.EXPENSE),
+    ("5020", "Subcontractor costs", AccountType.EXPENSE),
+    ("6000", "Salaries and wages", AccountType.EXPENSE),
+    ("6010", "CPF contributions", AccountType.EXPENSE),
+    ("6100", "Rent", AccountType.EXPENSE),
+    ("6110", "Utilities", AccountType.EXPENSE),
+    ("6200", "Software and subscriptions", AccountType.EXPENSE),
+    ("6300", "Professional fees", AccountType.EXPENSE),
+    ("6400", "Marketing", AccountType.EXPENSE),
+    ("6500", "Bank charges", AccountType.EXPENSE),
+    ("6600", "Depreciation", AccountType.EXPENSE),
+    ("6700", "Bad debts written off", AccountType.EXPENSE),
+    ("6900", "Other operating expenses", AccountType.EXPENSE),
+]
+
+
+def seed_chart_of_accounts(db, company: Company):
+    for code, name, account_type in CHART_OF_ACCOUNTS:
+        db.add(
+            Account(
+                company_id=company.id, code=code, name=name, account_type=account_type
+            )
+        )
+    db.flush()
+
+
 def logo_data_uri(initials: str, bg: str = "#7a1f2e") -> str:
     """A simple placeholder logo in the company colours (maroon/white),
     stored the same way an uploaded one is: an image data URI on the
@@ -277,6 +340,8 @@ def main():
         )
         seed_tax_codes(db, company)
         seed_tax_codes(db, company2)
+        seed_chart_of_accounts(db, company)
+        seed_chart_of_accounts(db, company2)
         groups = seed_groups(db, company)
         groups2 = seed_groups(db, company2)
 

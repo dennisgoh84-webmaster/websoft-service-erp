@@ -130,6 +130,18 @@ sub-detail is called out explicitly).
 
 ## 2. Billing & Invoicing
 
+2.0. **Is the company GST-registered, and how is GST applied?**
+   **Status: DECIDED (2026-09-10).** Webmaster Consultancy is
+   GST-registered and its services are **standard-rated** (tax code SR,
+   currently 9%). Invoices are tax invoices showing the supplier's name,
+   address and GST registration number, a serial invoice number, and the
+   net / GST / total split. The rate is held in a tax code table rather
+   than hard-coded, so a rate change is a configuration change, and each
+   invoice stores the rate it was raised at. Zero-rated (ZR), exempt (ES)
+   and out-of-scope (OS) codes exist for future use but nothing is
+   assumed to use them yet.
+   *Arises in:* Billing, Accounts Receivable, Finance / Accounting.
+
 2.1. **What is the recurring billing cycle for contracts?**
    **Status: DECIDED — BILL-001.** Annual upfront — the full 12-month
    contract value is billed at contract start/renewal.
@@ -165,9 +177,21 @@ sub-detail is called out explicitly).
 
 2.7. **What is the value threshold above which a credit note requires
    Dennis's approval** (per BILL-003)?
+   **Status: STILL OPEN**, but not blocking: like the write-off
+   threshold, this is a configurable field in Company Setup, unset by
+   default, and while unset the owner approves.
    *Arises in:* Billing.
 
 ## 3. Payments & Accounts Receivable
+
+3.0. **What payment terms apply to customer invoices?**
+   **Status: DECIDED (2026-09-10).** Terms **vary per customer** — there
+   is no company-wide default. `payment_terms_days` is set on each
+   customer record and drives the invoice due date and AR aging. A
+   customer with no agreed terms gets invoices with **no due date**
+   rather than an invented one, and those invoices age as "current"
+   until terms are agreed.
+   *Arises in:* Accounts Receivable, Billing, Customer Management.
 
 3.1. **How are customer payments allocated** when a payment does not
    exactly match one invoice, or covers multiple invoices?
@@ -188,6 +212,10 @@ sub-detail is called out explicitly).
 
 3.4. **What is the value threshold above which a write-off requires
    Dennis's approval** (per AR-002)?
+   **Status: STILL OPEN**, but no longer blocking: the threshold is a
+   configurable field in Company Setup rather than a hard-coded number.
+   Until Dennis sets one, the system requires the **owner's approval for
+   every write-off** — the safe reading of an undecided rule.
    *Arises in:* Accounts Receivable.
 
 ## 4. Purchasing & Accounts Payable
@@ -212,11 +240,51 @@ sub-detail is called out explicitly).
 
 4.4. **What is the value threshold above which a purchase order requires
    Dennis's approval** (per PUR-001)?
+   **Status: STILL OPEN**, but not blocking: a configurable field in
+   Company Setup, unset by default, owner approves while unset.
    *Arises in:* Purchasing.
 
 4.5. **How are PO/invoice matching mismatches handled** under the PUR-002
    2-way match (e.g. price or quantity discrepancy)?
    *Arises in:* Accounts Payable, Purchasing; Workflow F.
+
+## 4b. Accounting & Finance (raised 2026-09-10 while building AR)
+
+4b.1. **What is Webmaster's financial year end?** Needed before any
+   period close, financial statements, or year-based reporting.
+   *Arises in:* Finance / Accounting, Reporting.
+
+4b.2. **Which account does each transaction post to?** The chart of
+   accounts now exists (seeded from a conventional Singapore SME chart
+   for Dennis to adjust), but the posting rules — e.g. which revenue
+   account a service contract invoice credits, how GST output tax is
+   posted, how a bad-debt write-off is treated — are **not decided** and
+   nothing posts to the ledger yet.
+   *Arises in:* Finance / Accounting, Billing, Accounts Receivable.
+
+4b.3. **Is annual-upfront contract revenue deferred and released monthly,
+   or taken entirely on invoice?** BILL-005 says revenue is recognized on
+   invoice, which suggests the latter, but a 12-month contract billed
+   upfront is the classic deferred-revenue case and the two readings give
+   very different monthly figures. A "Deferred revenue" account has been
+   seeded but is unused pending this decision.
+   *Arises in:* Finance / Accounting, Billing.
+
+4b.4. **How are GST returns (F5) prepared and filed**, and over what
+   accounting periods? Output tax is captured per invoice, but the return
+   itself is not built.
+   *Arises in:* Finance / Accounting, Integrations.
+
+4b.5. **Does Webmaster ever invoice in a currency other than SGD?**
+   Everything is SGD today; multi-currency has not been requested and is
+   not assumed.
+   *Arises in:* Billing, Finance / Accounting.
+
+4b.6. **What is the invoice number format?** IRAS requires serial
+   numbering but no particular layout. The system currently uses
+   `INV-<year>-<0001>`, chosen as a convention rather than a decision —
+   easily changed.
+   *Arises in:* Billing.
 
 ## 5. Inventory & Hardware
 

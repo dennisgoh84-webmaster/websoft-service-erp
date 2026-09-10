@@ -31,6 +31,7 @@ export default function Layout() {
         <NavLink to="/excess-review">Excess Review</NavLink>
         <NavLink to="/invoices">Invoices</NavLink>
         <NavLink to="/accounts-receivable">Accounts Receivable</NavLink>
+        <NavLink to="/chart-of-accounts">Chart of Accounts</NavLink>
         {user?.role === 'owner' && <NavLink to="/company-setup">Company Setup</NavLink>}
         {user?.role === 'owner' && <NavLink to="/modules">Module Control</NavLink>}
         {user?.role === 'owner' && <NavLink to="/staff">Staff Master</NavLink>}

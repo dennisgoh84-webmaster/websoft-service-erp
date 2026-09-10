@@ -9,6 +9,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.accounting import AccountType
 from app.models.contracts import ContractStatus, ExcessTreatment
 from app.models.core import UserRole
 from app.models.groups import AccessLevel
@@ -490,6 +491,32 @@ class CustomerStatement(BaseModel):
     lines: list[StatementLine]
     total_outstanding_sgd: float
     unallocated_credit_sgd: float
+
+
+# ---- Chart of Accounts ----
+class AccountOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    code: str
+    name: str
+    account_type: AccountType
+    description: str | None
+    is_active: bool
+
+
+class AccountCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=20)
+    name: str = Field(min_length=1)
+    account_type: AccountType
+    description: str | None = None
+
+
+class AccountUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    account_type: AccountType | None = None
+    description: str | None = None
+    is_active: bool | None = None
 
 
 # ---- Module Control / licensing ----
