@@ -5,21 +5,27 @@ import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.models.core import User
+from app.models.core import Company, User
 from app.models.customers import Customer
 from app.models.groups import AccessLevel
 from app.models.quotations import Quotation, QuotationLine, QuotationStatus
 from app.schemas.schemas import QuotationActionResult, QuotationCreate, QuotationOut
-from app.services import audit
+from app.services import audit, docx_forms, exports
 from app.services import quotations as quotation_svc
 from app.services.authority import require_module_access
 from app.services.numbering import next_document_number
 
 router = APIRouter(prefix="/api/quotations", tags=["quotations"])
 MODULE = "sales"
+
+QUOTATION_EXPORT_FIELDS = [
+    "quotation_number", "customer_name", "quotation_date", "valid_until", "status",
+    "amount_sgd", "gst_amount_sgd", "total_amount_sgd",
+]
 
 
 def _quotation_or_404(db: Session, quotation_id: uuid.UUID, company_id: uuid.UUID) -> Quotation:
@@ -34,6 +40,21 @@ def _quotation_or_404(db: Session, quotation_id: uuid.UUID, company_id: uuid.UUI
     return quotation
 
 
+def _filter_quotations(
+    db: Session, company_id: uuid.UUID, customer_id: uuid.UUID | None, status: QuotationStatus | None
+) -> list[Quotation]:
+    query = (
+        db.query(Quotation)
+        .options(selectinload(Quotation.lines))
+        .filter(Quotation.company_id == company_id)
+    )
+    if customer_id:
+        query = query.filter(Quotation.customer_id == customer_id)
+    if status:
+        query = query.filter(Quotation.status == status)
+    return query.order_by(Quotation.quotation_date.desc(), Quotation.quotation_number.desc()).all()
+
+
 @router.get("", response_model=list[QuotationOut])
 def list_quotations(
     customer_id: uuid.UUID | None = None,
@@ -41,16 +62,60 @@ def list_quotations(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    query = (
-        db.query(Quotation)
-        .options(selectinload(Quotation.lines))
-        .filter(Quotation.company_id == current_user.company_id)
+    return _filter_quotations(db, current_user.company_id, customer_id, status)
+
+
+def _quotation_row(q: Quotation, customer_name: str) -> dict:
+    return {
+        "quotation_number": q.quotation_number,
+        "customer_name": customer_name,
+        "quotation_date": q.quotation_date.isoformat(),
+        "valid_until": q.valid_until.isoformat() if q.valid_until else "",
+        "status": q.status.value,
+        "amount_sgd": f"{float(q.amount_sgd):.2f}",
+        "gst_amount_sgd": f"{float(q.gst_amount_sgd):.2f}",
+        "total_amount_sgd": f"{float(q.total_amount_sgd):.2f}",
+    }
+
+
+def _quotations_for_export(
+    db: Session, company_id: uuid.UUID, customer_id: uuid.UUID | None, status: QuotationStatus | None
+) -> list[dict]:
+    quotations = _filter_quotations(db, company_id, customer_id, status)
+    customer_names = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == company_id)}
+    return [_quotation_row(q, customer_names.get(q.customer_id, "")) for q in quotations]
+
+
+@router.get("/export.csv")
+def export_quotations_csv(
+    customer_id: uuid.UUID | None = None,
+    status: QuotationStatus | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _quotations_for_export(db, current_user.company_id, customer_id, status)
+    csv_text = exports.rows_to_csv(QUOTATION_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=quotations.csv"},
     )
-    if customer_id:
-        query = query.filter(Quotation.customer_id == customer_id)
-    if status:
-        query = query.filter(Quotation.status == status)
-    return query.order_by(Quotation.quotation_date.desc(), Quotation.quotation_number.desc()).all()
+
+
+@router.get("/export.xlsx")
+def export_quotations_excel(
+    customer_id: uuid.UUID | None = None,
+    status: QuotationStatus | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _quotations_for_export(db, current_user.company_id, customer_id, status)
+    data = exports.rows_to_excel(QUOTATION_EXPORT_FIELDS, rows, sheet_name="Quotations")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=quotations.xlsx"},
+    )
 
 
 @router.get("/{quotation_id}", response_model=QuotationOut)
@@ -60,6 +125,23 @@ def get_quotation(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     return _quotation_or_404(db, quotation_id, current_user.company_id)
+
+
+@router.get("/{quotation_id}/export.docx")
+def export_quotation_docx(
+    quotation_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    quotation = _quotation_or_404(db, quotation_id, current_user.company_id)
+    customer = db.get(Customer, quotation.customer_id)
+    company = db.get(Company, current_user.company_id)
+    data = docx_forms.quotation_to_docx(quotation, customer, company)
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={quotation.quotation_number}.docx"},
+    )
 
 
 @router.post("", response_model=QuotationOut)

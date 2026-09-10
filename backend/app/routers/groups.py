@@ -6,6 +6,7 @@ rationale and app/services/authority.py for how it is enforced.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
@@ -19,11 +20,13 @@ from app.schemas.schemas import (
     GroupUpdate,
 )
 from app.routers.companies import _accessible_company_ids
-from app.services import audit
+from app.services import audit, exports
 from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/groups", tags=["groups"])
 MODULE = "core_administration"
+
+GROUP_EXPORT_FIELDS = ["name", "description", "member_count"]
 
 
 def _get_group_or_404(db: Session, group_id: uuid.UUID) -> Group:
@@ -95,6 +98,52 @@ def list_groups(
         .all()
     )
     return [GroupOut.from_model(g, member_count=_member_count(db, g.id)) for g in groups]
+
+
+def _groups_for_export(db: Session, current_user: User, company_id: uuid.UUID | None) -> list[dict]:
+    target_company_id = company_id or current_user.company_id
+    if company_id is not None and company_id not in _accessible_company_ids(db, current_user):
+        raise HTTPException(status_code=403, detail="You do not have access to this company.")
+    groups = (
+        db.query(Group)
+        .filter(Group.company_id == target_company_id)
+        .order_by(Group.name)
+        .all()
+    )
+    return [
+        {"name": g.name, "description": g.description or "", "member_count": _member_count(db, g.id)}
+        for g in groups
+    ]
+
+
+@router.get("/export.csv")
+def export_groups_csv(
+    company_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _groups_for_export(db, current_user, company_id)
+    csv_text = exports.rows_to_csv(GROUP_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=groups.csv"},
+    )
+
+
+@router.get("/export.xlsx")
+def export_groups_excel(
+    company_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _groups_for_export(db, current_user, company_id)
+    data = exports.rows_to_excel(GROUP_EXPORT_FIELDS, rows, sheet_name="Groups")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=groups.xlsx"},
+    )
 
 
 @router.get("/{group_id}", response_model=GroupOut)

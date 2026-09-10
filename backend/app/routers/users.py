@@ -12,6 +12,7 @@ the per-company view/edit lives on /company-access.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -27,12 +28,14 @@ from app.schemas.schemas import (
     UserPasswordReset,
     UserUpdate,
 )
-from app.services import audit
+from app.services import audit, exports
 from app.services.auth import hash_password
 from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 MODULE = "core_administration"
+
+USER_EXPORT_FIELDS = ["full_name", "email", "role", "group_name", "is_active"]
 
 
 def _get_user_or_404(db: Session, user_id: uuid.UUID) -> User:
@@ -97,6 +100,64 @@ def list_users(
     if not include_inactive:
         query = query.filter(User.is_active)
     return [_user_out(db, u, current_user.company_id) for u in query.order_by(User.full_name).all()]
+
+
+def _users_for_export(db: Session, company_id: uuid.UUID, include_inactive: bool) -> list[dict]:
+    query = db.query(User).filter(User.company_id == company_id)
+    if not include_inactive:
+        query = query.filter(User.is_active)
+    users = query.order_by(User.full_name).all()
+    group_ids = {
+        a.group_id
+        for a in db.query(UserCompanyAccess).filter(
+            UserCompanyAccess.user_id.in_({u.id for u in users}), UserCompanyAccess.company_id == company_id
+        )
+        if a.group_id
+    } if users else set()
+    group_names = {g.id: g.name for g in db.query(Group).filter(Group.id.in_(group_ids))} if group_ids else {}
+    rows = []
+    for u in users:
+        out = _user_out(db, u, company_id)
+        rows.append(
+            {
+                "full_name": u.full_name,
+                "email": u.email,
+                "role": out.role.value,
+                "group_name": group_names.get(out.group_id, "") if out.group_id else "",
+                "is_active": u.is_active,
+            }
+        )
+    return rows
+
+
+@router.get("/export.csv")
+def export_users_csv(
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = _users_for_export(db, current_user.company_id, include_inactive)
+    csv_text = exports.rows_to_csv(USER_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=staff-master.csv"},
+    )
+
+
+@router.get("/export.xlsx")
+def export_users_excel(
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = _users_for_export(db, current_user.company_id, include_inactive)
+    data = exports.rows_to_excel(USER_EXPORT_FIELDS, rows, sheet_name="Staff Master")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=staff-master.xlsx"},
+    )
 
 
 @router.post("", response_model=UserOut)

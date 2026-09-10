@@ -9,10 +9,11 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.models.core import User
+from app.models.core import Company, User
 from app.models.groups import AccessLevel
 from app.models.payables import (
     BillStatus,
@@ -36,7 +37,7 @@ from app.schemas.schemas import (
     SupplierPaymentOut,
     SupplierUpdate,
 )
-from app.services import audit
+from app.services import audit, docx_forms, exports
 from app.services import payables as ap_svc
 from app.services.accounts_receivable import aging_bucket_for
 from app.services.authority import require_module_access
@@ -45,6 +46,24 @@ from app.services.tax import apply_gst
 
 router = APIRouter(prefix="/api/accounts-payable", tags=["accounts-payable"])
 MODULE = "accounts_payable"
+
+SUPPLIER_EXPORT_FIELDS = ["name", "email", "address", "gst_registration_no", "payment_terms_days", "is_active"]
+PURCHASE_ORDER_EXPORT_FIELDS = [
+    "po_number", "supplier_name", "order_date", "description", "amount_sgd",
+    "gst_amount_sgd", "total_amount_sgd", "status",
+]
+BILL_EXPORT_FIELDS = [
+    "bill_number", "supplier_invoice_no", "supplier_name", "invoice_date", "due_date",
+    "description", "amount_sgd", "gst_amount_sgd", "total_amount_sgd", "amount_paid_sgd",
+    "outstanding_sgd", "match_status", "status",
+]
+PAYMENT_EXPORT_FIELDS = [
+    "voucher_number", "supplier_name", "payment_date", "amount_sgd", "allocated_sgd",
+    "unallocated_sgd", "method", "reference",
+]
+AP_AGING_EXPORT_FIELDS = [
+    "supplier_name", "current", "days_1_30", "days_31_60", "days_61_90", "over_90", "total",
+]
 
 
 def _supplier_or_404(db: Session, supplier_id: uuid.UUID, company_id: uuid.UUID) -> Supplier:
@@ -64,16 +83,61 @@ def _bill_or_404(db: Session, bill_id: uuid.UUID, company_id: uuid.UUID) -> Supp
 # ---- Suppliers ------------------------------------------------------
 
 
+def _filter_suppliers(db: Session, company_id: uuid.UUID, include_inactive: bool) -> list[Supplier]:
+    q = db.query(Supplier).filter(Supplier.company_id == company_id)
+    if not include_inactive:
+        q = q.filter(Supplier.is_active)
+    return q.order_by(Supplier.name).all()
+
+
 @router.get("/suppliers", response_model=list[SupplierOut])
 def list_suppliers(
     include_inactive: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    q = db.query(Supplier).filter(Supplier.company_id == current_user.company_id)
-    if not include_inactive:
-        q = q.filter(Supplier.is_active)
-    return q.order_by(Supplier.name).all()
+    return _filter_suppliers(db, current_user.company_id, include_inactive)
+
+
+def _supplier_row(s: Supplier) -> dict:
+    return {
+        "name": s.name,
+        "email": s.email or "",
+        "address": s.address or "",
+        "gst_registration_no": s.gst_registration_no or "",
+        "payment_terms_days": s.payment_terms_days if s.payment_terms_days is not None else "",
+        "is_active": s.is_active,
+    }
+
+
+@router.get("/suppliers/export.csv")
+def export_suppliers_csv(
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = [_supplier_row(s) for s in _filter_suppliers(db, current_user.company_id, include_inactive)]
+    csv_text = exports.rows_to_csv(SUPPLIER_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=suppliers.csv"},
+    )
+
+
+@router.get("/suppliers/export.xlsx")
+def export_suppliers_excel(
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = [_supplier_row(s) for s in _filter_suppliers(db, current_user.company_id, include_inactive)]
+    data = exports.rows_to_excel(SUPPLIER_EXPORT_FIELDS, rows, sheet_name="Suppliers")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=suppliers.xlsx"},
+    )
 
 
 @router.post("/suppliers", response_model=SupplierOut)
@@ -140,6 +204,20 @@ def update_supplier(
 # ---- Purchase orders ------------------------------------------------
 
 
+def _filter_purchase_orders(
+    db: Session,
+    company_id: uuid.UUID,
+    supplier_id: uuid.UUID | None,
+    status: PurchaseOrderStatus | None,
+) -> list[PurchaseOrder]:
+    q = db.query(PurchaseOrder).filter(PurchaseOrder.company_id == company_id)
+    if supplier_id:
+        q = q.filter(PurchaseOrder.supplier_id == supplier_id)
+    if status:
+        q = q.filter(PurchaseOrder.status == status)
+    return q.order_by(PurchaseOrder.order_date.desc()).all()
+
+
 @router.get("/purchase-orders", response_model=list[PurchaseOrderOut])
 def list_purchase_orders(
     supplier_id: uuid.UUID | None = None,
@@ -147,12 +225,56 @@ def list_purchase_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    q = db.query(PurchaseOrder).filter(PurchaseOrder.company_id == current_user.company_id)
-    if supplier_id:
-        q = q.filter(PurchaseOrder.supplier_id == supplier_id)
-    if status:
-        q = q.filter(PurchaseOrder.status == status)
-    return q.order_by(PurchaseOrder.order_date.desc()).all()
+    return _filter_purchase_orders(db, current_user.company_id, supplier_id, status)
+
+
+def _purchase_order_row(po: PurchaseOrder, supplier_name: str) -> dict:
+    return {
+        "po_number": po.po_number,
+        "supplier_name": supplier_name,
+        "order_date": po.order_date.isoformat(),
+        "description": po.description,
+        "amount_sgd": f"{float(po.amount_sgd):.2f}",
+        "gst_amount_sgd": f"{float(po.gst_amount_sgd):.2f}",
+        "total_amount_sgd": f"{float(po.total_amount_sgd):.2f}",
+        "status": po.status.value,
+    }
+
+
+@router.get("/purchase-orders/export.csv")
+def export_purchase_orders_csv(
+    supplier_id: uuid.UUID | None = None,
+    status: PurchaseOrderStatus | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    orders = _filter_purchase_orders(db, current_user.company_id, supplier_id, status)
+    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    rows = [_purchase_order_row(po, suppliers.get(po.supplier_id, "")) for po in orders]
+    csv_text = exports.rows_to_csv(PURCHASE_ORDER_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=purchase-orders.csv"},
+    )
+
+
+@router.get("/purchase-orders/export.xlsx")
+def export_purchase_orders_excel(
+    supplier_id: uuid.UUID | None = None,
+    status: PurchaseOrderStatus | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    orders = _filter_purchase_orders(db, current_user.company_id, supplier_id, status)
+    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    rows = [_purchase_order_row(po, suppliers.get(po.supplier_id, "")) for po in orders]
+    data = exports.rows_to_excel(PURCHASE_ORDER_EXPORT_FIELDS, rows, sheet_name="Purchase Orders")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=purchase-orders.xlsx"},
+    )
 
 
 @router.post("/purchase-orders", response_model=PurchaseOrderOut)
@@ -230,6 +352,20 @@ def approve_po(
 # ---- Supplier invoices (bills) --------------------------------------
 
 
+def _filter_bills(
+    db: Session,
+    company_id: uuid.UUID,
+    supplier_id: uuid.UUID | None,
+    status: BillStatus | None,
+) -> list[SupplierInvoice]:
+    q = db.query(SupplierInvoice).filter(SupplierInvoice.company_id == company_id)
+    if supplier_id:
+        q = q.filter(SupplierInvoice.supplier_id == supplier_id)
+    if status:
+        q = q.filter(SupplierInvoice.status == status)
+    return q.order_by(SupplierInvoice.invoice_date.desc()).all()
+
+
 @router.get("/bills", response_model=list[SupplierInvoiceOut])
 def list_bills(
     supplier_id: uuid.UUID | None = None,
@@ -237,12 +373,61 @@ def list_bills(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    q = db.query(SupplierInvoice).filter(SupplierInvoice.company_id == current_user.company_id)
-    if supplier_id:
-        q = q.filter(SupplierInvoice.supplier_id == supplier_id)
-    if status:
-        q = q.filter(SupplierInvoice.status == status)
-    return q.order_by(SupplierInvoice.invoice_date.desc()).all()
+    return _filter_bills(db, current_user.company_id, supplier_id, status)
+
+
+def _bill_row(b: SupplierInvoice, supplier_name: str) -> dict:
+    return {
+        "bill_number": b.bill_number,
+        "supplier_invoice_no": b.supplier_invoice_no or "",
+        "supplier_name": supplier_name,
+        "invoice_date": b.invoice_date.isoformat(),
+        "due_date": b.due_date.isoformat() if b.due_date else "",
+        "description": b.description,
+        "amount_sgd": f"{float(b.amount_sgd):.2f}",
+        "gst_amount_sgd": f"{float(b.gst_amount_sgd):.2f}",
+        "total_amount_sgd": f"{float(b.total_amount_sgd):.2f}",
+        "amount_paid_sgd": f"{float(b.amount_paid_sgd):.2f}",
+        "outstanding_sgd": f"{float(b.outstanding_sgd):.2f}",
+        "match_status": b.match_status.value,
+        "status": b.status.value,
+    }
+
+
+@router.get("/bills/export.csv")
+def export_bills_csv(
+    supplier_id: uuid.UUID | None = None,
+    status: BillStatus | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    bills = _filter_bills(db, current_user.company_id, supplier_id, status)
+    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    rows = [_bill_row(b, suppliers.get(b.supplier_id, "")) for b in bills]
+    csv_text = exports.rows_to_csv(BILL_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=bills.csv"},
+    )
+
+
+@router.get("/bills/export.xlsx")
+def export_bills_excel(
+    supplier_id: uuid.UUID | None = None,
+    status: BillStatus | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    bills = _filter_bills(db, current_user.company_id, supplier_id, status)
+    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    rows = [_bill_row(b, suppliers.get(b.supplier_id, "")) for b in bills]
+    data = exports.rows_to_excel(BILL_EXPORT_FIELDS, rows, sheet_name="Bills")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=bills.xlsx"},
+    )
 
 
 @router.post("/bills", response_model=SupplierInvoiceOut)
@@ -303,27 +488,132 @@ def create_bill(
 # ---- Payment vouchers -----------------------------------------------
 
 
+def _filter_supplier_payments(
+    db: Session, company_id: uuid.UUID, supplier_id: uuid.UUID | None
+) -> list[SupplierPayment]:
+    q = (
+        db.query(SupplierPayment)
+        .options(selectinload(SupplierPayment.allocations))
+        .filter(SupplierPayment.company_id == company_id)
+    )
+    if supplier_id:
+        q = q.filter(SupplierPayment.supplier_id == supplier_id)
+    return q.order_by(SupplierPayment.payment_date.desc()).all()
+
+
+def _bill_numbers(db: Session, company_id: uuid.UUID) -> dict:
+    return {
+        b.id: b.bill_number
+        for b in db.query(SupplierInvoice).filter(SupplierInvoice.company_id == company_id).all()
+    }
+
+
 @router.get("/payments", response_model=list[SupplierPaymentOut])
 def list_supplier_payments(
     supplier_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    q = (
+    payments = _filter_supplier_payments(db, current_user.company_id, supplier_id)
+    numbers = _bill_numbers(db, current_user.company_id)
+    return [SupplierPaymentOut.from_model(p, numbers) for p in payments]
+
+
+def _payment_row(p: SupplierPayment, supplier_name: str) -> dict:
+    return {
+        "voucher_number": p.voucher_number,
+        "supplier_name": supplier_name,
+        "payment_date": p.payment_date.isoformat(),
+        "amount_sgd": f"{float(p.amount_sgd):.2f}",
+        "allocated_sgd": f"{float(p.allocated_sgd):.2f}",
+        "unallocated_sgd": f"{float(p.unallocated_sgd):.2f}",
+        "method": p.method,
+        "reference": p.reference or "",
+    }
+
+
+@router.get("/payments/export.csv")
+def export_supplier_payments_csv(
+    supplier_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    payments = _filter_supplier_payments(db, current_user.company_id, supplier_id)
+    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    rows = [_payment_row(p, suppliers.get(p.supplier_id, "")) for p in payments]
+    csv_text = exports.rows_to_csv(PAYMENT_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=payment-vouchers.csv"},
+    )
+
+
+@router.get("/payments/export.xlsx")
+def export_supplier_payments_excel(
+    supplier_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    payments = _filter_supplier_payments(db, current_user.company_id, supplier_id)
+    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    rows = [_payment_row(p, suppliers.get(p.supplier_id, "")) for p in payments]
+    data = exports.rows_to_excel(PAYMENT_EXPORT_FIELDS, rows, sheet_name="Payment Vouchers")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=payment-vouchers.xlsx"},
+    )
+
+
+@router.get("/payments/{payment_id}", response_model=SupplierPaymentOut)
+def get_supplier_payment(
+    payment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    payment = (
         db.query(SupplierPayment)
         .options(selectinload(SupplierPayment.allocations))
-        .filter(SupplierPayment.company_id == current_user.company_id)
+        .filter(
+            SupplierPayment.id == payment_id,
+            SupplierPayment.company_id == current_user.company_id,
+        )
+        .first()
     )
-    if supplier_id:
-        q = q.filter(SupplierPayment.supplier_id == supplier_id)
-    payments = q.order_by(SupplierPayment.payment_date.desc()).all()
-    numbers = {
-        b.id: b.bill_number
-        for b in db.query(SupplierInvoice)
-        .filter(SupplierInvoice.company_id == current_user.company_id)
-        .all()
-    }
-    return [SupplierPaymentOut.from_model(p, numbers) for p in payments]
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment voucher not found")
+    numbers = _bill_numbers(db, current_user.company_id)
+    return SupplierPaymentOut.from_model(payment, numbers)
+
+
+@router.get("/payments/{payment_id}/export.docx")
+def export_supplier_payment_docx(
+    payment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    payment = (
+        db.query(SupplierPayment)
+        .options(selectinload(SupplierPayment.allocations))
+        .filter(
+            SupplierPayment.id == payment_id,
+            SupplierPayment.company_id == current_user.company_id,
+        )
+        .first()
+    )
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment voucher not found")
+    supplier = _supplier_or_404(db, payment.supplier_id, current_user.company_id)
+    company = db.get(Company, current_user.company_id)
+    data = docx_forms.payment_voucher_to_docx(
+        payment, supplier, company, _bill_numbers(db, current_user.company_id)
+    )
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={payment.voucher_number}.docx"},
+    )
 
 
 @router.post("/payments", response_model=SupplierPaymentOut)
@@ -419,25 +709,19 @@ def allocate_supplier_payment(
     return SupplierPaymentOut.from_model(payment)
 
 
-@router.get("/aging", response_model=APAgingReport)
-def ap_aging(
-    as_at: date | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
-):
-    """What we owe suppliers, bucketed by how far past due it is."""
+def _ap_aging_rows(db: Session, company_id: uuid.UUID, as_at: date | None) -> tuple[date, list[APAgingRow]]:
     as_at = as_at or date.today()
     bills = (
         db.query(SupplierInvoice)
         .filter(
-            SupplierInvoice.company_id == current_user.company_id,
+            SupplierInvoice.company_id == company_id,
             SupplierInvoice.status != BillStatus.PAID,
         )
         .all()
     )
     suppliers = {
         s.id: s.name
-        for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id).all()
+        for s in db.query(Supplier).filter(Supplier.company_id == company_id).all()
     }
 
     buckets: dict[uuid.UUID, dict[str, Decimal]] = {}
@@ -466,4 +750,61 @@ def ap_aging(
         for sid, b in buckets.items()
     ]
     rows.sort(key=lambda r: r.total, reverse=True)
-    return APAgingReport(as_at=as_at, rows=rows, total=sum(r.total for r in rows))
+    return as_at, rows
+
+
+@router.get("/aging", response_model=APAgingReport)
+def ap_aging(
+    as_at: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    """What we owe suppliers, bucketed by how far past due it is."""
+    resolved_as_at, rows = _ap_aging_rows(db, current_user.company_id, as_at)
+    return APAgingReport(as_at=resolved_as_at, rows=rows, total=sum(r.total for r in rows))
+
+
+def _ap_aging_for_export(db: Session, company_id: uuid.UUID, as_at: date | None) -> list[dict]:
+    _resolved_as_at, rows = _ap_aging_rows(db, company_id, as_at)
+    return [
+        {
+            "supplier_name": r.supplier_name,
+            "current": f"{r.current:.2f}",
+            "days_1_30": f"{r.days_1_30:.2f}",
+            "days_31_60": f"{r.days_31_60:.2f}",
+            "days_61_90": f"{r.days_61_90:.2f}",
+            "over_90": f"{r.over_90:.2f}",
+            "total": f"{r.total:.2f}",
+        }
+        for r in rows
+    ]
+
+
+@router.get("/aging/export.csv")
+def export_ap_aging_csv(
+    as_at: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _ap_aging_for_export(db, current_user.company_id, as_at)
+    csv_text = exports.rows_to_csv(AP_AGING_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=ap-aging.csv"},
+    )
+
+
+@router.get("/aging/export.xlsx")
+def export_ap_aging_excel(
+    as_at: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _ap_aging_for_export(db, current_user.company_id, as_at)
+    data = exports.rows_to_excel(AP_AGING_EXPORT_FIELDS, rows, sheet_name="AP Aging")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=ap-aging.xlsx"},
+    )
