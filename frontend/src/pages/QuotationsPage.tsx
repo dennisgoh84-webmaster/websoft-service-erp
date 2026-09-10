@@ -354,7 +354,12 @@ export default function QuotationsPage() {
                     <span className={`badge ${STATUS_BADGE[q.status]}`}>{q.status}</span>
                     {q.converted_contract_id && (
                       <div className="muted">
-                        <Link to="/contracts">converted to contract</Link>
+                        <Link to={`/contracts/${q.converted_contract_id}`}>Service Support contract</Link>
+                      </div>
+                    )}
+                    {q.converted_annual_contract_id && (
+                      <div className="muted">
+                        <Link to={`/contracts/${q.converted_annual_contract_id}`}>Annual contract</Link>
                       </div>
                     )}
                   </td>

@@ -252,10 +252,14 @@ export type CustomerFields = Partial<{
 
 export type ContractStatus = 'draft' | 'active' | 'exceeded' | 'expired' | 'renewed'
 
+export type ContractKind = 'service_support' | 'annual'
+
 export interface Contract {
   id: string
   customer_id: string
   status: ContractStatus
+  /** service_support: hours-based, 10-hr minimum. annual: term-only, no hours. */
+  contract_kind: ContractKind
   contracted_hours: number
   consumed_hours: number
   remaining_hours: number
@@ -613,6 +617,7 @@ export interface Quotation {
   gst_amount_sgd: number
   total_amount_sgd: number
   converted_contract_id: string | null
+  converted_annual_contract_id: string | null
   created_at: string
   lines: QuotationLine[]
 }
@@ -795,6 +800,7 @@ export const api = {
   getContract: (id: string) => request<Contract>(`/contracts/${id}`),
   createContract: (payload: {
     customer_id: string
+    contract_kind?: ContractKind
     contracted_hours: number
     contract_value_sgd: number
     start_date: string

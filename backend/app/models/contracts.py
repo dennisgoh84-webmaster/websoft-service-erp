@@ -46,6 +46,22 @@ class ContractStatus(str, enum.Enum):
     RENEWED = "renewed"
 
 
+class ContractKind(str, enum.Enum):
+    """Confirmed 2026-09-10: there is more than one kind of Service
+    Contract. SERVICE_SUPPORT is the original hours-based contract --
+    SRV-002/012's 10-hour minimum applies, and hours deduct as Service
+    Records are approved. ANNUAL is a term-only contract (e.g. an
+    annual software warranty/maintenance contract) with a value and a
+    duration but NO hours at all -- the minimum-hours rule does not
+    apply to it (see the conditional CheckConstraint below). Job Orders
+    and Service Records can still be logged against an ANNUAL contract
+    (confirmed 2026-09-10) -- there is just nothing to deduct or
+    exceed, since there is no hour pool to begin with."""
+
+    SERVICE_SUPPORT = "service_support"
+    ANNUAL = "annual"
+
+
 class ExcessTreatment(str, enum.Enum):
     BILLABLE = "billable"  # SRV-008: contract's blended rate, no pre-approval
     APPROVED_NON_BILLABLE = "approved_non_billable"
@@ -57,8 +73,11 @@ class ExcessTreatment(str, enum.Enum):
 class Contract(Base):
     __tablename__ = "contracts"
     __table_args__ = (
+        # SRV-002/012's 10-hour minimum applies only to SERVICE_SUPPORT
+        # contracts -- an ANNUAL (term-only) contract has no hours at
+        # all, confirmed 2026-09-10.
         CheckConstraint(
-            f"contracted_minutes >= {MINIMUM_CONTRACTED_HOURS * 60}",
+            f"contract_kind <> 'SERVICE_SUPPORT' OR contracted_minutes >= {MINIMUM_CONTRACTED_HOURS * 60}",
             name="ck_contract_minimum_hours",
         ),
         CheckConstraint("consumed_minutes >= 0", name="ck_contract_consumed_non_negative"),
@@ -73,8 +92,12 @@ class Contract(Base):
     status: Mapped[ContractStatus] = mapped_column(
         Enum(ContractStatus, name="contract_status"), default=ContractStatus.DRAFT
     )
+    contract_kind: Mapped[ContractKind] = mapped_column(
+        Enum(ContractKind, name="contract_kind"), nullable=False, default=ContractKind.SERVICE_SUPPORT
+    )
 
-    # SRV-002/SRV-012: minimum 10 contracted hours, no override.
+    # SRV-002/SRV-012: minimum 10 contracted hours, no override. Zero
+    # for an ANNUAL contract (contract_kind), which has no hours.
     contracted_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     # Maintained by app/services/contracts.py; never negative (SRV-004).
     consumed_minutes: Mapped[int] = mapped_column(Integer, default=0)

@@ -29,6 +29,9 @@ class ServiceRecordOutcome(str, enum.Enum):
     PENDING = "pending"  # not yet approved / processed
     CONTRACT_DEDUCTION = "contract_deduction"  # SRV-003: hours remained
     EXCESS_USAGE = "excess_usage"  # SRV-003/004: hours were exhausted
+    # Work approved under an ANNUAL (term-only) contract -- confirmed
+    # 2026-09-10. There is no hour pool to deduct from or exceed.
+    NOT_HOUR_METERED = "not_hour_metered"
 
 
 def round_up_to_nearest(minutes: int, increment: int = HOUR_ROUNDING_MINUTES) -> int:

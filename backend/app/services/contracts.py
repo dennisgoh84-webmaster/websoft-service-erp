@@ -21,6 +21,7 @@ from app.models.contracts import (
     RENEWAL_BACKDATING_WINDOW_DAYS,
     STANDARD_CONTRACT_MONTHS,
     Contract,
+    ContractKind,
     ContractStatus,
     ExpiredHoursRecord,
 )
@@ -40,22 +41,34 @@ def create_contract(
     contract_value_sgd: float,
     start_date: date,
     actor_user_id: uuid.UUID,
+    contract_kind: ContractKind = ContractKind.SERVICE_SUPPORT,
+    term_months: int = STANDARD_CONTRACT_MONTHS,
     renewed_from_contract_id: uuid.UUID | None = None,
 ) -> Contract:
-    # SRV-002 / SRV-012: 10-hour hard minimum, no override mechanism.
-    if contracted_hours < MINIMUM_CONTRACTED_HOURS:
-        raise ContractRuleViolation(
-            f"Contracted hours must be at least {MINIMUM_CONTRACTED_HOURS} "
-            "(SRV-002). There is no override mechanism (SRV-012)."
-        )
+    if contract_kind == ContractKind.SERVICE_SUPPORT:
+        # SRV-002 / SRV-012: 10-hour hard minimum, no override mechanism.
+        if contracted_hours < MINIMUM_CONTRACTED_HOURS:
+            raise ContractRuleViolation(
+                f"Contracted hours must be at least {MINIMUM_CONTRACTED_HOURS} "
+                "(SRV-002). There is no override mechanism (SRV-012)."
+            )
+    else:
+        # ANNUAL (term-only): no hours at all, confirmed 2026-09-10 --
+        # any contracted_hours passed in is ignored rather than silently
+        # accepted, so a caller can't end up with a half-hourly annual
+        # contract by mistake.
+        contracted_hours = 0
 
-    # SRV-001: standard duration is 12 months, tracked start/end date.
-    end_date = start_date + relativedelta(months=STANDARD_CONTRACT_MONTHS)
+    # SRV-001: standard duration is 12 months by default, tracked
+    # start/end date. `term_months` lets an ANNUAL contract's term
+    # differ if ever needed, without changing SERVICE_SUPPORT contracts.
+    end_date = start_date + relativedelta(months=term_months)
 
     contract = Contract(
         company_id=company_id,
         customer_id=customer_id,
         status=ContractStatus.DRAFT,
+        contract_kind=contract_kind,
         contracted_minutes=int(contracted_hours * 60),
         consumed_minutes=0,
         contract_value_sgd=contract_value_sgd,
@@ -72,7 +85,10 @@ def create_contract(
         entity_id=contract.id,
         action="created",
         actor_user_id=actor_user_id,
-        details=f"contracted_hours={contracted_hours}, value_sgd={contract_value_sgd}",
+        details=(
+            f"kind={contract_kind.value}, contracted_hours={contracted_hours}, "
+            f"value_sgd={contract_value_sgd}"
+        ),
     )
     return contract
 
@@ -214,6 +230,7 @@ def renew_contract(
         db,
         company_id=prior_contract.company_id,
         customer_id=prior_contract.customer_id,
+        contract_kind=prior_contract.contract_kind,
         contracted_hours=contracted_hours,
         contract_value_sgd=contract_value_sgd,
         start_date=start_date,

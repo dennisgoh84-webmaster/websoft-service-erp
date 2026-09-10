@@ -1,6 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, type Contract, type Customer } from '../lib/api'
+import { api, type Contract, type ContractKind, type Customer } from '../lib/api'
+
+const KIND_LABELS: Record<ContractKind, string> = {
+  service_support: 'Service Support',
+  annual: 'Annual',
+}
 
 export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([])
@@ -9,6 +14,7 @@ export default function ContractsPage() {
   const preselectedCustomer = searchParams.get('customer') ?? ''
 
   const [customerId, setCustomerId] = useState(preselectedCustomer)
+  const [kind, setKind] = useState<ContractKind>('service_support')
   const [hours, setHours] = useState('10')
   const [value, setValue] = useState('2400')
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
@@ -32,7 +38,8 @@ export default function ContractsPage() {
     try {
       await api.createContract({
         customer_id: customerId,
-        contracted_hours: parseFloat(hours),
+        contract_kind: kind,
+        contracted_hours: kind === 'annual' ? 0 : parseFloat(hours),
         contract_value_sgd: parseFloat(value),
         start_date: startDate,
       })
@@ -69,9 +76,18 @@ export default function ContractsPage() {
             </select>
           </div>
           <div className="form-row">
-            <label>Contracted hours (min 10)</label>
-            <input type="number" min={0} step={0.5} value={hours} onChange={(e) => setHours(e.target.value)} />
+            <label>Kind</label>
+            <select value={kind} onChange={(e) => setKind(e.target.value as ContractKind)}>
+              <option value="service_support">Service Support (hours-based)</option>
+              <option value="annual">Annual (term only, e.g. software warranty/maintenance)</option>
+            </select>
           </div>
+          {kind === 'service_support' && (
+            <div className="form-row">
+              <label>Contracted hours (min 10)</label>
+              <input type="number" min={0} step={0.5} value={hours} onChange={(e) => setHours(e.target.value)} />
+            </div>
+          )}
           <div className="form-row">
             <label>Contract value (SGD, billed annually upfront)</label>
             <input type="number" min={0} step={1} value={value} onChange={(e) => setValue(e.target.value)} />
@@ -121,6 +137,7 @@ export default function ContractsPage() {
           <thead>
             <tr>
               <th>Customer</th>
+              <th>Kind</th>
               <th>Status</th>
               <th>Hours (used / total)</th>
               <th>Term</th>
@@ -131,11 +148,16 @@ export default function ContractsPage() {
             {contracts.map((c) => (
               <tr key={c.id}>
                 <td>{customerName(c.customer_id)}</td>
+                <td className="muted">{KIND_LABELS[c.contract_kind]}</td>
                 <td>
                   <span className={`badge ${c.status}`}>{c.status}</span>
                 </td>
                 <td>
-                  {c.consumed_hours.toFixed(2)} / {c.contracted_hours.toFixed(2)} hrs
+                  {c.contract_kind === 'annual' ? (
+                    <span className="muted">not hour-tracked</span>
+                  ) : (
+                    `${c.consumed_hours.toFixed(2)} / ${c.contracted_hours.toFixed(2)} hrs`
+                  )}
                 </td>
                 <td>
                   {c.start_date} &rarr; {c.end_date}
@@ -147,7 +169,7 @@ export default function ContractsPage() {
             ))}
             {contracts.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={6} className="muted">
                   No contracts match these filters.
                 </td>
               </tr>

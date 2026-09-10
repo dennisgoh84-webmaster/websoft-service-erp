@@ -48,7 +48,8 @@ export default function ContractDetailPage() {
 
   if (!contract) return <p>Loading...</p>
 
-  const pctUsed = Math.min(100, (contract.consumed_hours / contract.contracted_hours) * 100)
+  const isAnnual = contract.contract_kind === 'annual'
+  const pctUsed = isAnnual ? 0 : Math.min(100, (contract.consumed_hours / contract.contracted_hours) * 100)
 
   return (
     <div>
@@ -56,24 +57,41 @@ export default function ContractDetailPage() {
       <p>
         <span className={`badge ${contract.status}`}>{contract.status}</span>{' '}
         <span className="muted">
-          {contract.start_date} &rarr; {contract.end_date}
+          {isAnnual ? 'Annual (term only)' : 'Service Support'} &middot; {contract.start_date} &rarr;{' '}
+          {contract.end_date}
         </span>
       </p>
       {error && <div className="error-banner">{error}</div>}
 
       <div className="card">
-        <h2>Hours (SRV-001 / SRV-002 / SRV-004)</h2>
-        <div className="progress-bar">
-          <div style={{ width: `${pctUsed}%` }} />
-        </div>
-        <p>
-          {contract.consumed_hours.toFixed(2)} used / {contract.contracted_hours.toFixed(2)} contracted --{' '}
-          <strong>{contract.remaining_hours.toFixed(2)} hrs remaining</strong> (never goes negative)
-        </p>
-        <p className="muted">
-          Contract value: SGD {contract.contract_value_sgd.toFixed(2)} -- blended excess rate: SGD{' '}
-          {(contract.contract_value_sgd / contract.contracted_hours).toFixed(2)}/hr (SRV-008)
-        </p>
+        {isAnnual ? (
+          <>
+            <h2>Term (no hours)</h2>
+            <p className="muted">
+              An Annual contract has a term and a value but no contracted hours -- Job Orders and
+              Service Records can still be logged against it, they just aren't deducted from
+              anything.
+            </p>
+            <p>
+              <strong>Contract value: SGD {contract.contract_value_sgd.toFixed(2)}</strong>
+            </p>
+          </>
+        ) : (
+          <>
+            <h2>Hours (SRV-001 / SRV-002 / SRV-004)</h2>
+            <div className="progress-bar">
+              <div style={{ width: `${pctUsed}%` }} />
+            </div>
+            <p>
+              {contract.consumed_hours.toFixed(2)} used / {contract.contracted_hours.toFixed(2)} contracted --{' '}
+              <strong>{contract.remaining_hours.toFixed(2)} hrs remaining</strong> (never goes negative)
+            </p>
+            <p className="muted">
+              Contract value: SGD {contract.contract_value_sgd.toFixed(2)} -- blended excess rate: SGD{' '}
+              {(contract.contract_value_sgd / contract.contracted_hours).toFixed(2)}/hr (SRV-008)
+            </p>
+          </>
+        )}
 
         {contract.status === 'draft' && <button onClick={onActivate}>Activate contract</button>}
         <p style={{ marginTop: 10 }}>
@@ -85,20 +103,22 @@ export default function ContractDetailPage() {
         <div className="card">
           <h2>Renew (SRV-010 / SRV-016)</h2>
           <p className="muted">
-            Creates a new contract record with a fresh hour allocation. Backdated seamlessly if renewed
-            within 2 weeks of expiry.
+            Creates a new contract record of the same kind. Backdated seamlessly if renewed within 2
+            weeks of expiry.
           </p>
           <form onSubmit={onRenew}>
-            <div className="form-row">
-              <label>New contracted hours</label>
-              <input
-                type="number"
-                min={10}
-                step={0.5}
-                value={renewHours}
-                onChange={(e) => setRenewHours(e.target.value)}
-              />
-            </div>
+            {!isAnnual && (
+              <div className="form-row">
+                <label>New contracted hours</label>
+                <input
+                  type="number"
+                  min={10}
+                  step={0.5}
+                  value={renewHours}
+                  onChange={(e) => setRenewHours(e.target.value)}
+                />
+              </div>
+            )}
             <div className="form-row">
               <label>New contract value (SGD)</label>
               <input

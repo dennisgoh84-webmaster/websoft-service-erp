@@ -1,17 +1,16 @@
 """Sales Quotation.
 
 Confirmed 2026-09-10: a standalone document that, on acceptance,
-attempts to auto-create a draft Service Contract from it (the confirmed
-SRV-001/002 rules on that contract are unchanged and unbypassed). See
-app/services/quotations.py for the conversion logic and its one
-still-open point: how a quotation's mixed-unit line items (Hours,
-Monthly, Yearly, Units, SET...) map onto a single Contract's
-contracted_hours has not been confirmed as a business rule -- only
-lines whose unit_of_measure is "Hours" count toward it today, so a
-quotation with no hourly lines (e.g. pure subscription items) cannot
-auto-convert, because the contract's 10-hour minimum (SRV-002/012) has
-no override mechanism. Logged in docs/open-business-decisions.md;
-revisit once the real conversion rule is confirmed.
+attempts to auto-create Contract(s) from it. There are two kinds of
+Contract (app/models/contracts.py's ContractKind): SERVICE_SUPPORT
+(hours-based, SRV-002/012's 10-hour minimum applies) and ANNUAL
+(term-only, e.g. an annual software warranty/maintenance contract --
+no hours at all). A quotation's lines are split by unit of measure:
+lines whose unit is "Hours"/"Hour" become one SERVICE_SUPPORT contract
+(summed hours + their value); every other line becomes one ANNUAL
+contract (summed value, standard 12-month term). A quotation can
+convert to either, both, or neither, depending on what lines it has --
+see app/services/quotations.py's accept_quotation.
 """
 import enum
 import uuid
@@ -57,9 +56,17 @@ class Quotation(Base):
     gst_amount_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     total_amount_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
 
-    # Set only if Accept auto-converted this quotation -- see module
-    # docstring for when it does/doesn't.
+    # Set only if Accept auto-converted this quotation. Confirmed
+    # 2026-09-10: a quotation mixing hourly and non-hourly lines
+    # converts to TWO separate contracts, never one blending both --
+    # converted_contract_id is the SERVICE_SUPPORT contract (from
+    # "Hours" lines), converted_annual_contract_id is the ANNUAL
+    # contract (from every other line, by value). Either or both may be
+    # null depending on what lines the quotation actually had.
     converted_contract_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("contracts.id"), nullable=True
+    )
+    converted_annual_contract_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("contracts.id"), nullable=True
     )
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)

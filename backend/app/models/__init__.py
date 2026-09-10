@@ -28,6 +28,7 @@ from app.models.tax import TaxCode  # noqa: F401
 from app.services.numbering import DocumentSequence  # noqa: F401
 from app.models.contracts import (  # noqa: F401
     Contract,
+    ContractKind,
     ContractStatus,
     ExcessTreatment,
     ExcessUsageRecord,

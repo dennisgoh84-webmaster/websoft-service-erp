@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.accounting import AccountType, JournalStatus, VoucherType
 from app.models.catalog import ProductType
 from app.models.payables import BillMatchStatus, BillStatus, PurchaseOrderStatus
-from app.models.contracts import ContractStatus, ExcessTreatment
+from app.models.contracts import ContractKind, ContractStatus, ExcessTreatment
 from app.models.customers import CustomerType
 from app.models.quotations import QuotationStatus
 from app.models.core import UserRole
@@ -376,7 +376,10 @@ class BranchOut(BaseModel):
 # ---- Contracts ----
 class ContractCreate(BaseModel):
     customer_id: uuid.UUID
-    contracted_hours: float = Field(ge=0, description="Must be >= 10 per SRV-002/SRV-012")
+    contract_kind: ContractKind = ContractKind.SERVICE_SUPPORT
+    # Must be >= 10 per SRV-002/SRV-012 for a SERVICE_SUPPORT contract;
+    # ignored (forced to 0) for an ANNUAL contract, which has no hours.
+    contracted_hours: float = Field(default=0, ge=0)
     contract_value_sgd: float = Field(gt=0)
     start_date: date
 
@@ -386,6 +389,7 @@ class ContractOut(BaseModel):
     id: uuid.UUID
     customer_id: uuid.UUID
     status: ContractStatus
+    contract_kind: ContractKind
     contracted_hours: float
     consumed_hours: float
     remaining_hours: float
@@ -400,6 +404,7 @@ class ContractOut(BaseModel):
             id=contract.id,
             customer_id=contract.customer_id,
             status=contract.status,
+            contract_kind=contract.contract_kind,
             contracted_hours=contract.contracted_minutes / 60,
             consumed_hours=contract.consumed_minutes / 60,
             remaining_hours=contract.remaining_minutes / 60,
@@ -1037,6 +1042,7 @@ class QuotationOut(BaseModel):
     gst_amount_sgd: float
     total_amount_sgd: float
     converted_contract_id: uuid.UUID | None
+    converted_annual_contract_id: uuid.UUID | None
     created_at: datetime
     lines: list[QuotationLineOut]
 

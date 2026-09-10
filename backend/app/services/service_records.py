@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models.contracts import ExcessUsageRecord
+from app.models.contracts import ContractKind, ExcessUsageRecord
 from app.models.core import User, UserRole
 from app.models.job_orders import JobOrder
 from app.models.service_records import (
@@ -93,10 +93,27 @@ def approve_service_record(
     record.approved_by_user_id = approver.id
 
     contract = job_order.contract
-    remaining = contract.remaining_minutes
     rounded = record.rounded_minutes
 
     excess_record: ExcessUsageRecord | None = None
+
+    if contract.contract_kind == ContractKind.ANNUAL:
+        # Confirmed 2026-09-10: an ANNUAL (term-only) contract has no
+        # hour pool, so there is nothing to deduct or exceed -- the
+        # work is simply covered under the contract's term.
+        record.outcome = ServiceRecordOutcome.NOT_HOUR_METERED
+        audit.record(
+            db,
+            entity_type="service_record",
+            entity_id=record.id,
+            action="approved",
+            actor_user_id=approver.id,
+            details=f"outcome={record.outcome.value}",
+        )
+        db.flush()
+        return None
+
+    remaining = contract.remaining_minutes
 
     if remaining >= rounded:
         # SRV-003: hours remain -- straightforward contract deduction.

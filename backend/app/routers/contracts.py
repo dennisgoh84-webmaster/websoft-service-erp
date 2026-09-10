@@ -40,6 +40,7 @@ def create_contract(
             db,
             company_id=current_user.company_id,
             customer_id=payload.customer_id,
+            contract_kind=payload.contract_kind,
             contracted_hours=payload.contracted_hours,
             contract_value_sgd=payload.contract_value_sgd,
             start_date=payload.start_date,
