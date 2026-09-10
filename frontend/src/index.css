@@ -1,0 +1,227 @@
+:root {
+  --text: #2a2a33;
+  --text-muted: #6b6b76;
+  --bg: #f7f7f9;
+  --surface: #ffffff;
+  --border: #e0e0e6;
+  --accent: #3554d1;
+  --accent-contrast: #ffffff;
+  --danger: #c0362c;
+  --warn-bg: #fff4e5;
+  --warn-border: #f0c078;
+  --ok-bg: #e8f5e9;
+  --ok-border: #8bc98e;
+  font: 15px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0;
+}
+h2 {
+  font-size: 17px;
+  margin: 0 0 12px;
+}
+
+a {
+  color: var(--accent);
+}
+
+.app-shell {
+  display: flex;
+  flex: 1;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar .brand {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+.sidebar a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+}
+.sidebar a.active,
+.sidebar a:hover {
+  background: var(--bg);
+}
+
+.sidebar .user-info {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.main {
+  flex: 1;
+  padding: 28px 36px;
+  max-width: 1000px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.form-row label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+input,
+select,
+textarea {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+button {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+button:hover {
+  opacity: 0.9;
+}
+button.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge.draft {
+  background: #eee;
+  color: #555;
+}
+.badge.active {
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  color: #2c6b2f;
+}
+.badge.exceeded {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  color: #8a5a12;
+}
+.badge.expired,
+.badge.renewed {
+  background: #eee;
+  color: #555;
+}
+
+.error-banner {
+  background: #fdecea;
+  border: 1px solid #f5c6c2;
+  color: var(--danger);
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
+.progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+  margin: 6px 0;
+}
+.progress-bar > div {
+  height: 100%;
+  background: var(--accent);
+}
+
+.login-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+}
+.login-card {
+  width: 340px;
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}

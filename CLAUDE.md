@@ -92,10 +92,22 @@ explaining the reason first (see Development Rules below).
 
 ## Documentation
 
-- [docs/business-requirements.md](docs/business-requirements.md) — business requirements (placeholder, to be developed)
-- [docs/system-architecture.md](docs/system-architecture.md) — system architecture (placeholder, to be developed)
+- [docs/business-requirements.md](docs/business-requirements.md) — confirmed business rules (SRV-001..018, BILL/AR/PUR/INV/HW series) and open decisions still being gathered
+- [docs/system-architecture.md](docs/system-architecture.md) — system architecture
+- [docs/module-map.md](docs/module-map.md), [docs/workflows.md](docs/workflows.md), [docs/open-business-decisions.md](docs/open-business-decisions.md) — supporting planning docs
+- [DEV_SETUP.md](DEV_SETUP.md) — how to run the application locally
 
 ## Status
 
-This project is in the documentation/planning stage. No application code has
-been written yet.
+Active development has begun. A first working slice exists: the
+**Service Operations core** (`backend/`, FastAPI + PostgreSQL; `frontend/`,
+React + TypeScript), implementing the confirmed Service Operations and
+Billing/AR/Purchasing/Inventory rules end-to-end (Customer → Contract →
+Ticket → Timesheet → Contract Hour Validation → Excess Review → Invoice).
+See [DEV_SETUP.md](DEV_SETUP.md) to run it. No other business area has
+application code yet; further modules are built incrementally, resolving
+the remaining items in
+[docs/open-business-decisions.md](docs/open-business-decisions.md) as
+each area is reached rather than blocking all development on them
+upfront — pragmatic implementation defaults taken in the meantime are
+called out in code comments, not silently assumed.
