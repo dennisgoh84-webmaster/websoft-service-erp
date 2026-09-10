@@ -280,6 +280,55 @@ export interface JobOrder {
   priority: JobOrderPriority
   status: JobOrderStatus
   assigned_to_user_id: string | null
+  /** Manual, optional -- set by Sales/Coordinator after discussion with Support. */
+  due_date: string | null
+  created_at: string
+}
+
+// ---- Support Monitoring ----
+export interface StaffMonitoring {
+  user_id: string
+  full_name: string
+  open_job_orders: number
+  overdue_job_orders: number
+  due_soon_job_orders: number
+  pending_service_records: number
+  untested_software_tasks: number
+  cm_svc_records_month: number
+  cm_svc_records_today: number
+  cm_svc_hours_month: number
+  cm_svc_hours_today: number
+  avg_daily_contract_hours: number
+}
+
+export interface MonitoringSummary {
+  total_job_orders: number
+  total_open_job_orders: number
+  total_overdue_job_orders: number
+  unassigned_job_orders: number
+  total_pending_service_records: number
+  total_untested_software_tasks: number
+}
+
+export interface SupportMonitoring {
+  as_at: string
+  summary: MonitoringSummary
+  staff: StaffMonitoring[]
+  unassigned: StaffMonitoring
+}
+
+// ---- Software Task ----
+export interface SoftwareTask {
+  id: string
+  title: string
+  description: string | null
+  modules_affected: string | null
+  assigned_programmer_id: string | null
+  programming_finish_date: string | null
+  programming_hours: number | null
+  tester_user_id: string | null
+  is_tested: boolean
+  tested_at: string | null
   created_at: string
 }
 
@@ -822,9 +871,51 @@ export const api = {
     contract_id: string
     subject: string
     priority?: JobOrderPriority
+    due_date?: string | null
   }) => request<JobOrder>('/job-orders', { method: 'POST', body: JSON.stringify(payload) }),
   assignJobOrder: (id: string, assigned_to_user_id: string) =>
     request<JobOrder>(`/job-orders/${id}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to_user_id }) }),
+  setJobOrderDueDate: (id: string, due_date: string | null) =>
+    request<JobOrder>(`/job-orders/${id}/due-date`, { method: 'POST', body: JSON.stringify({ due_date }) }),
+
+  supportMonitoring: () => request<SupportMonitoring>('/monitoring/support'),
+
+  // Software Task
+  listSoftwareTasks: (
+    filters: { assigned_programmer_id?: string; tester_user_id?: string; untested_only?: boolean } = {},
+  ) =>
+    request<SoftwareTask[]>(
+      `/software-tasks${qs({
+        assigned_programmer_id: filters.assigned_programmer_id,
+        tester_user_id: filters.tester_user_id,
+        untested_only: filters.untested_only ? 'true' : undefined,
+      })}`,
+    ),
+  createSoftwareTask: (payload: {
+    title: string
+    description?: string
+    modules_affected?: string
+    assigned_programmer_id?: string
+    programming_finish_date?: string
+    programming_hours?: number
+    tester_user_id?: string
+  }) => request<SoftwareTask>('/software-tasks', { method: 'POST', body: JSON.stringify(payload) }),
+  updateSoftwareTask: (
+    id: string,
+    payload: Partial<{
+      title: string
+      description: string | null
+      modules_affected: string | null
+      assigned_programmer_id: string | null
+      programming_finish_date: string | null
+      programming_hours: number | null
+      tester_user_id: string | null
+    }>,
+  ) => request<SoftwareTask>(`/software-tasks/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  markSoftwareTaskTested: (id: string) =>
+    request<SoftwareTask>(`/software-tasks/${id}/mark-tested`, { method: 'POST' }),
+  reopenSoftwareTaskTesting: (id: string) =>
+    request<SoftwareTask>(`/software-tasks/${id}/reopen-testing`, { method: 'POST' }),
 
   listServiceRecords: (filters: { job_order_id?: string; employee_user_id?: string; status?: string } = {}) =>
     request<ServiceRecord[]>(`/service-records${qs(filters)}`),

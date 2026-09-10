@@ -7,7 +7,8 @@ from app.core.database import get_db
 from app.models.core import User
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrder, JobOrderStatus
-from app.schemas.schemas import JobOrderAssign, JobOrderCreate, JobOrderOut
+from app.schemas.schemas import JobOrderAssign, JobOrderCreate, JobOrderOut, JobOrderSetDueDate
+from app.services import audit
 from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/job-orders", tags=["job-orders"])
@@ -26,6 +27,7 @@ def create_job_order(
         contract_id=payload.contract_id,
         subject=payload.subject,
         priority=payload.priority,
+        due_date=payload.due_date,
     )
     db.add(job_order)
     db.commit()
@@ -78,6 +80,35 @@ def assign_job_order(
         raise HTTPException(status_code=404, detail="Job order not found")
     job_order.assigned_to_user_id = payload.assigned_to_user_id
     job_order.status = JobOrderStatus.ASSIGNED
+    db.commit()
+    db.refresh(job_order)
+    return job_order
+
+
+@router.post("/{job_order_id}/due-date", response_model=JobOrderOut)
+def set_job_order_due_date(
+    job_order_id: uuid.UUID,
+    payload: JobOrderSetDueDate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Manual due date, set/changed by whoever opens the Job Order
+    (Sales/Coordinator) after discussion with Support -- confirmed
+    2026-09-10, see models/job_orders.py."""
+    job_order = db.get(JobOrder, job_order_id)
+    if not job_order or job_order.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Job order not found")
+    old_due_date = job_order.due_date
+    job_order.due_date = payload.due_date
+    audit.record(
+        db,
+        entity_type="job_order",
+        entity_id=job_order.id,
+        action="due_date_set",
+        actor_user_id=current_user.id,
+        old_value={"due_date": old_due_date.isoformat() if old_due_date else None},
+        new_value={"due_date": payload.due_date.isoformat() if payload.due_date else None},
+    )
     db.commit()
     db.refresh(job_order)
     return job_order

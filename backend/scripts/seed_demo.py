@@ -59,6 +59,7 @@ from app.models.payables import (
 from app.models.tax import TaxCode
 from app.models.catalog import Product, ProductType
 from app.models.quotations import Quotation, QuotationLine, QuotationStatus
+from app.models.software_tasks import SoftwareTask
 from app.services import payables as ap_svc
 from app.services import billing as billing_svc
 from app.services import contracts as contract_svc
@@ -98,6 +99,7 @@ MODULE_CATALOG = [
     ("commission_management", "Commission Management", False, False),  # deferred
     ("finance_accounting", "Finance / Accounting", True, True),
     ("reporting", "Reporting / Management Dashboard", True, True),
+    ("software_development", "Software Development (Software Tasks)", True, True),
     ("integrations", "Integrations (incl. Odoo migration)", False, False),  # deferred
     ("ai_assistant", "AI Assistant", False, False),
 ]
@@ -128,6 +130,8 @@ GROUP_CATALOG = {
                 "service_records",
                 "billing",
                 "sales",
+                "reporting",
+                "software_development",
             )
         },
     ),
@@ -627,9 +631,44 @@ def main():
             subject="Intermittent VPN connectivity for remote staff",
             priority=JobOrderPriority.HIGH, status=JobOrderStatus.ASSIGNED,
             assigned_to_user_id=engineer.id,
+            due_date=date.today() - timedelta(days=1),  # overdue, for Support Monitoring demo
         )
-        db.add(job_order)
+        job_order2 = JobOrder(
+            company_id=company.id, customer_id=customer.id, contract_id=contract.id,
+            subject="Set up new staff laptop",
+            priority=JobOrderPriority.NORMAL, status=JobOrderStatus.ASSIGNED,
+            assigned_to_user_id=engineer.id,
+            due_date=date.today() + timedelta(days=1),  # due soon
+        )
+        job_order3 = JobOrder(
+            company_id=company.id, customer_id=customer.id, contract_id=None,
+            subject="Investigate slow email delivery",
+            priority=JobOrderPriority.LOW, status=JobOrderStatus.OPEN,
+        )
+        db.add_all([job_order, job_order2, job_order3])
         db.flush()
+
+        db.add_all(
+            [
+                SoftwareTask(
+                    company_id=company.id, title="Fix aging report rounding",
+                    description="AR aging shows SGD 0.01 off on partially-allocated invoices.",
+                    modules_affected="Accounts Receivable, Invoices",
+                    assigned_programmer_id=dennis.id,
+                    programming_finish_date=date.today() + timedelta(days=3),
+                    programming_hours=Decimal("4.5"),
+                    tester_user_id=cherish.id,
+                    created_by_user_id=dennis.id,
+                ),
+                SoftwareTask(
+                    company_id=company.id, title="Add branch code to invoice PDF",
+                    modules_affected="Billing",
+                    assigned_programmer_id=dennis.id,
+                    tester_user_id=nico.id,
+                    created_by_user_id=dennis.id,
+                ),
+            ]
+        )
 
         # Already-approved work totalling 540 of the 600 contracted minutes.
         for i, raw_minutes in enumerate([240, 300]):

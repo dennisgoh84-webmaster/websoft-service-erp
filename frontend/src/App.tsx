@@ -25,8 +25,10 @@ import ProductCatalogPage from './pages/ProductCatalogPage'
 import QuotationsPage from './pages/QuotationsPage'
 import ReceiptsPage from './pages/ReceiptsPage'
 import ServiceRecordsPage from './pages/ServiceRecordsPage'
+import SoftwareTasksPage from './pages/SoftwareTasksPage'
 import StaffDetailPage from './pages/StaffDetailPage'
 import StaffMasterPage from './pages/StaffMasterPage'
+import SupportMonitoringPage from './pages/SupportMonitoringPage'
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth()
@@ -54,6 +56,8 @@ function AppRoutes() {
         <Route path="/job-orders" element={<JobOrdersPage />} />
         <Route path="/job-orders/:id" element={<JobOrderDetailPage />} />
         <Route path="/service-records" element={<ServiceRecordsPage />} />
+        <Route path="/support-monitoring" element={<SupportMonitoringPage />} />
+        <Route path="/software-tasks" element={<SoftwareTasksPage />} />
         <Route path="/excess-review" element={<ExcessReviewPage />} />
         <Route path="/quotations" element={<QuotationsPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />

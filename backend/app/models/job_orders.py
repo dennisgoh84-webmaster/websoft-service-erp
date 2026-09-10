@@ -1,13 +1,18 @@
 """Job Orders (formerly "Helpdesk Tickets") -- Service Operations models.
 
 SLA targets are explicitly deferred (SRV-009) -- priority is tracked but
-no response/resolution time targets are enforced.
+no automatic response/resolution time target is computed from it.
+Instead, confirmed 2026-09-10: `due_date` is a manual field, set by
+whoever opens the Job Order (Sales staff or a Coordinator) after
+discussion with the Support department -- not derived from priority or
+any fixed SLA window. It is optional; a Job Order with no due date set
+is simply not counted as due/overdue anywhere.
 """
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -52,6 +57,9 @@ class JobOrder(Base):
     assigned_to_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )
+    # Manual, optional -- see module docstring. Drives Overdue/Due-Soon
+    # monitoring once set; a null due_date is simply not counted.
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -13,6 +13,7 @@ export default function JobOrdersPage() {
   const [contractId, setContractId] = useState('')
   const [subject, setSubject] = useState('')
   const [priority, setPriority] = useState<JobOrderPriority>('normal')
+  const [dueDate, setDueDate] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   // Dynamic filters
@@ -43,8 +44,15 @@ export default function JobOrdersPage() {
     e.preventDefault()
     setError(null)
     try {
-      await api.createJobOrder({ customer_id: customerId, contract_id: contractId, subject, priority })
+      await api.createJobOrder({
+        customer_id: customerId,
+        contract_id: contractId,
+        subject,
+        priority,
+        due_date: dueDate || undefined,
+      })
       setSubject('')
+      setDueDate('')
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create job order')
@@ -107,6 +115,10 @@ export default function JobOrdersPage() {
               <option value="high">High</option>
               <option value="critical">Critical</option>
             </select>
+          </div>
+          <div className="form-row">
+            <label>Due date (optional, as agreed with Support)</label>
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
           {error && <div className="error-banner">{error}</div>}
           <button type="submit" disabled={!customerId || !contractId}>
@@ -172,24 +184,40 @@ export default function JobOrdersPage() {
               <th>Customer</th>
               <th>Priority</th>
               <th>Status</th>
+              <th>Due</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {jobOrders.map((t) => (
-              <tr key={t.id}>
-                <td>{t.subject}</td>
-                <td>{customerName(t.customer_id)}</td>
-                <td>{t.priority}</td>
-                <td>{t.status}</td>
-                <td>
-                  <Link to={`/job-orders/${t.id}`}>Open</Link>
-                </td>
-              </tr>
-            ))}
+            {jobOrders.map((t) => {
+              const overdue =
+                !!t.due_date && t.due_date < new Date().toISOString().slice(0, 10) && t.status !== 'resolved' && t.status !== 'closed'
+              return (
+                <tr key={t.id}>
+                  <td>{t.subject}</td>
+                  <td>{customerName(t.customer_id)}</td>
+                  <td>{t.priority}</td>
+                  <td>{t.status}</td>
+                  <td>
+                    {t.due_date ? (
+                      overdue ? (
+                        <span className="badge exceeded">{t.due_date}</span>
+                      ) : (
+                        t.due_date
+                      )
+                    ) : (
+                      <span className="muted">-</span>
+                    )}
+                  </td>
+                  <td>
+                    <Link to={`/job-orders/${t.id}`}>Open</Link>
+                  </td>
+                </tr>
+              )
+            })}
             {jobOrders.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={6} className="muted">
                   No job orders match these filters.
                 </td>
               </tr>

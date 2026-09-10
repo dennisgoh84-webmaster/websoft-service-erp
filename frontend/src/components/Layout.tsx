@@ -33,6 +33,8 @@ export default function Layout() {
           <NavLink to="/job-orders">Job Orders</NavLink>
           <NavLink to="/service-records">Service Records</NavLink>
           <NavLink to="/excess-review">Excess Review</NavLink>
+          <NavLink to="/support-monitoring">Support Monitoring</NavLink>
+          <NavLink to="/software-tasks">Software Tasks</NavLink>
         </div>
 
         <div className="nav-section">

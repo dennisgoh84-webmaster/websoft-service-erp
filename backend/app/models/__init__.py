@@ -57,3 +57,4 @@ from app.models.service_records import (  # noqa: F401
     ServiceRecordStatus,
 )
 from app.models.licensing import CompanyModule, LicenseType, Module  # noqa: F401
+from app.models.software_tasks import SoftwareTask  # noqa: F401

@@ -427,10 +427,17 @@ class JobOrderCreate(BaseModel):
     contract_id: uuid.UUID
     subject: str
     priority: JobOrderPriority = JobOrderPriority.NORMAL
+    # Manual, optional -- set by Sales/Coordinator after discussion with
+    # Support. Confirmed 2026-09-10: not derived from priority.
+    due_date: date | None = None
 
 
 class JobOrderAssign(BaseModel):
     assigned_to_user_id: uuid.UUID
+
+
+class JobOrderSetDueDate(BaseModel):
+    due_date: date | None = None
 
 
 class JobOrderOut(BaseModel):
@@ -442,6 +449,7 @@ class JobOrderOut(BaseModel):
     priority: JobOrderPriority
     status: JobOrderStatus
     assigned_to_user_id: uuid.UUID | None
+    due_date: date | None
     created_at: datetime
 
 
@@ -1050,3 +1058,73 @@ class QuotationOut(BaseModel):
 class QuotationActionResult(BaseModel):
     quotation: QuotationOut
     message: str
+
+
+# ---- Support Monitoring ----
+class StaffMonitoringOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    user_id: uuid.UUID
+    full_name: str
+    open_job_orders: int
+    overdue_job_orders: int
+    due_soon_job_orders: int
+    pending_service_records: int
+    untested_software_tasks: int
+    cm_svc_records_month: int
+    cm_svc_records_today: int
+    cm_svc_hours_month: float
+    cm_svc_hours_today: float
+    avg_daily_contract_hours: float
+
+
+class MonitoringSummaryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    total_job_orders: int
+    total_open_job_orders: int
+    total_overdue_job_orders: int
+    unassigned_job_orders: int
+    total_pending_service_records: int
+    total_untested_software_tasks: int
+
+
+class SupportMonitoringOut(BaseModel):
+    as_at: date
+    summary: MonitoringSummaryOut
+    staff: list[StaffMonitoringOut]
+    unassigned: StaffMonitoringOut
+
+
+# ---- Software Task ----
+class SoftwareTaskCreate(BaseModel):
+    title: str
+    description: str | None = None
+    modules_affected: str | None = None
+    assigned_programmer_id: uuid.UUID | None = None
+    programming_finish_date: date | None = None
+    programming_hours: float | None = Field(default=None, ge=0)
+    tester_user_id: uuid.UUID | None = None
+
+
+class SoftwareTaskUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    modules_affected: str | None = None
+    assigned_programmer_id: uuid.UUID | None = None
+    programming_finish_date: date | None = None
+    programming_hours: float | None = Field(default=None, ge=0)
+    tester_user_id: uuid.UUID | None = None
+
+
+class SoftwareTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    title: str
+    description: str | None
+    modules_affected: str | None
+    assigned_programmer_id: uuid.UUID | None
+    programming_finish_date: date | None
+    programming_hours: float | None
+    tester_user_id: uuid.UUID | None
+    is_tested: bool
+    tested_at: datetime | None
+    created_at: datetime

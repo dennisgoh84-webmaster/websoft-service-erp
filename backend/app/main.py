@@ -31,8 +31,10 @@ from app.routers import (
     groups,
     job_orders,
     modules,
+    monitoring,
     quotations,
     service_records,
+    software_tasks,
     users,
 )
 from app.services import audit
@@ -84,6 +86,8 @@ app.include_router(accounts.router)
 app.include_router(ledger.router)
 app.include_router(payables.router)
 app.include_router(dashboard.router)
+app.include_router(monitoring.router)
+app.include_router(software_tasks.router)
 
 
 @app.get("/api/health")

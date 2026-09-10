@@ -483,6 +483,39 @@ areas) are finalized.
    *Arises in:* Sales, Billing, Hardware Management (deferred, section
    5).
 
+## 12. Support/Sales/Dev Monitoring Dashboards & Software Task (raised 2026-09-10)
+
+Reference: a legacy "Monitoring Support" screen (screenshot shared
+2026-09-10) showing per-support-staff workload (Job Orders, service
+records, contract hours) plus several features/terms not yet built.
+
+12.1. **Software Task** -- confirmed 2026-09-10: "a Software Task that
+   is assigned to Support Staff for Testing but not yet tested by the
+   staff" (the legacy screen's "Un-Test S/T"). This is a distinct
+   entity from Job Order/Service Record -- an assignable task with its
+   own testing/verification workflow -- used by both the Support
+   monitoring dashboard and the future Software Development dashboard.
+   **Status: not yet modeled or built.** Needs its own scoping
+   (fields, who creates it, what "tested" means, states beyond
+   tested/untested) before building -- deliberately left out of the
+   first Support Monitoring dashboard (`app/services/monitoring.py`)
+   rather than guessed.
+   *Arises in:* Support Monitoring, Software Development (new area,
+   not in the original module map).
+
+12.2. **Sales Department monitoring dashboard** and **12.3. Software
+   Development monitoring dashboard** -- both mentioned 2026-09-10 as
+   needed alongside Support Monitoring, no requirements gathered yet
+   (what they should show, and for Dev, how Software Task fits in).
+   *Arises in:* Sales, Software Development (new area).
+
+12.4. **Several legacy-screen elements were intentionally left out of
+   the first Support Monitoring build**, not yet understood well
+   enough to implement correctly: "Support Tool", "Job Schedule",
+   "Incident Enquiry", "Phone Call Back" (a customer callback queue),
+   and "Projects / OD" (Projects is itself a deferred module -- section
+   7). Revisit if/when Dennis wants any of these.
+
 ---
 
 ## How to use this document

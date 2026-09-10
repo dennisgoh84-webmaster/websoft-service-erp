@@ -13,10 +13,14 @@ export default function JobOrderDetailPage() {
   const [employee, setEmployee] = useState('')
   const [workDate, setWorkDate] = useState(new Date().toISOString().slice(0, 10))
   const [minutes, setMinutes] = useState('30')
+  const [dueDate, setDueDate] = useState('')
 
   function refresh() {
     if (!id) return
-    api.getJobOrder(id).then(setJobOrder)
+    api.getJobOrder(id).then((jo) => {
+      setJobOrder(jo)
+      setDueDate(jo.due_date ?? '')
+    })
     api.listServiceRecords({ job_order_id: id }).then(setRecords)
     api.listUsers().then(setUsers)
   }
@@ -64,6 +68,18 @@ export default function JobOrderDetailPage() {
     }
   }
 
+  async function onSetDueDate(e: FormEvent) {
+    e.preventDefault()
+    if (!id) return
+    setError(null)
+    try {
+      await api.setJobOrderDueDate(id, dueDate || null)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set due date')
+    }
+  }
+
   if (!jobOrder) return <p>Loading...</p>
 
   return (
@@ -72,8 +88,29 @@ export default function JobOrderDetailPage() {
       <p>
         <span className="badge active">{jobOrder.status}</span>{' '}
         <span className="muted">Priority: {jobOrder.priority} (SRV-009: no formal SLA target yet)</span>
+        {jobOrder.due_date && (
+          <>
+            {' '}
+            &middot; <span className="muted">Due {jobOrder.due_date}</span>
+          </>
+        )}
       </p>
       {error && <div className="error-banner">{error}</div>}
+
+      <div className="card">
+        <h2>Due date</h2>
+        <p className="muted">
+          Set manually by Sales/Coordinator after discussion with Support -- not derived from
+          priority.
+        </p>
+        <form onSubmit={onSetDueDate} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+          <div className="form-row" style={{ margin: 0 }}>
+            <label>Due date</label>
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </div>
+          <button type="submit">Save</button>
+        </form>
+      </div>
 
       <div className="card">
         <h2>Assignment</h2>
