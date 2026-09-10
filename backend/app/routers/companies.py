@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.core import Company, User, UserCompanyAccess, UserRole
-from app.models.groups import AccessLevel
+from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.licensing import CompanyModule, LicenseType, Module
 from app.schemas.schemas import CompanyCreate, CompanyOut, CompanyUpdate
 from app.services import audit
@@ -97,7 +97,10 @@ def create_company(
     # A new company starts with the same module catalog, all disabled
     # except the ones already built -- Module Control is per-company, so
     # each entity can run a different module mix from here.
+    built_module_keys = []
     for module in db.query(Module).all():
+        if module.is_built:
+            built_module_keys.append(module.key)
         db.add(
             CompanyModule(
                 company_id=company.id,
@@ -107,8 +110,30 @@ def create_company(
             )
         )
 
-    # Whoever created it can work in it.
-    db.add(UserCompanyAccess(user_id=current_user.id, company_id=company.id))
+    # Groups are per company, so a brand-new company starts with none --
+    # which would leave nothing to assign staff to. Bootstrap one admin
+    # group with full access to the built modules; it is editable in
+    # Group Authority like any other.
+    admin_group = Group(
+        company_id=company.id,
+        name="Owner / Admin",
+        description="Full access to every module in this company. Created with the company.",
+    )
+    db.add(admin_group)
+    db.flush()
+    for module_key in built_module_keys:
+        db.add(
+            GroupModuleAuthority(
+                group_id=admin_group.id, module_key=module_key, access_level=AccessLevel.FULL
+            )
+        )
+
+    # Whoever created it can work in it, as an admin there.
+    db.add(
+        UserCompanyAccess(
+            user_id=current_user.id, company_id=company.id, group_id=admin_group.id
+        )
+    )
 
     audit.record(
         db,

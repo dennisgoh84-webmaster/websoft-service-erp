@@ -7,6 +7,7 @@ from app.core.deps import get_current_user
 from app.models.core import User
 from app.schemas.schemas import CurrentUser, Token
 from app.services.auth import create_access_token, verify_password
+from app.services.authority import get_user_group_id
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -20,5 +21,14 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 
 @router.get("/me", response_model=CurrentUser)
-def me(current_user: User = Depends(get_current_user)):
-    return current_user
+def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Group is per company, so report the one that applies in the company
+    # this user is currently working in.
+    return CurrentUser(
+        id=current_user.id,
+        full_name=current_user.full_name,
+        email=current_user.email,
+        role=current_user.role,
+        group_id=get_user_group_id(db, current_user),
+        company_id=current_user.company_id,
+    )

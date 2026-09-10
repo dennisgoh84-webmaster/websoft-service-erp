@@ -95,6 +95,27 @@ class UserPasswordReset(BaseModel):
     new_password: str = Field(min_length=8)
 
 
+class UserCompanyAccessOut(BaseModel):
+    """One company a staff member may work in, and their Group there."""
+
+    company_id: uuid.UUID
+    company_name: str
+    group_id: uuid.UUID | None
+    group_name: str | None
+
+
+class UserCompanyAccessEntry(BaseModel):
+    company_id: uuid.UUID
+    group_id: uuid.UUID | None = None
+
+
+class UserCompanyAccessUpdate(BaseModel):
+    """Replaces the full set of companies this staff member may work in
+    (and their Group in each). Omitting a company revokes its access."""
+
+    access: list[UserCompanyAccessEntry]
+
+
 class AuditLogEntryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

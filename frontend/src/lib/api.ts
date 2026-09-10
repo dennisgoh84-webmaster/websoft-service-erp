@@ -119,6 +119,15 @@ export interface EventLogFilters {
   [key: string]: string | number | undefined
 }
 
+/** One company a staff member may work in, and their Group there.
+ * Group is per company -- see Company Setup / Group Authority. */
+export interface UserCompanyAccess {
+  company_id: string
+  company_name: string
+  group_id: string | null
+  group_name: string | null
+}
+
 // ---- Group Authority ----
 export type AccessLevel = 'none' | 'view' | 'edit' | 'full'
 
@@ -288,9 +297,20 @@ export const api = {
       body: JSON.stringify({ new_password }),
     }),
   getStaffAuditLog: (id: string) => request<AuditLogEntry[]>(`/users/${id}/audit-log`),
+  getStaffCompanyAccess: (id: string) =>
+    request<UserCompanyAccess[]>(`/users/${id}/company-access`),
+  setStaffCompanyAccess: (
+    id: string,
+    access: { company_id: string; group_id: string | null }[],
+  ) =>
+    request<UserCompanyAccess[]>(`/users/${id}/company-access`, {
+      method: 'PUT',
+      body: JSON.stringify({ access }),
+    }),
 
   // Group Authority
-  listGroups: () => request<Group[]>('/groups'),
+  listGroups: (companyId?: string) =>
+    request<Group[]>(`/groups${companyId ? `?company_id=${companyId}` : ''}`),
   createGroup: (name: string, description?: string) =>
     request<Group>('/groups', { method: 'POST', body: JSON.stringify({ name, description }) }),
   updateGroup: (id: string, payload: { name?: string; description?: string }) =>

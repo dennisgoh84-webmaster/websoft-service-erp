@@ -87,7 +87,8 @@ System administrators, IT admin, senior management (for org-wide settings).
 - **Group Authority** (RBAC, confirmed 2026-09-10 — resolves open item
   8.4): define Groups and, for each Group, a per-module access level of
   None / View / Edit / Full. Every staff member belongs to exactly one
-  Group; that Group governs what they can see/do in each module. This is
+  Group per company they work in; that Group governs what they can
+  see/do in each module of that company. This is
   independent of the small `role` field used only for specific
   named-responsibility business rules already confirmed elsewhere (e.g.
   SRV-004/SRV-011's excess-usage decider) — see open-business-decisions.md

@@ -7,10 +7,12 @@ RBAC is split across two independent axes (confirmed with Dennis,
   named-responsibility rules already confirmed in the business rules
   (e.g. SRV-004/SRV-011: Nico, or Cherish as backup, decides excess
   usage; Dennis as owner). It does not drive general module access.
-- `User.group_id` -> Group Authority (see app/models/groups.py) drives
-  general per-module security: what a user can see/do in each module,
-  at None/View/Edit/Full granularity, controlled by which Group they
-  belong to (exactly one Group per user).
+- Group Authority (see app/models/groups.py) drives general per-module
+  security: what a user can see/do in each module, at None/View/Edit/
+  Full granularity, controlled by which Group they belong to. The group
+  assignment lives on `UserCompanyAccess`, not on the user: exactly one
+  Group **per company** the user works in (confirmed 2026-09-10), since
+  Groups are themselves company-scoped.
 """
 import enum
 import uuid
@@ -62,7 +64,8 @@ class Company(Base):
 
 
 class UserCompanyAccess(Base):
-    """Which companies a staff member may work in (multi-company).
+    """Which companies a staff member may work in, and their Group in
+    each one (multi-company).
 
     Separate from `User.company_id`, which is the company they are
     *currently* working in: one row here per company they are *allowed*
@@ -70,7 +73,15 @@ class UserCompanyAccess(Base):
     never sees the company switcher; someone like Dennis, who owns more
     than one entity, gets a row per company and switches between them.
     Switching only rewrites `User.company_id`, so every existing
-    company-scoped query keeps working untouched."""
+    company-scoped query keeps working untouched.
+
+    `group_id` is the Group Authority group that applies to this person
+    **in this company** (confirmed with Dennis, 2026-09-10: a Group per
+    company, not one global Group). Groups are themselves company-scoped,
+    so someone working across two entities can be, say, Finance in one
+    and Owner / Admin in the other. Null means no group there, which
+    resolves to no access (the owner role still overrides everything --
+    see app/services/authority.py)."""
 
     __tablename__ = "user_company_access"
     __table_args__ = (UniqueConstraint("user_id", "company_id", name="uq_user_company"),)
@@ -80,9 +91,11 @@ class UserCompanyAccess(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     company: Mapped["Company"] = relationship()
+    group: Mapped["Group | None"] = relationship()  # noqa: F821
 
 
 class User(Base):
@@ -99,14 +112,17 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role"), nullable=False)
-    # Group Authority: exactly one Group per user, driving general
-    # per-module access (independent of `role` above).
-    group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
+    # Group Authority is NOT here: the group is per company, so it lives
+    # on UserCompanyAccess.group_id (one Group per company this user
+    # works in). `role` above stays global -- it only drives the
+    # named-responsibility business rules, not module access.
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     company: Mapped["Company"] = relationship()
-    group: Mapped["Group | None"] = relationship()  # noqa: F821
+    company_access: Mapped[list["UserCompanyAccess"]] = relationship(
+        primaryjoin="User.id == UserCompanyAccess.user_id", viewonly=True
+    )
 
 
 class AuditLogEntry(Base):

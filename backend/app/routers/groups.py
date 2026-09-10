@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.models.core import User
+from app.models.core import User, UserCompanyAccess
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.licensing import Module
 from app.schemas.schemas import (
@@ -18,6 +18,7 @@ from app.schemas.schemas import (
     GroupOut,
     GroupUpdate,
 )
+from app.routers.companies import _accessible_company_ids
 from app.services import audit
 from app.services.authority import require_module_access
 
@@ -38,7 +39,11 @@ def _get_group_or_404(db: Session, group_id: uuid.UUID) -> Group:
 
 
 def _member_count(db: Session, group_id: uuid.UUID) -> int:
-    return db.query(User).filter(User.group_id == group_id).count()
+    """Staff holding this Group. Group is per company, so membership
+    lives on UserCompanyAccess."""
+    return (
+        db.query(UserCompanyAccess).filter(UserCompanyAccess.group_id == group_id).count()
+    )
 
 
 @router.post("", response_model=GroupOut)
@@ -70,13 +75,22 @@ def create_group(
 
 @router.get("", response_model=list[GroupOut])
 def list_groups(
+    company_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
+    """Groups of the company you are working in. `company_id` lists
+    another company's groups instead -- needed by Staff Master to assign
+    someone a Group in a company other than the active one (Group is per
+    company). Restricted to companies this user may work in."""
+    target_company_id = company_id or current_user.company_id
+    if company_id is not None and company_id not in _accessible_company_ids(db, current_user):
+        raise HTTPException(status_code=403, detail="You do not have access to this company.")
+
     groups = (
         db.query(Group)
         .options(selectinload(Group.authorities))
-        .filter(Group.company_id == current_user.company_id)
+        .filter(Group.company_id == target_company_id)
         .order_by(Group.name)
         .all()
     )

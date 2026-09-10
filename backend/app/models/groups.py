@@ -2,7 +2,10 @@
 Group Authority -- per-module security, controlled by group.
 
 Design (confirmed with Dennis, 2026-09-10):
-- A staff member belongs to exactly **one** Group (User.group_id).
+- A staff member belongs to exactly **one** Group *per company* they
+  work in (UserCompanyAccess.group_id). Groups are themselves
+  company-scoped, so someone working across two entities holds a
+  separate Group in each.
 - A Group's authority over a module is one of four levels:
   None / View / Edit / Full.
 - This is deliberately independent of the specific-responsibility rules

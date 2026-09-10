@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, type AuditLogEntry, type Group, type StaffUser, type UserRole } from '../lib/api'
+import CompanyAccessCard from '../components/CompanyAccessCard'
+import { api, type AuditLogEntry, type StaffUser, type UserRole } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
 const ROLES: UserRole[] = ['owner', 'service_lead', 'sales_manager', 'support_engineer', 'finance']
@@ -20,14 +21,12 @@ export default function StaffDetailPage() {
 
   const [staff, setStaff] = useState<StaffUser | null>(null)
   const [allStaff, setAllStaff] = useState<StaffUser[]>([])
-  const [groups, setGroups] = useState<Group[]>([])
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
 
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<UserRole>('support_engineer')
-  const [groupId, setGroupId] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [newPassword, setNewPassword] = useState('')
@@ -41,7 +40,6 @@ export default function StaffDetailPage() {
         setStaff(u)
         setFullName(u.full_name)
         setRole(u.role)
-        setGroupId(u.group_id ?? '')
       })
       .catch(() => setNotFound(true))
     api.getStaffAuditLog(id).then(setAuditLog).catch((e) => setError(e.message))
@@ -49,7 +47,6 @@ export default function StaffDetailPage() {
 
   useEffect(refresh, [id])
   useEffect(() => {
-    api.listGroups().then(setGroups).catch((e) => setError(e.message))
     api.listStaff(true).then(setAllStaff).catch((e) => setError(e.message))
   }, [])
 
@@ -64,11 +61,7 @@ export default function StaffDetailPage() {
     setError(null)
     setSaving(true)
     try {
-      const updated = await api.updateStaff(id, {
-        full_name: fullName,
-        role,
-        group_id: groupId || null,
-      })
+      const updated = await api.updateStaff(id, { full_name: fullName, role })
       setStaff(updated)
       refresh()
     } catch (err) {
@@ -147,22 +140,17 @@ export default function StaffDetailPage() {
               ))}
             </select>
           </div>
-          <div className="form-row">
-            <label>Group (Group Authority -- general module access)</label>
-            <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-              <option value="">No group</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <p className="muted">
+            Group Authority (general module access) is set per company below, since a Group belongs
+            to a single company.
+          </p>
           <button type="submit" disabled={saving}>
             {saving ? 'Saving...' : 'Save changes'}
           </button>
         </form>
       </div>
+
+      {id && <CompanyAccessCard userId={id} />}
 
       <div className="card">
         <h2>Password</h2>

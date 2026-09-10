@@ -326,11 +326,15 @@ anticipated multiple entities; this is how it works in practice.
 - Each company has its **own module mix** (see Module Control below), its
   own Groups and Group Authority matrix, its own staff, and its own Event
   Logs — so two entities can run the system very differently.
-- Open item for when it arises: a staff member who works in more than one
-  company currently carries a single Group, which is defined per company.
-  Whether such a person should have a Group per company has not been
-  decided and is not assumed — the owner is unaffected (the owner role
-  bypasses Group Authority).
+- **Group per company (confirmed by Dennis, 2026-09-10).** A staff member
+  holds one Group **per company** they work in, not one globally. The
+  assignment lives on the access row (`UserCompanyAccess.group_id`), so
+  the same person can be Owner / Admin in one entity and Finance in
+  another, with module access resolved against whichever company they
+  are currently in. Managed in Staff Master → Company access & Groups.
+  A Group can only ever be assigned within its own company, and a new
+  company is created with one "Owner / Admin" group so there is always
+  something to assign.
 
 ### Module Control / multi-company licensing
 

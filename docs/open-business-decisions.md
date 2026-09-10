@@ -306,7 +306,11 @@ revisited.
    support engineer see/edit vs. a finance user vs. a manager.
    **Status: DECIDED (2026-09-10)** — "Group Authority", confirmed with
    Dennis:
-   - Every staff member (Staff Master) belongs to **exactly one Group**.
+   - Every staff member (Staff Master) belongs to **exactly one Group
+     per company they work in** (refined 2026-09-10 when multi-company
+     went in: Groups are company-scoped, so the assignment lives on the
+     staff member's company-access row and the same person can hold a
+     different Group in each entity).
    - Each Group has an access level per module: **None / View / Edit /
      Full**. None of the module is hidden; View is read-only; Edit allows
      create/update within the module; Full additionally allows its

@@ -249,45 +249,68 @@ def main():
         dennis = User(
             company_id=company.id, email="dennis@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Dennis (Owner)",
-            role=UserRole.OWNER, group_id=groups["Owner / Admin"].id,
+            role=UserRole.OWNER,
         )
         nico = User(
             company_id=company.id, email="nico@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Nico (Service & Support Lead)",
-            role=UserRole.SERVICE_LEAD, group_id=groups["Service Team"].id,
+            role=UserRole.SERVICE_LEAD,
         )
         cherish = User(
             company_id=company.id, email="cherish@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Cherish (Sales Manager)",
-            role=UserRole.SALES_MANAGER, group_id=groups["Sales Team"].id,
+            role=UserRole.SALES_MANAGER,
         )
         engineer = User(
             company_id=company.id, email="weiling@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Wei Ling (Support Engineer)",
-            role=UserRole.SUPPORT_ENGINEER, group_id=groups["Service Team"].id,
+            role=UserRole.SUPPORT_ENGINEER,
         )
         # Staff of the second entity only -- proves staff, groups and
         # data are company-scoped: Priya never sees company 1's records.
         priya = User(
             company_id=company2.id, email="priya@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Priya (Digital Lead)",
-            role=UserRole.SALES_MANAGER, group_id=groups2["Sales Team"].id,
+            role=UserRole.SALES_MANAGER,
         )
         db.add_all([dennis, nico, cherish, engineer, priya])
         db.flush()
 
-        # Multi-company access: Dennis works across both entities and
-        # gets the company switcher; everyone else is single-company.
-        # (The owner role can reach any company regardless, but the rows
-        # make the intent explicit in the data.)
+        # Multi-company access + the Group each person holds IN EACH
+        # COMPANY (confirmed 2026-09-10: a Group per company, since
+        # Groups are themselves company-scoped). Dennis works across both
+        # entities and gets the company switcher -- note he is Owner /
+        # Admin in company 1 but only Finance Team in company 2, which is
+        # exactly what per-company groups make possible. Everyone else is
+        # single-company. (The owner role can reach any company and
+        # bypasses Group Authority regardless; the rows make the intent
+        # explicit in the data.)
         db.add_all(
             [
-                UserCompanyAccess(user_id=dennis.id, company_id=company.id),
-                UserCompanyAccess(user_id=dennis.id, company_id=company2.id),
-                UserCompanyAccess(user_id=nico.id, company_id=company.id),
-                UserCompanyAccess(user_id=cherish.id, company_id=company.id),
-                UserCompanyAccess(user_id=engineer.id, company_id=company.id),
-                UserCompanyAccess(user_id=priya.id, company_id=company2.id),
+                UserCompanyAccess(
+                    user_id=dennis.id, company_id=company.id,
+                    group_id=groups["Owner / Admin"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=dennis.id, company_id=company2.id,
+                    group_id=groups2["Finance Team"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=nico.id, company_id=company.id,
+                    group_id=groups["Service Team"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=cherish.id, company_id=company.id,
+                    group_id=groups["Sales Team"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=engineer.id, company_id=company.id,
+                    group_id=groups["Service Team"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=priya.id, company_id=company2.id,
+                    group_id=groups2["Sales Team"].id,
+                ),
             ]
         )
 
@@ -355,12 +378,19 @@ def main():
         print("\nLogins (all password: demo1234):")
         all_groups = {**{g.id: n for n, g in groups.items()}, **{g.id: n for n, g in groups2.items()}}
         company_names = {company.id: company.name, company2.id: company2.name}
+        access_rows = db.query(UserCompanyAccess).all()
         for u in (dennis, nico, cherish, engineer, priya):
-            print(
-                f"  {u.email:30s} role={u.role.value:16s} "
-                f"group={all_groups.get(u.group_id, '-'):14s} company={company_names[u.company_id]}"
-            )
-        print("\nDennis has access to both companies -- the company switcher appears for him only.")
+            print(f"  {u.email:30s} role={u.role.value}")
+            for row in [a for a in access_rows if a.user_id == u.id]:
+                marker = " (active)" if row.company_id == u.company_id else ""
+                print(
+                    f"      {company_names[row.company_id]:32s} "
+                    f"group={all_groups.get(row.group_id, '-')}{marker}"
+                )
+        print(
+            "\nDennis has access to both companies -- the switcher appears for him only, and he "
+            "holds a different Group in each (Owner / Admin vs Finance Team)."
+        )
     except Exception:
         db.rollback()
         raise
