@@ -46,6 +46,7 @@ def get_customer(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     customer = db.get(Customer, customer_id)
-    if not customer:
+    # Multi-company: another company's customer is "not found" here.
+    if not customer or customer.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Customer not found")
     return customer

@@ -42,7 +42,7 @@ def list_service_records(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    query = db.query(ServiceRecord)
+    query = db.query(ServiceRecord).filter(ServiceRecord.company_id == current_user.company_id)
     if job_order_id:
         query = query.filter(ServiceRecord.job_order_id == job_order_id)
     if employee_user_id:
@@ -59,7 +59,7 @@ def approve_service_record(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
     record = db.get(ServiceRecord, record_id)
-    if not record:
+    if not record or record.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Service record not found")
     job_order = db.get(JobOrder, record.job_order_id)
     try:

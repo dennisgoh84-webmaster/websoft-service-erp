@@ -44,6 +44,9 @@ class ServiceRecord(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    # Multi-company: inherited from the job order this work was logged
+    # against, so service records filter by company directly.
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
     job_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("job_orders.id"), nullable=False)
     employee_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
 

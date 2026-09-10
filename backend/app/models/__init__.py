@@ -8,7 +8,13 @@ from app.models.contracts import (  # noqa: F401
     ExcessUsageRecord,
     ExpiredHoursRecord,
 )
-from app.models.core import AuditLogEntry, Company, User, UserRole  # noqa: F401
+from app.models.core import (  # noqa: F401
+    AuditLogEntry,
+    Company,
+    User,
+    UserCompanyAccess,
+    UserRole,
+)
 from app.models.customers import Contact, Customer  # noqa: F401
 from app.models.groups import (  # noqa: F401
     ACCESS_LEVEL_ORDER,

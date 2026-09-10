@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { ThemeProvider } from './lib/ThemeContext'
+import CompanySetupPage from './pages/CompanySetupPage'
 import ContractDetailPage from './pages/ContractDetailPage'
 import ContractsPage from './pages/ContractsPage'
 import CustomersPage from './pages/CustomersPage'
@@ -44,6 +45,7 @@ function AppRoutes() {
         <Route path="/job-orders/:id" element={<JobOrderDetailPage />} />
         <Route path="/excess-review" element={<ExcessReviewPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
+        <Route path="/company-setup" element={<CompanySetupPage />} />
         <Route path="/modules" element={<ModulesPage />} />
         <Route path="/staff" element={<StaffMasterPage />} />
         <Route path="/staff/:id" element={<StaffDetailPage />} />

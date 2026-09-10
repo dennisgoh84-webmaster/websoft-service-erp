@@ -1,8 +1,9 @@
 // Records a video walkthrough of Websoft Service ERP Solution's updated
 // UI: the Bright/Dark theme toggle, the confirmed Service Operations
 // workflow (SRV-001..018), Module Control, Staff Master (list + detail,
-// including password reset and the per-account activity trail), and
-// Group Authority (RBAC).
+// including password reset and the per-account activity trail), Group
+// Authority (RBAC), Event Logs (the audit trail), and Company Setup +
+// multi-company switching between two entities.
 //
 // Run with: node record_demo.cjs
 // (requires the backend + frontend dev servers running, and a freshly
@@ -124,7 +125,26 @@ async function main() {
   await page.locator('tr', { hasText: 'Billing' }).first().locator('select').selectOption('full')
   await pause(1800)
 
-  // 13. Back to Bright theme to close out
+  // 13. Event Logs -- the audit trail those changes just wrote
+  await page.getByRole('link', { name: 'Event Logs', exact: true }).click()
+  await pause(2500) // let the viewer read the old -> new value column
+
+  // 14. Company Setup -- the company logo (top-left) and the second entity
+  await page.getByRole('link', { name: 'Company Setup', exact: true }).click()
+  await pause(2500)
+
+  // 15. Multi-company: switch to the second entity and show the whole app
+  //     re-scope -- different logo, different customers, empty dashboard.
+  await page.getByLabel('Switch company').selectOption({ label: 'Websoft Digital Pte Ltd' })
+  await pause(1500)
+  await page.getByRole('link', { name: 'Dashboard', exact: true }).click()
+  await pause(2000)
+  await page.getByRole('link', { name: 'Customers', exact: true }).click()
+  await pause(2000)
+  await page.getByLabel('Switch company').selectOption({ label: 'Webmaster Consultancy Pte Ltd' })
+  await pause(1800)
+
+  // 16. Back to Bright theme to close out
   await page.getByRole('button', { name: /switch to bright theme/i }).click()
   await pause(800)
   await page.getByRole('link', { name: 'Dashboard', exact: true }).click()

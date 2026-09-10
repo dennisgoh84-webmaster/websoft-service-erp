@@ -74,7 +74,15 @@ def list_event_logs(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     query = _apply_filters(
-        db.query(AuditLogEntry),
+        # Multi-company: each company sees only its own trail. Entries
+        # written before company stamping existed carry a null
+        # company_id and are shown to everyone rather than hidden.
+        db.query(AuditLogEntry).filter(
+            or_(
+                AuditLogEntry.company_id == current_user.company_id,
+                AuditLogEntry.company_id.is_(None),
+            )
+        ),
         entity_type=entity_type,
         action=action,
         actor_user_id=actor_user_id,
@@ -102,7 +110,15 @@ def export_event_logs_csv(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     query = _apply_filters(
-        db.query(AuditLogEntry),
+        # Multi-company: each company sees only its own trail. Entries
+        # written before company stamping existed carry a null
+        # company_id and are shown to everyone rather than hidden.
+        db.query(AuditLogEntry).filter(
+            or_(
+                AuditLogEntry.company_id == current_user.company_id,
+                AuditLogEntry.company_id.is_(None),
+            )
+        ),
         entity_type=entity_type,
         action=action,
         actor_user_id=actor_user_id,

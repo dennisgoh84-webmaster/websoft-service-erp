@@ -32,6 +32,7 @@ Sets up:
   perform the Nico excess-usage review itself, rather than the seed
   script doing it upfront.
 """
+import base64
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -41,7 +42,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import text
 
 from app.core.database import Base, SessionLocal, engine
-from app.models.core import Company, User, UserRole
+from app.models.core import Company, User, UserCompanyAccess, UserRole
 from app.models.customers import Customer
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
@@ -175,19 +176,44 @@ def wipe_data(db):
     db.commit()
 
 
-def seed_modules(db, company: Company):
-    for key, name, is_built, enabled in MODULE_CATALOG:
+def seed_module_catalog(db):
+    """The Module catalog is global (the list of business areas that
+    exist); which of them a given company runs is CompanyModule below."""
+    for key, name, is_built, _enabled in MODULE_CATALOG:
         db.add(Module(key=key, name=name, is_built=is_built))
+    db.flush()
+
+
+def seed_company_modules(db, company: Company, disabled_keys: set[str] = frozenset()):
+    """Per-company module enablement. `disabled_keys` lets a second
+    company run a different module mix from the first -- the whole point
+    of Module Control being per-company."""
+    for key, _name, _is_built, enabled in MODULE_CATALOG:
+        on = enabled and key not in disabled_keys
         db.add(
             CompanyModule(
                 company_id=company.id,
                 module_key=key,
-                enabled=enabled,
+                enabled=on,
                 license_type=LicenseType.INCLUDED,
-                enabled_at=datetime.now(timezone.utc) if enabled else None,
+                enabled_at=datetime.now(timezone.utc) if on else None,
             )
         )
     db.flush()
+
+
+def logo_data_uri(initials: str, bg: str = "#7a1f2e") -> str:
+    """A simple placeholder logo in the company colours (maroon/white),
+    stored the same way an uploaded one is: an image data URI on the
+    Company record. Dennis can replace it from Company Setup."""
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">'
+        f'<rect width="96" height="96" rx="20" fill="{bg}"/>'
+        '<text x="48" y="63" font-family="system-ui,Segoe UI,Roboto,sans-serif" '
+        f'font-size="36" font-weight="700" fill="#ffffff" text-anchor="middle">{initials}</text>'
+        "</svg>"
+    )
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
 
 
 def main():
@@ -196,12 +222,29 @@ def main():
     try:
         wipe_data(db)
 
-        company = Company(name="Webmaster Consultancy Pte Ltd")
-        db.add(company)
+        company = Company(
+            name="Webmaster Consultancy Pte Ltd", logo=logo_data_uri("WC")
+        )
+        # A second entity, so multi-company is demonstrable rather than
+        # just anticipated: its own logo, its own module mix, its own
+        # groups, staff, customers and contracts.
+        company2 = Company(
+            name="Websoft Digital Pte Ltd", logo=logo_data_uri("WD", bg="#1a1315")
+        )
+        db.add_all([company, company2])
         db.flush()
 
-        seed_modules(db, company)
+        seed_module_catalog(db)
+        seed_company_modules(db, company)
+        # The second entity doesn't run service contracts/job orders --
+        # a different module mix, controlled per company.
+        seed_company_modules(
+            db,
+            company2,
+            disabled_keys={"service_contracts", "service_operations", "service_records"},
+        )
         groups = seed_groups(db, company)
+        groups2 = seed_groups(db, company2)
 
         dennis = User(
             company_id=company.id, email="dennis@websoft.local",
@@ -223,14 +266,42 @@ def main():
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Wei Ling (Support Engineer)",
             role=UserRole.SUPPORT_ENGINEER, group_id=groups["Service Team"].id,
         )
-        db.add_all([dennis, nico, cherish, engineer])
+        # Staff of the second entity only -- proves staff, groups and
+        # data are company-scoped: Priya never sees company 1's records.
+        priya = User(
+            company_id=company2.id, email="priya@websoft.local",
+            hashed_password=hash_password(DEMO_PASSWORD), full_name="Priya (Digital Lead)",
+            role=UserRole.SALES_MANAGER, group_id=groups2["Sales Team"].id,
+        )
+        db.add_all([dennis, nico, cherish, engineer, priya])
         db.flush()
+
+        # Multi-company access: Dennis works across both entities and
+        # gets the company switcher; everyone else is single-company.
+        # (The owner role can reach any company regardless, but the rows
+        # make the intent explicit in the data.)
+        db.add_all(
+            [
+                UserCompanyAccess(user_id=dennis.id, company_id=company.id),
+                UserCompanyAccess(user_id=dennis.id, company_id=company2.id),
+                UserCompanyAccess(user_id=nico.id, company_id=company.id),
+                UserCompanyAccess(user_id=cherish.id, company_id=company.id),
+                UserCompanyAccess(user_id=engineer.id, company_id=company.id),
+                UserCompanyAccess(user_id=priya.id, company_id=company2.id),
+            ]
+        )
 
         customer = Customer(
             company_id=company.id, name="Acme Manufacturing Pte Ltd",
             billing_email="accounts@acme-mfg.test",
         )
-        db.add(customer)
+        # Company 2's own customer -- switching companies swaps the whole
+        # dataset, so this is what Dennis sees under Websoft Digital.
+        customer2 = Customer(
+            company_id=company2.id, name="Northwind Retail Pte Ltd",
+            billing_email="ap@northwind-retail.test",
+        )
+        db.add_all([customer, customer2])
         db.flush()
 
         contract = contract_svc.create_contract(
@@ -243,7 +314,7 @@ def main():
         billing_svc.issue_contract_annual_invoice(db, contract, actor_user_id=dennis.id)
 
         job_order = JobOrder(
-            customer_id=customer.id, contract_id=contract.id,
+            company_id=company.id, customer_id=customer.id, contract_id=contract.id,
             subject="Intermittent VPN connectivity for remote staff",
             priority=JobOrderPriority.HIGH, status=JobOrderStatus.ASSIGNED,
             assigned_to_user_id=engineer.id,
@@ -273,7 +344,8 @@ def main():
         db.commit()
 
         print("\n=== Demo dataset ready ===")
-        print(f"Company:  {company.name}")
+        print(f"Company 1: {company.name} (logo set)")
+        print(f"Company 2: {company2.name} (logo set) -- customer: {customer2.name}")
         print(f"Customer: {customer.name} ({customer.id})")
         print(f"Contract: {contract.id} -- {contract.consumed_minutes}/{contract.contracted_minutes} min consumed")
         print(f"Job order: {job_order.id} -- {job_order.subject}")
@@ -281,9 +353,14 @@ def main():
         print("\nEnabled modules:", ", ".join(k for k, _, _, e in MODULE_CATALOG if e))
         print("\nGroups:", ", ".join(GROUP_CATALOG.keys()))
         print("\nLogins (all password: demo1234):")
-        for u in (dennis, nico, cherish, engineer):
-            group_name = next(name for name, g in groups.items() if g.id == u.group_id)
-            print(f"  {u.email:30s} role={u.role.value:16s} group={group_name}")
+        all_groups = {**{g.id: n for n, g in groups.items()}, **{g.id: n for n, g in groups2.items()}}
+        company_names = {company.id: company.name, company2.id: company2.name}
+        for u in (dennis, nico, cherish, engineer, priya):
+            print(
+                f"  {u.email:30s} role={u.role.value:16s} "
+                f"group={all_groups.get(u.group_id, '-'):14s} company={company_names[u.company_id]}"
+            )
+        print("\nDennis has access to both companies -- the company switcher appears for him only.")
     except Exception:
         db.rollback()
         raise

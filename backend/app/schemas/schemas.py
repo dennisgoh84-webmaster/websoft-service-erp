@@ -30,6 +30,39 @@ class CurrentUser(BaseModel):
     email: str
     role: UserRole
     group_id: uuid.UUID | None = None
+    # The company this user is currently working in (multi-company).
+    company_id: uuid.UUID | None = None
+
+
+# ---- Company Setup / multi-company ----
+class CompanyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    country: str
+    currency: str
+    timezone: str
+    logo: str | None
+    is_active: bool
+    created_at: datetime
+
+
+class CompanyCreate(BaseModel):
+    name: str = Field(min_length=1)
+    country: str = "Singapore"
+    currency: str = "SGD"
+    timezone: str = "Asia/Singapore"
+    logo: str | None = None
+
+
+class CompanyUpdate(BaseModel):
+    name: str | None = None
+    country: str | None = None
+    currency: str | None = None
+    timezone: str | None = None
+    # A data URI ("data:image/png;base64,..."). Pass null to clear the logo.
+    logo: str | None = None
+    is_active: bool | None = None
 
 
 # ---- Staff Master (Users) ----

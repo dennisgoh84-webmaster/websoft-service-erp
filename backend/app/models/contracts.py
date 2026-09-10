@@ -113,6 +113,8 @@ class ExcessUsageRecord(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    # Multi-company: inherited from the contract it was raised against.
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
     contract_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contracts.id"), nullable=False)
     service_record_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("service_records.id"), nullable=False

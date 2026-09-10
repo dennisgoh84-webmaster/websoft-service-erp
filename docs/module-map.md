@@ -75,8 +75,13 @@ System administrators, IT admin, senior management (for org-wide settings).
 **Key functions**
 - Staff Master: user account management (create/deactivate/reactivate,
   reset password, assign role and Group).
-- Company/entity management (single company today; structure to support
-  more later).
+- **Company Setup** (confirmed 2026-09-10): the company record — name,
+  country, currency, timezone, and the logo shown at the top-left of the
+  app — plus creating additional companies. Multi-company is live: each
+  company has its own customers, contracts, job orders, invoices, staff,
+  Groups, Event Logs and module mix; staff with access to more than one
+  get a company switcher, and everything they see is scoped to whichever
+  is active. See system-architecture.md's Multi-company section.
 - Module Control: per-company module enable/license (see Module Control /
   Licensing below).
 - **Group Authority** (RBAC, confirmed 2026-09-10 — resolves open item

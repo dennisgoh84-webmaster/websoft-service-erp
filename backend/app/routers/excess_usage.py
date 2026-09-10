@@ -21,7 +21,9 @@ def list_all_excess_usage(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    query = db.query(ExcessUsageRecord)
+    query = db.query(ExcessUsageRecord).filter(
+        ExcessUsageRecord.company_id == current_user.company_id
+    )
     if pending_only:
         query = query.filter(ExcessUsageRecord.treatment.is_(None))
     return [ExcessUsageOut.from_model(r) for r in query.all()]
@@ -35,7 +37,7 @@ def decide_excess_usage(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
     record = db.get(ExcessUsageRecord, record_id)
-    if not record:
+    if not record or record.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Excess usage record not found")
     contract = db.get(Contract, record.contract_id)
     try:

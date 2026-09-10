@@ -21,7 +21,7 @@ def list_invoices(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    query = db.query(Invoice)
+    query = db.query(Invoice).filter(Invoice.company_id == current_user.company_id)
     if customer_id:
         query = query.filter(Invoice.customer_id == customer_id)
     if contract_id:

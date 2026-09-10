@@ -19,6 +19,7 @@ def issue_contract_annual_invoice(
     """BILL-001: full 12-month contract value, billed at contract
     start/renewal. BILL-002: no approval required -- issued directly."""
     invoice = Invoice(
+        company_id=contract.company_id,
         customer_id=contract.customer_id,
         contract_id=contract.id,
         invoice_type=InvoiceType.CONTRACT_ANNUAL,
@@ -64,6 +65,7 @@ def issue_excess_usage_invoice(
     amount = (rate * excess_hours).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     invoice = Invoice(
+        company_id=contract.company_id,
         customer_id=contract.customer_id,
         contract_id=contract.id,
         excess_usage_record_id=excess_record.id,

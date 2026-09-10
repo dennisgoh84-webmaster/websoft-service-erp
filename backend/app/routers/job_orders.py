@@ -21,6 +21,7 @@ def create_job_order(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
     job_order = JobOrder(
+        company_id=current_user.company_id,
         customer_id=payload.customer_id,
         contract_id=payload.contract_id,
         subject=payload.subject,
@@ -41,7 +42,7 @@ def list_job_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    query = db.query(JobOrder)
+    query = db.query(JobOrder).filter(JobOrder.company_id == current_user.company_id)
     if status:
         query = query.filter(JobOrder.status == status)
     if priority:
@@ -60,7 +61,7 @@ def get_job_order(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     job_order = db.get(JobOrder, job_order_id)
-    if not job_order:
+    if not job_order or job_order.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Job order not found")
     return job_order
 
@@ -73,7 +74,7 @@ def assign_job_order(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
     job_order = db.get(JobOrder, job_order_id)
-    if not job_order:
+    if not job_order or job_order.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Job order not found")
     job_order.assigned_to_user_id = payload.assigned_to_user_id
     job_order.status = JobOrderStatus.ASSIGNED

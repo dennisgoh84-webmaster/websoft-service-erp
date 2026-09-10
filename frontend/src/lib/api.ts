@@ -66,6 +66,19 @@ export interface CurrentUser {
   email: string
   role: UserRole
   group_id: string | null
+  company_id: string | null
+}
+
+// ---- Company Setup / multi-company ----
+export interface Company {
+  id: string
+  name: string
+  country: string
+  currency: string
+  timezone: string
+  logo: string | null
+  is_active: boolean
+  created_at: string
 }
 
 // ---- Staff Master ----
@@ -229,6 +242,28 @@ export interface DashboardSummary {
 export const api = {
   me: () => request<CurrentUser>('/auth/me'),
   listUsers: () => request<CurrentUser[]>('/users'),
+
+  // Company Setup / multi-company
+  listMyCompanies: () => request<Company[]>('/companies'),
+  createCompany: (payload: {
+    name: string
+    country?: string
+    currency?: string
+    timezone?: string
+    logo?: string | null
+  }) => request<Company>('/companies', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCompany: (
+    id: string,
+    payload: {
+      name?: string
+      country?: string
+      currency?: string
+      timezone?: string
+      logo?: string | null
+      is_active?: boolean
+    },
+  ) => request<Company>(`/companies/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  switchCompany: (id: string) => request<Company>(`/companies/${id}/switch`, { method: 'POST' }),
 
   // Staff Master (full CRUD; distinct from the plain listUsers directory above)
   listStaff: (includeInactive = false) =>

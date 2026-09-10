@@ -26,6 +26,8 @@ class Invoice(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    # Multi-company: the entity that issued this invoice.
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
     customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
     contract_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("contracts.id"), nullable=True

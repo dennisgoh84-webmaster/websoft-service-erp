@@ -53,12 +53,17 @@ def record(
 ) -> AuditLogEntry:
     ctx = _request_context.get()
     actor_name = None
+    company_id = None
     if actor_user_id is not None:
         actor = db.get(User, actor_user_id)
         if actor is not None:
             actor_name = actor.full_name
+            # The company the actor was working in when this happened,
+            # so Event Logs can show each company only its own trail.
+            company_id = actor.company_id
 
     entry = AuditLogEntry(
+        company_id=company_id,
         entity_type=entity_type,
         entity_id=entity_id,
         action=action,

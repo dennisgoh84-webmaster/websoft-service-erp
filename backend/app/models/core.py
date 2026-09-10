@@ -16,7 +16,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,9 +32,20 @@ class UserRole(str, enum.Enum):
 
 
 class Company(Base):
-    """A legal entity using the system. Single row today (Webmaster
-    Consultancy Pte Ltd); the schema anticipates more companies later
-    per CLAUDE.md's multi-company architecture decision."""
+    """A legal entity using the system, managed from Company Setup
+    (app/routers/companies.py). Webmaster Consultancy Pte Ltd is the
+    first; CLAUDE.md's approved architecture anticipates more, so every
+    company-owned record (customers, contracts, job orders, groups,
+    users, audit entries) carries a `company_id` and is filtered by the
+    signed-in user's *active* company.
+
+    `logo` holds a small image as a data URI (e.g.
+    "data:image/png;base64,...") shown at the top-left of the app.
+    Business *documents* (contracts, invoices, attachments) still belong
+    in external file storage per docs/system-architecture.md -- a logo
+    is UI branding configuration, a few KB, needed on every page render,
+    so it is deliberately kept inline rather than standing up file
+    storage infrastructure for it."""
 
     __tablename__ = "companies"
 
@@ -45,7 +56,33 @@ class Company(Base):
     country: Mapped[str] = mapped_column(String(100), default="Singapore")
     currency: Mapped[str] = mapped_column(String(3), default="SGD")
     timezone: Mapped[str] = mapped_column(String(50), default="Asia/Singapore")
+    logo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class UserCompanyAccess(Base):
+    """Which companies a staff member may work in (multi-company).
+
+    Separate from `User.company_id`, which is the company they are
+    *currently* working in: one row here per company they are *allowed*
+    to switch to. A staff member with a single row (the normal case)
+    never sees the company switcher; someone like Dennis, who owns more
+    than one entity, gets a row per company and switches between them.
+    Switching only rewrites `User.company_id`, so every existing
+    company-scoped query keeps working untouched."""
+
+    __tablename__ = "user_company_access"
+    __table_args__ = (UniqueConstraint("user_id", "company_id", name="uq_user_company"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    company: Mapped["Company"] = relationship()
 
 
 class User(Base):
@@ -54,6 +91,9 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    # The company this user is *currently* working in. Everything they
+    # see is scoped to it. Multi-company: UserCompanyAccess lists the
+    # companies they may switch to, and switching rewrites this field.
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -97,6 +137,10 @@ class AuditLogEntry(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    # The company the action happened in, so Event Logs shows each
+    # company only its own trail (multi-company). Stamped automatically
+    # from the actor's active company -- see app/services/audit.py.
+    company_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("companies.id"), nullable=True)
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     action: Mapped[str] = mapped_column(String(100), nullable=False)

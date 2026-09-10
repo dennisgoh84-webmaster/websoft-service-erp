@@ -21,9 +21,10 @@ router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 MODULE = "service_contracts"
 
 
-def _get_contract_or_404(db: Session, contract_id: uuid.UUID) -> Contract:
+def _get_contract_or_404(db: Session, contract_id: uuid.UUID, company_id: uuid.UUID) -> Contract:
     contract = db.get(Contract, contract_id)
-    if not contract:
+    # Multi-company: another company's contract is "not found" here.
+    if not contract or contract.company_id != company_id:
         raise HTTPException(status_code=404, detail="Contract not found")
     return contract
 
@@ -72,7 +73,7 @@ def get_contract(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    return ContractOut.from_model(_get_contract_or_404(db, contract_id))
+    return ContractOut.from_model(_get_contract_or_404(db, contract_id, current_user.company_id))
 
 
 @router.post("/{contract_id}/activate", response_model=ContractOut)
@@ -81,7 +82,7 @@ def activate_contract(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
-    contract = _get_contract_or_404(db, contract_id)
+    contract = _get_contract_or_404(db, contract_id, current_user.company_id)
     try:
         contract_svc.activate_contract(db, contract, actor_user_id=current_user.id)
         # BILL-001/BILL-002/BILL-005: annual upfront invoice, issued directly, on activation.
@@ -100,7 +101,7 @@ def renew_contract(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
-    prior = _get_contract_or_404(db, contract_id)
+    prior = _get_contract_or_404(db, contract_id, current_user.company_id)
     try:
         new_contract = contract_svc.renew_contract(
             db,
@@ -123,6 +124,7 @@ def list_excess_usage(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
+    _get_contract_or_404(db, contract_id, current_user.company_id)
     records = (
         db.query(ExcessUsageRecord).filter(ExcessUsageRecord.contract_id == contract_id).all()
     )

@@ -38,7 +38,14 @@ def submit_service_record(
     work_date: date,
     raw_minutes: int,
 ) -> ServiceRecord:
+    job_order = db.get(JobOrder, job_order_id)
+    if job_order is None:
+        raise ContractRuleViolation("Job order not found.")
+
     record = ServiceRecord(
+        # Multi-company: a service record belongs to the same company as
+        # the job order the work was logged against.
+        company_id=job_order.company_id,
         job_order_id=job_order_id,
         employee_user_id=employee_user_id,
         work_date=work_date,
@@ -103,6 +110,7 @@ def approve_service_record(
             deduct_minutes(db, contract, remaining, actor_user_id=approver.id)
         excess_minutes = rounded - remaining
         excess_record = ExcessUsageRecord(
+            company_id=contract.company_id,
             contract_id=contract.id,
             service_record_id=record.id,
             excess_minutes=excess_minutes,

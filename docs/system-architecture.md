@@ -222,12 +222,13 @@ approval workflows) without changing the shape described here.
   tables directly, mirroring the backend's module boundaries.
 - All schema changes go through migrations, applied in a controlled,
   repeatable way across environments (development, testing, production).
-- The schema is expected to carry a company/entity reference on
-  company-scoped data from the outset, even though only one company
-  exists today, so that future multi-company support (per CLAUDE.md) does
-  not require a disruptive re-model — the exact mechanism (shared tables
-  with a company key vs. another approach) is an implementation decision
-  for the detailed data model, not decided here.
+- **Multi-company (implemented 2026-09-10):** company-scoped data lives
+  in shared tables with a `company_id` column, rather than a schema or
+  database per company. Every company-owned record carries it —
+  customers, contracts, job orders, service records, excess usage,
+  invoices, groups, users and audit entries — and every query filters on
+  the signed-in user's active company. See the Multi-company section
+  below for how "active company" works.
 - Financial and operational records are never hard-deleted; the schema is
   expected to support soft-delete/archival (e.g. a status or archived
   flag, and/or an archive strategy for old operational data) consistent
@@ -288,6 +289,48 @@ approval workflows) without changing the shape described here.
 - RBAC must be enforced in the backend (the authority), with the frontend
   using the same role/permission data only to shape what it displays —
   consistent with backend validation being the security boundary.
+
+### Multi-company (Company Setup)
+
+Confirmed and implemented 2026-09-10. CLAUDE.md's approved architecture
+anticipated multiple entities; this is how it works in practice.
+
+- **Company Setup** (`app/routers/companies.py`, Core / Administration)
+  owns the company record: name, country, currency, timezone, and the
+  **logo** shown at the top-left of the app. Companies are created and
+  edited here; nothing is hard-deleted (an `is_active` flag retires one).
+- The logo is stored inline on the Company record as an image data URI.
+  Business *documents* still belong in external file storage (see File /
+  document storage below) — a logo is small UI branding configuration
+  needed on every page render, so it is deliberately treated differently
+  rather than standing up file storage infrastructure for it. Uploads are
+  capped (~300 KB) and validated as images on both frontend and backend.
+- **Active company.** `User.company_id` is the company a staff member is
+  *currently working in*. Everything they see is filtered by it, so
+  switching company re-scopes the entire application in one write, with
+  no per-module special-casing.
+- **Allowed companies.** `UserCompanyAccess` lists the companies a staff
+  member may switch to. Most staff have exactly one and never see the
+  switcher; someone who runs more than one entity gets a row per company
+  and a company selector in the top bar. The owner role can reach any
+  company. Attempting to switch into a company you have no access to is
+  rejected, and switching is recorded in Event Logs.
+- **Scoping is enforced in queries, not just in the UI.** Every
+  company-owned table carries `company_id` and every list query, summary
+  count, and by-id lookup filters on the active company — a record
+  belonging to another company reads as "not found" rather than being
+  returned. (Job orders, service records, excess usage and invoices
+  originally reached their company only indirectly through the customer
+  or contract; they now carry `company_id` directly, which both closes
+  that gap and keeps the filters simple.)
+- Each company has its **own module mix** (see Module Control below), its
+  own Groups and Group Authority matrix, its own staff, and its own Event
+  Logs — so two entities can run the system very differently.
+- Open item for when it arises: a staff member who works in more than one
+  company currently carries a single Group, which is defined per company.
+  Whether such a person should have a Group per company has not been
+  decided and is not assumed — the owner is unaffected (the owner role
+  bypasses Group Authority).
 
 ### Module Control / multi-company licensing
 

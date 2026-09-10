@@ -1,14 +1,27 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import CompanySwitcher from './CompanySwitcher'
 import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../lib/AuthContext'
 
 export default function Layout() {
-  const { user, logout } = useAuth()
+  const { user, logout, activeCompany } = useAuth()
 
   return (
     <div className="app-shell">
       <nav className="sidebar">
-        <div className="brand">Websoft Service ERP</div>
+        {/* Company logo sits above the product name -- it does not
+            replace it. Set it in Company Setup. */}
+        <div className="brand-block">
+          {activeCompany?.logo && (
+            <img
+              className="company-logo"
+              src={activeCompany.logo}
+              alt={`${activeCompany.name} logo`}
+            />
+          )}
+          <div className="brand">Websoft Service ERP</div>
+          {activeCompany && <div className="brand-company">{activeCompany.name}</div>}
+        </div>
         <NavLink to="/" end>
           Dashboard
         </NavLink>
@@ -17,6 +30,7 @@ export default function Layout() {
         <NavLink to="/job-orders">Job Orders</NavLink>
         <NavLink to="/excess-review">Excess Review</NavLink>
         <NavLink to="/invoices">Invoices</NavLink>
+        {user?.role === 'owner' && <NavLink to="/company-setup">Company Setup</NavLink>}
         {user?.role === 'owner' && <NavLink to="/modules">Module Control</NavLink>}
         {user?.role === 'owner' && <NavLink to="/staff">Staff Master</NavLink>}
         {user?.role === 'owner' && <NavLink to="/groups">Group Authority</NavLink>}
@@ -33,6 +47,7 @@ export default function Layout() {
       </nav>
       <main className="main">
         <div className="main-topbar">
+          <CompanySwitcher />
           <ThemeToggle />
         </div>
         <Outlet />

@@ -37,17 +37,24 @@ def get_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
     total_consumed = sum(c.consumed_minutes for c in contracts) / 60
     total_remaining = sum(c.remaining_minutes for c in contracts) / 60
 
+    # Every figure below is scoped to the company the user is currently
+    # working in (multi-company) -- see app/routers/companies.py.
     excess_awaiting_review = (
         db.query(func.count(ExcessUsageRecord.id))
-        .join(Contract, Contract.id == ExcessUsageRecord.contract_id)
-        .filter(Contract.company_id == current_user.company_id, ExcessUsageRecord.treatment.is_(None))
+        .filter(
+            ExcessUsageRecord.company_id == current_user.company_id,
+            ExcessUsageRecord.treatment.is_(None),
+        )
         .scalar()
         or 0
     )
 
     open_job_orders = (
         db.query(func.count(JobOrder.id))
-        .filter(JobOrder.status.in_([JobOrderStatus.OPEN, JobOrderStatus.ASSIGNED]))
+        .filter(
+            JobOrder.company_id == current_user.company_id,
+            JobOrder.status.in_([JobOrderStatus.OPEN, JobOrderStatus.ASSIGNED]),
+        )
         .scalar()
         or 0
     )
@@ -56,12 +63,16 @@ def get_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
     # after the work was performed. (Approximation -- see ServiceRecord.is_late;
     # detecting *never-submitted* work is future scope.)
     submitted_records = (
-        db.query(ServiceRecord).filter(ServiceRecord.status == ServiceRecordStatus.SUBMITTED).all()
+        db.query(ServiceRecord)
+        .filter(
+            ServiceRecord.company_id == current_user.company_id,
+            ServiceRecord.status == ServiceRecordStatus.SUBMITTED,
+        )
+        .all()
     )
     missing_service_records = sum(1 for r in submitted_records if r.is_late)
 
-    invoices = db.query(Invoice).join(Contract, Invoice.contract_id == Contract.id, isouter=True).all()
-    # Fall back to all invoices for this company's customers if contract_id is null (future-proofing).
+    invoices = db.query(Invoice).filter(Invoice.company_id == current_user.company_id).all()
     invoices_total = float(sum(i.amount_sgd for i in invoices))
 
     return DashboardSummary(
