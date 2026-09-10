@@ -14,6 +14,7 @@ export default function InvoicePrintPage() {
   const { activeCompany } = useAuth()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'word'>('pdf')
 
   useEffect(() => {
     if (!id) return
@@ -23,8 +24,12 @@ export default function InvoicePrintPage() {
     })
   }, [id])
 
-  async function onExportWord() {
+  async function onExport() {
     if (!id || !invoice) return
+    if (exportFormat === 'pdf') {
+      window.print()
+      return
+    }
     const blob = await api.exportInvoiceDocx(id)
     downloadBlob(blob, `${invoice.invoice_number}.docx`)
   }
@@ -37,11 +42,12 @@ export default function InvoicePrintPage() {
 
   return (
     <div className="invoice-sheet">
-      <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-        <button onClick={() => window.print()}>Print / Save as PDF</button>
-        <button className="secondary" onClick={onExportWord}>
-          Export to Word
-        </button>
+      <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as 'pdf' | 'word')}>
+          <option value="pdf">PDF (Print)</option>
+          <option value="word">Word</option>
+        </select>
+        <button onClick={onExport}>Export</button>
       </div>
 
       <div className="invoice-header">

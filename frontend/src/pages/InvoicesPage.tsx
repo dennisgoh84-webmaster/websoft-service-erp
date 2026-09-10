@@ -18,6 +18,7 @@ export default function InvoicesPage() {
   const [statement, setStatement] = useState<CustomerStatement | null>(null)
   const [filterCustomer, setFilterCustomer] = useState('')
   const [filterType, setFilterType] = useState('')
+  const [exportFormat, setExportFormat] = useState<'csv' | 'excel'>('csv')
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -40,23 +41,16 @@ export default function InvoicesPage() {
     api.customerStatement(customerIdToShow).then(setStatement).catch((e) => setError(e.message))
   }
 
-  async function onExportCsv() {
+  async function onExport() {
     setError(null)
     try {
-      const blob = await api.exportInvoicesCsv({ customer_id: filterCustomer || undefined })
-      downloadBlob(blob, 'invoices.csv')
+      if (exportFormat === 'csv') {
+        downloadBlob(await api.exportInvoicesCsv({ customer_id: filterCustomer || undefined }), 'invoices.csv')
+      } else {
+        downloadBlob(await api.exportInvoicesExcel({ customer_id: filterCustomer || undefined }), 'invoices.xlsx')
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export CSV')
-    }
-  }
-
-  async function onExportExcel() {
-    setError(null)
-    try {
-      const blob = await api.exportInvoicesExcel({ customer_id: filterCustomer || undefined })
-      downloadBlob(blob, 'invoices.xlsx')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export Excel')
+      setError(err instanceof Error ? err.message : 'Failed to export')
     }
   }
 
@@ -281,12 +275,15 @@ export default function InvoicesPage() {
           >
             Reset filters
           </button>
-          <button type="button" className="secondary" onClick={onExportCsv}>
-            Export CSV
-          </button>
-          <button type="button" className="secondary" onClick={onExportExcel}>
-            Export Excel
-          </button>
+          <div className="form-row" style={{ margin: 0, display: 'flex', gap: 6 }}>
+            <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as 'csv' | 'excel')}>
+              <option value="csv">CSV</option>
+              <option value="excel">Excel</option>
+            </select>
+            <button type="button" className="secondary" onClick={onExport}>
+              Export
+            </button>
+          </div>
         </div>
 
         <h2>Invoices ({visible.length})</h2>
