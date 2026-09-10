@@ -6,6 +6,7 @@
 // other page in this app.
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type Customer, type Invoice } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
@@ -16,7 +17,7 @@ export default function InvoicePrintPage() {
   const { activeCompany } = useAuth()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'word'>('pdf')
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -26,14 +27,13 @@ export default function InvoicePrintPage() {
     })
   }, [id])
 
-  async function onExport() {
+  async function onExport(format: string) {
     if (!id || !invoice) return
-    if (exportFormat === 'pdf') {
+    if (format === 'pdf') {
       window.print()
       return
     }
-    const blob = await api.exportInvoiceDocx(id)
-    downloadBlob(blob, `${invoice.invoice_number}.docx`)
+    downloadBlob(await api.exportInvoiceDocx(id), `${invoice.invoice_number}.docx`)
   }
 
   if (!invoice || !customer) return <p>Loading...</p>
@@ -44,12 +44,16 @@ export default function InvoicePrintPage() {
 
   return (
     <div className="invoice-sheet">
-      <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as 'pdf' | 'word')}>
-          <option value="pdf">PDF (Print)</option>
-          <option value="word">Word</option>
-        </select>
-        <button onClick={onExport}>Export</button>
+      <div className="no-print" style={{ marginBottom: 16 }}>
+        {error && <div className="error-banner" style={{ marginBottom: 8 }}>{error}</div>}
+        <ExportControl
+          formats={[
+            { value: 'pdf', label: 'PDF (Print)' },
+            { value: 'word', label: 'Word' },
+          ]}
+          onExport={onExport}
+          onError={setError}
+        />
       </div>
 
       <div className="form-header">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type AgingReport, type Customer, type CustomerStatement, type Invoice, type InvoiceStatus } from '../lib/api'
 
 const STATUS_BADGE: Record<InvoiceStatus, string> = {
@@ -18,7 +19,6 @@ export default function InvoicesPage() {
   const [statement, setStatement] = useState<CustomerStatement | null>(null)
   const [filterCustomer, setFilterCustomer] = useState('')
   const [filterType, setFilterType] = useState('')
-  const [exportFormat, setExportFormat] = useState<'csv' | 'excel'>('csv')
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -41,16 +41,12 @@ export default function InvoicesPage() {
     api.customerStatement(customerIdToShow).then(setStatement).catch((e) => setError(e.message))
   }
 
-  async function onExport() {
+  async function onExport(format: string) {
     setError(null)
-    try {
-      if (exportFormat === 'csv') {
-        downloadBlob(await api.exportInvoicesCsv({ customer_id: filterCustomer || undefined }), 'invoices.csv')
-      } else {
-        downloadBlob(await api.exportInvoicesExcel({ customer_id: filterCustomer || undefined }), 'invoices.xlsx')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export')
+    if (format === 'csv') {
+      downloadBlob(await api.exportInvoicesCsv({ customer_id: filterCustomer || undefined }), 'invoices.csv')
+    } else {
+      downloadBlob(await api.exportInvoicesExcel({ customer_id: filterCustomer || undefined }), 'invoices.xlsx')
     }
   }
 
@@ -275,15 +271,14 @@ export default function InvoicesPage() {
           >
             Reset filters
           </button>
-          <div className="form-row" style={{ margin: 0, display: 'flex', gap: 6 }}>
-            <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as 'csv' | 'excel')}>
-              <option value="csv">CSV</option>
-              <option value="excel">Excel</option>
-            </select>
-            <button type="button" className="secondary" onClick={onExport}>
-              Export
-            </button>
-          </div>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         <h2>Invoices ({visible.length})</h2>
