@@ -57,7 +57,7 @@ export default function ExcessReviewPage() {
         {pending.map((r) => {
           const choice = choices[r.id] ?? { treatment: 'billable' as ExcessTreatment, reason: '' }
           return (
-            <div key={r.id} className="card" style={{ background: '#fafafa' }}>
+            <div key={r.id} className="card" style={{ background: 'var(--bg)' }}>
               <p>
                 <strong>{r.excess_hours.toFixed(2)} hrs</strong> excess on contract {r.contract_id.slice(0, 8)}
               </p>

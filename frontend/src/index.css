@@ -1,19 +1,61 @@
-:root {
-  --text: #2a2a33;
-  --text-muted: #6b6b76;
-  --bg: #f7f7f9;
+/*
+  Theme system -- "Bright" (light) and "Dark", built from the company
+  colours (black, maroon red, white). Every element below reads colour
+  through these custom properties, so the two palettes are just two sets
+  of variable values; nothing else needs a dark-mode-specific rule.
+  Toggled by setting data-theme="light" | "dark" on <html> -- see
+  src/lib/ThemeContext.tsx and src/components/ThemeToggle.tsx.
+*/
+:root,
+:root[data-theme='light'] {
+  --text: #1a1315;
+  --text-muted: #6b6067;
+  --bg: #f7f4f4;
   --surface: #ffffff;
-  --border: #e0e0e6;
-  --accent: #3554d1;
+  --border: #e3dadb;
+  --accent: #7a1f2e;
+  --accent-hover: #611825;
   --accent-contrast: #ffffff;
   --danger: #c0362c;
   --warn-bg: #fff4e5;
   --warn-border: #f0c078;
+  --warn-text: #8a5a12;
   --ok-bg: #e8f5e9;
   --ok-border: #8bc98e;
+  --ok-text: #2c6b2f;
+  --neutral-bg: #eeeeee;
+  --neutral-text: #555555;
+  --danger-bg: #fdecea;
+  --danger-border: #f5c6c2;
+}
+
+:root[data-theme='dark'] {
+  --text: #f3eeee;
+  --text-muted: #b8adaf;
+  --bg: #121011;
+  --surface: #1c1718;
+  --border: #362a2c;
+  --accent: #c14a63;
+  --accent-hover: #d66a80;
+  --accent-contrast: #ffffff;
+  --danger: #e2574c;
+  --warn-bg: #3a2c14;
+  --warn-border: #7a5a24;
+  --warn-text: #f0c078;
+  --ok-bg: #163420;
+  --ok-border: #2f6a37;
+  --ok-text: #7fd28a;
+  --neutral-bg: #2a2325;
+  --neutral-text: #b8adaf;
+  --danger-bg: #3a1c1a;
+  --danger-border: #6b2c27;
+}
+
+:root {
   font: 15px/1.5 system-ui, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
   background: var(--bg);
+  color-scheme: light dark;
 }
 
 * {
@@ -22,6 +64,9 @@
 
 body {
   margin: 0;
+  color: var(--text);
+  background: var(--bg);
+  transition: background-color 0.15s, color 0.15s;
 }
 
 #root {
@@ -63,6 +108,7 @@ a {
   font-weight: 700;
   font-size: 16px;
   margin-bottom: 20px;
+  color: var(--accent);
 }
 
 .sidebar a {
@@ -73,9 +119,12 @@ a {
   text-decoration: none;
   font-size: 14px;
 }
-.sidebar a.active,
 .sidebar a:hover {
   background: var(--bg);
+}
+.sidebar a.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
 }
 
 .sidebar .user-info {
@@ -90,6 +139,32 @@ a {
   flex: 1;
   padding: 28px 36px;
   max-width: 1000px;
+}
+
+.main-topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.theme-toggle:hover {
+  border-color: var(--accent);
+}
+.theme-toggle-icon {
+  font-size: 14px;
+  line-height: 1;
 }
 
 .card {
@@ -137,6 +212,20 @@ textarea {
   border-radius: 6px;
   font-size: 14px;
   font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 button {
@@ -149,12 +238,15 @@ button {
   cursor: pointer;
 }
 button:hover {
-  opacity: 0.9;
+  background: var(--accent-hover);
 }
 button.secondary {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
+}
+button.secondary:hover {
+  background: var(--bg);
 }
 button:disabled {
   opacity: 0.5;
@@ -169,28 +261,28 @@ button:disabled {
   font-weight: 600;
 }
 .badge.draft {
-  background: #eee;
-  color: #555;
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
 }
 .badge.active {
   background: var(--ok-bg);
   border: 1px solid var(--ok-border);
-  color: #2c6b2f;
+  color: var(--ok-text);
 }
 .badge.exceeded {
   background: var(--warn-bg);
   border: 1px solid var(--warn-border);
-  color: #8a5a12;
+  color: var(--warn-text);
 }
 .badge.expired,
 .badge.renewed {
-  background: #eee;
-  color: #555;
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
 }
 
 .error-banner {
-  background: #fdecea;
-  border: 1px solid #f5c6c2;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   color: var(--danger);
   padding: 10px 14px;
   border-radius: 6px;

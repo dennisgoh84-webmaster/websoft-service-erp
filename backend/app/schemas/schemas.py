@@ -62,6 +62,18 @@ class UserPasswordReset(BaseModel):
     new_password: str = Field(min_length=8)
 
 
+class AuditLogEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    entity_type: str
+    entity_id: uuid.UUID
+    action: str
+    actor_user_id: uuid.UUID | None
+    reason: str | None
+    details: str | None
+    at: datetime
+
+
 # ---- Group Authority ----
 class GroupAuthorityOut(BaseModel):
     module_key: str

@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.core import User
+from app.models.core import AuditLogEntry, User
 from app.models.groups import AccessLevel, Group
-from app.schemas.schemas import UserCreate, UserOut, UserPasswordReset, UserUpdate
+from app.schemas.schemas import AuditLogEntryOut, UserCreate, UserOut, UserPasswordReset, UserUpdate
 from app.services import audit
 from app.services.auth import hash_password
 from app.services.authority import require_module_access
@@ -87,6 +87,25 @@ def get_user(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     return _get_user_or_404(db, user_id)
+
+
+@router.get("/{user_id}/audit-log", response_model=list[AuditLogEntryOut])
+def get_user_audit_log(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    """Recent Staff Master activity for this account (created, role/group
+    changes, deactivate/reactivate, password resets) -- the audit trail
+    CLAUDE.md requires for account-affecting actions."""
+    _get_user_or_404(db, user_id)
+    return (
+        db.query(AuditLogEntry)
+        .filter(AuditLogEntry.entity_type == "user", AuditLogEntry.entity_id == user_id)
+        .order_by(AuditLogEntry.at.desc())
+        .limit(50)
+        .all()
+    )
 
 
 @router.patch("/{user_id}", response_model=UserOut)

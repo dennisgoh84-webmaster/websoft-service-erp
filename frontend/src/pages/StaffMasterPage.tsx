@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { api, type Group, type StaffUser, type UserRole } from '../lib/api'
 
 const ROLES: UserRole[] = ['owner', 'service_lead', 'sales_manager', 'support_engineer', 'finance']
@@ -27,6 +28,11 @@ export default function StaffMasterPage() {
     api.listGroups().then(setGroups).catch((e) => setError(e.message))
   }, [])
 
+  function groupName(id: string | null) {
+    if (!id) return <span className="muted">No group</span>
+    return groups.find((g) => g.id === id)?.name ?? <span className="muted">Unknown group</span>
+  }
+
   async function onCreate(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -49,55 +55,13 @@ export default function StaffMasterPage() {
     }
   }
 
-  async function onRoleChange(id: string, newRole: UserRole) {
-    setError(null)
-    try {
-      await api.updateStaff(id, { role: newRole })
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update role')
-    }
-  }
-
-  async function onGroupChange(id: string, newGroupId: string) {
-    setError(null)
-    try {
-      await api.updateStaff(id, { group_id: newGroupId || null })
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update group')
-    }
-  }
-
-  async function onToggleActive(u: StaffUser) {
-    setError(null)
-    try {
-      if (u.is_active) await api.deactivateStaff(u.id)
-      else await api.reactivateStaff(u.id)
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update account status')
-    }
-  }
-
-  async function onResetPassword(id: string) {
-    const newPassword = window.prompt('New password (min 8 characters):')
-    if (!newPassword) return
-    setError(null)
-    try {
-      await api.resetStaffPassword(id, newPassword)
-      window.alert('Password reset.')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset password')
-    }
-  }
-
   return (
     <div>
       <h1>Staff Master</h1>
       <p className="muted">
         Every staff account, their Role (used only for the specific named-responsibility rules,
         e.g. who decides excess usage) and their Group (Group Authority -- general module access).
+        Open a staff record for the full profile, password reset, and activity history.
       </p>
       {error && <div className="error-banner">{error}</div>}
 
@@ -166,42 +130,24 @@ export default function StaffMasterPage() {
               <th>Email</th>
               <th>Role</th>
               <th>Group</th>
+              <th>Joined</th>
               <th>Status</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
             {staff.map((u) => (
               <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.6 }}>
-                <td>{u.full_name}</td>
+                <td>
+                  <Link to={`/staff/${u.id}`}>{u.full_name}</Link>
+                </td>
                 <td>{u.email}</td>
+                <td>{u.role}</td>
+                <td>{groupName(u.group_id)}</td>
+                <td>{new Date(u.created_at).toLocaleDateString()}</td>
                 <td>
-                  <select value={u.role} onChange={(e) => onRoleChange(u.id, e.target.value as UserRole)}>
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select value={u.group_id ?? ''} onChange={(e) => onGroupChange(u.id, e.target.value)}>
-                    <option value="">No group</option>
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>{u.is_active ? 'Active' : 'Deactivated'}</td>
-                <td style={{ display: 'flex', gap: 8 }}>
-                  <button className="secondary" onClick={() => onResetPassword(u.id)}>
-                    Reset password
-                  </button>
-                  <button className="secondary" onClick={() => onToggleActive(u)}>
-                    {u.is_active ? 'Deactivate' : 'Reactivate'}
-                  </button>
+                  <span className={`badge ${u.is_active ? 'active' : 'draft'}`}>
+                    {u.is_active ? 'Active' : 'Deactivated'}
+                  </span>
                 </td>
               </tr>
             ))}

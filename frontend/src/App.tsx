@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './lib/AuthContext'
+import { ThemeProvider } from './lib/ThemeContext'
 import ContractDetailPage from './pages/ContractDetailPage'
 import ContractsPage from './pages/ContractsPage'
 import CustomersPage from './pages/CustomersPage'
@@ -13,6 +14,7 @@ import JobOrderDetailPage from './pages/JobOrderDetailPage'
 import JobOrdersPage from './pages/JobOrdersPage'
 import Login from './pages/Login'
 import ModulesPage from './pages/ModulesPage'
+import StaffDetailPage from './pages/StaffDetailPage'
 import StaffMasterPage from './pages/StaffMasterPage'
 
 function RequireAuth({ children }: { children: ReactElement }) {
@@ -43,6 +45,7 @@ function AppRoutes() {
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/modules" element={<ModulesPage />} />
         <Route path="/staff" element={<StaffMasterPage />} />
+        <Route path="/staff/:id" element={<StaffDetailPage />} />
         <Route path="/groups" element={<GroupsPage />} />
       </Route>
     </Routes>
@@ -51,10 +54,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }

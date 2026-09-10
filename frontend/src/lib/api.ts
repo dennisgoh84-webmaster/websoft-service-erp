@@ -76,6 +76,17 @@ export interface StaffUser {
   created_at: string
 }
 
+export interface AuditLogEntry {
+  id: string
+  entity_type: string
+  entity_id: string
+  action: string
+  actor_user_id: string | null
+  reason: string | null
+  details: string | null
+  at: string
+}
+
 // ---- Group Authority ----
 export type AccessLevel = 'none' | 'view' | 'edit' | 'full'
 
@@ -222,6 +233,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ new_password }),
     }),
+  getStaffAuditLog: (id: string) => request<AuditLogEntry[]>(`/users/${id}/audit-log`),
 
   // Group Authority
   listGroups: () => request<Group[]>('/groups'),

@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../lib/AuthContext'
 
 export default function Layout() {
@@ -30,6 +31,9 @@ export default function Layout() {
         </div>
       </nav>
       <main className="main">
+        <div className="main-topbar">
+          <ThemeToggle />
+        </div>
         <Outlet />
       </main>
     </div>
