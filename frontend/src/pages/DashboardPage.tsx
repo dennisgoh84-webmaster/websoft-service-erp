@@ -14,7 +14,7 @@ function Stat({
   value: string | number
   hint?: string
   to?: string
-  /** Currency/text values (e.g. "S$ 12,345.67") need the smaller variant to
+  /** Currency/text values (e.g. "SGD 12345.67") need the smaller variant to
       fit a tile on one line -- see .stat-value-text in index.css. */
   small?: boolean
 }) {
@@ -69,24 +69,24 @@ export default function DashboardPage() {
         <Stat
           small
           label="AR outstanding"
-          value={`S$ ${summary.ar_outstanding_sgd.toFixed(2)}`}
-          hint={`incl. S$ ${summary.ar_overdue_sgd.toFixed(2)} overdue`}
+          value={`SGD ${summary.ar_outstanding_sgd.toFixed(2)}`}
+          hint={`incl. SGD ${summary.ar_overdue_sgd.toFixed(2)} overdue`}
           to="/invoices"
         />
         <Stat
           small
           label="AP outstanding"
-          value={`S$ ${summary.ap_outstanding_sgd.toFixed(2)}`}
-          hint={`incl. S$ ${summary.ap_overdue_sgd.toFixed(2)} overdue`}
+          value={`SGD ${summary.ap_outstanding_sgd.toFixed(2)}`}
+          hint={`incl. SGD ${summary.ap_overdue_sgd.toFixed(2)} overdue`}
           to="/accounts-payable"
         />
         <Stat
           small
           label="Net receivable position"
-          value={`S$ ${netReceivable.toFixed(2)}`}
+          value={`SGD ${netReceivable.toFixed(2)}`}
           hint="AR outstanding less AP outstanding"
         />
-        <Stat small label="Invoiced to date" value={`S$ ${summary.invoices_total_sgd.toFixed(2)}`} to="/invoices" />
+        <Stat small label="Invoiced to date" value={`SGD ${summary.invoices_total_sgd.toFixed(2)}`} to="/invoices" />
         <div className="card stat-tile">
           <span className={`badge ${summary.gl_is_balanced ? 'active' : 'exceeded'}`}>
             {summary.gl_is_balanced ? 'Balanced' : 'OUT OF BALANCE'}

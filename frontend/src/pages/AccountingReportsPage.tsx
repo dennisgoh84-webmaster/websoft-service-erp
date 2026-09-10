@@ -5,6 +5,7 @@
 // is the one-stop, printable/exportable version with an as-at date
 // filter. Every export is written to Event Logs.
 import { useEffect, useState } from 'react'
+import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type AgingReport, type APAgingReport, type TrialBalance } from '../lib/api'
 
 type ReportType = 'ar-aging' | 'ap-aging' | 'trial-balance'
@@ -14,7 +15,6 @@ const money = (n: number) => n.toFixed(2)
 export default function AccountingReportsPage() {
   const [reportType, setReportType] = useState<ReportType>('ar-aging')
   const [asAt, setAsAt] = useState('')
-  const [exportFormat, setExportFormat] = useState<'csv' | 'excel'>('csv')
   const [error, setError] = useState<string | null>(null)
 
   const [arAging, setArAging] = useState<AgingReport | null>(null)
@@ -33,23 +33,18 @@ export default function AccountingReportsPage() {
     }
   }, [reportType, asAt])
 
-  async function onExport() {
+  async function onExport(format: string) {
     setError(null)
-    try {
-      const at = asAt || undefined
-      if (reportType === 'ar-aging') {
-        const blob = exportFormat === 'csv' ? await api.exportArAgingReportCsv(at) : await api.exportArAgingReportExcel(at)
-        downloadBlob(blob, `ar-aging-report.${exportFormat === 'csv' ? 'csv' : 'xlsx'}`)
-      } else if (reportType === 'ap-aging') {
-        const blob = exportFormat === 'csv' ? await api.exportApAgingReportCsv(at) : await api.exportApAgingReportExcel(at)
-        downloadBlob(blob, `ap-aging-report.${exportFormat === 'csv' ? 'csv' : 'xlsx'}`)
-      } else {
-        const blob =
-          exportFormat === 'csv' ? await api.exportTrialBalanceReportCsv(at) : await api.exportTrialBalanceReportExcel(at)
-        downloadBlob(blob, `trial-balance-report.${exportFormat === 'csv' ? 'csv' : 'xlsx'}`)
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export')
+    const at = asAt || undefined
+    if (reportType === 'ar-aging') {
+      const blob = format === 'csv' ? await api.exportArAgingReportCsv(at) : await api.exportArAgingReportExcel(at)
+      downloadBlob(blob, `ar-aging-report.${format === 'csv' ? 'csv' : 'xlsx'}`)
+    } else if (reportType === 'ap-aging') {
+      const blob = format === 'csv' ? await api.exportApAgingReportCsv(at) : await api.exportApAgingReportExcel(at)
+      downloadBlob(blob, `ap-aging-report.${format === 'csv' ? 'csv' : 'xlsx'}`)
+    } else {
+      const blob = format === 'csv' ? await api.exportTrialBalanceReportCsv(at) : await api.exportTrialBalanceReportExcel(at)
+      downloadBlob(blob, `trial-balance-report.${format === 'csv' ? 'csv' : 'xlsx'}`)
     }
   }
 
@@ -79,15 +74,14 @@ export default function AccountingReportsPage() {
           <button type="button" className="secondary" onClick={() => setAsAt('')}>
             Reset to today
           </button>
-          <div className="form-row" style={{ margin: 0, display: 'flex', gap: 6 }}>
-            <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as 'csv' | 'excel')}>
-              <option value="csv">CSV</option>
-              <option value="excel">Excel</option>
-            </select>
-            <button type="button" className="secondary" onClick={onExport}>
-              Export
-            </button>
-          </div>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         {reportType === 'ar-aging' && arAging && (

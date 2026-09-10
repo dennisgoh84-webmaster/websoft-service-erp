@@ -4,6 +4,7 @@
 // dynamic-filter + one-Export-button pattern as Invoices; a report type
 // selector switches which filter panel and columns show.
 import { useEffect, useState } from 'react'
+import ExportControl from '../components/ExportControl'
 import {
   api,
   downloadBlob,
@@ -26,7 +27,6 @@ export default function OperationsReportsPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [staff, setStaff] = useState<StaffUser[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [exportFormat, setExportFormat] = useState<'csv' | 'excel'>('csv')
 
   // Shared-shape filters -- only the ones relevant to the selected
   // report type are actually sent (see the fetch effect below).
@@ -123,50 +123,42 @@ export default function OperationsReportsPage() {
   const staffName = (id: string | null) => (id ? staff.find((s) => s.id === id)?.full_name ?? id.slice(0, 8) : '-')
   const jobOrderById = new Map(allJobOrders.map((o) => [o.id, o]))
 
-  async function onExport() {
+  async function onExport(format: string) {
     setError(null)
-    try {
-      if (reportType === 'contracts') {
-        const filters = {
-          status: contractStatus || undefined,
-          contract_kind: contractKind || undefined,
-          customer_id: customerId || undefined,
-          expiring_within_days: expiringWithinDays ? Number(expiringWithinDays) : undefined,
-          start_date: startDate || undefined,
-          end_date: endDate || undefined,
-        }
-        const blob =
-          exportFormat === 'csv' ? await api.exportContractsReportCsv(filters) : await api.exportContractsReportExcel(filters)
-        downloadBlob(blob, `contracts-report.${exportFormat === 'csv' ? 'csv' : 'xlsx'}`)
-      } else if (reportType === 'job-orders') {
-        const filters = {
-          status: jobOrderStatus || undefined,
-          customer_id: customerId || undefined,
-          assigned_to_user_id: staffId || undefined,
-          overdue_only: overdueOnly || undefined,
-          start_date: startDate || undefined,
-          end_date: endDate || undefined,
-        }
-        const blob =
-          exportFormat === 'csv' ? await api.exportJobOrdersReportCsv(filters) : await api.exportJobOrdersReportExcel(filters)
-        downloadBlob(blob, `job-orders-report.${exportFormat === 'csv' ? 'csv' : 'xlsx'}`)
-      } else {
-        const filters = {
-          status: srStatus || undefined,
-          outcome: srOutcome || undefined,
-          customer_id: customerId || undefined,
-          employee_user_id: staffId || undefined,
-          start_date: startDate || undefined,
-          end_date: endDate || undefined,
-        }
-        const blob =
-          exportFormat === 'csv'
-            ? await api.exportServiceRecordsReportCsv(filters)
-            : await api.exportServiceRecordsReportExcel(filters)
-        downloadBlob(blob, `service-records-report.${exportFormat === 'csv' ? 'csv' : 'xlsx'}`)
+    if (reportType === 'contracts') {
+      const filters = {
+        status: contractStatus || undefined,
+        contract_kind: contractKind || undefined,
+        customer_id: customerId || undefined,
+        expiring_within_days: expiringWithinDays ? Number(expiringWithinDays) : undefined,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export')
+      const blob = format === 'csv' ? await api.exportContractsReportCsv(filters) : await api.exportContractsReportExcel(filters)
+      downloadBlob(blob, `contracts-report.${format === 'csv' ? 'csv' : 'xlsx'}`)
+    } else if (reportType === 'job-orders') {
+      const filters = {
+        status: jobOrderStatus || undefined,
+        customer_id: customerId || undefined,
+        assigned_to_user_id: staffId || undefined,
+        overdue_only: overdueOnly || undefined,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+      }
+      const blob = format === 'csv' ? await api.exportJobOrdersReportCsv(filters) : await api.exportJobOrdersReportExcel(filters)
+      downloadBlob(blob, `job-orders-report.${format === 'csv' ? 'csv' : 'xlsx'}`)
+    } else {
+      const filters = {
+        status: srStatus || undefined,
+        outcome: srOutcome || undefined,
+        customer_id: customerId || undefined,
+        employee_user_id: staffId || undefined,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+      }
+      const blob =
+        format === 'csv' ? await api.exportServiceRecordsReportCsv(filters) : await api.exportServiceRecordsReportExcel(filters)
+      downloadBlob(blob, `service-records-report.${format === 'csv' ? 'csv' : 'xlsx'}`)
     }
   }
 
@@ -317,15 +309,14 @@ export default function OperationsReportsPage() {
             Reset filters
           </button>
 
-          <div className="form-row" style={{ margin: 0, display: 'flex', gap: 6 }}>
-            <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as 'csv' | 'excel')}>
-              <option value="csv">CSV</option>
-              <option value="excel">Excel</option>
-            </select>
-            <button type="button" className="secondary" onClick={onExport}>
-              Export
-            </button>
-          </div>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         <div className="report-table-wrap" style={{ overflowX: 'auto' }}>
