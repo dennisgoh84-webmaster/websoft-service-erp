@@ -9,7 +9,7 @@ Commission Management, further Service Record business-rule decisions,
 and Odoo migration work are deferred for now at the user's request.
 See ../../docs/business-requirements.md for the source of truth on rules.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -19,6 +19,7 @@ from app.routers import (
     contracts,
     customers,
     dashboard,
+    event_logs,
     excess_usage,
     groups,
     job_orders,
@@ -26,6 +27,7 @@ from app.routers import (
     service_records,
     users,
 )
+from app.services import audit
 
 app = FastAPI(title=settings.app_name)
 
@@ -38,10 +40,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def audit_request_context_middleware(request: Request, call_next):
+    """Captures who/what made this request (client IP, browser User-Agent,
+    and the frontend's persisted per-browser device id -- see
+    frontend/src/lib/deviceId.ts) so app.services.audit.record() can
+    stamp every audit entry written during this request without every
+    caller having to pass a Request through. See app/services/audit.py."""
+    audit.set_request_context(
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        device_id=request.headers.get("x-device-id"),
+    )
+    return await call_next(request)
+
+
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(groups.router)
 app.include_router(modules.router)
+app.include_router(event_logs.router)
 app.include_router(customers.router)
 app.include_router(contracts.router)
 app.include_router(job_orders.router)

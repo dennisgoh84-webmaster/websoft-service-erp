@@ -61,6 +61,7 @@ def create_group(
         action="created",
         actor_user_id=current_user.id,
         details=f"name={payload.name}",
+        new_value={"name": payload.name, "description": payload.description},
     )
     db.commit()
     db.refresh(group)
@@ -101,9 +102,13 @@ def update_group(
 ):
     group = _get_group_or_404(db, group_id)
     fields = payload.model_dump(exclude_unset=True)
-    if "name" in fields:
+    old_value: dict[str, str | None] = {}
+    new_value: dict[str, str | None] = {}
+    if "name" in fields and fields["name"] != group.name:
+        old_value["name"], new_value["name"] = group.name, fields["name"]
         group.name = fields["name"]
-    if "description" in fields:
+    if "description" in fields and fields["description"] != group.description:
+        old_value["description"], new_value["description"] = group.description, fields["description"]
         group.description = fields["description"]  # explicitly provided; null clears it
     audit.record(
         db,
@@ -111,6 +116,8 @@ def update_group(
         entity_id=group.id,
         action="updated",
         actor_user_id=current_user.id,
+        old_value=old_value or None,
+        new_value=new_value or None,
     )
     db.commit()
     db.refresh(group)
@@ -137,6 +144,7 @@ def delete_group(
         action="deleted",
         actor_user_id=current_user.id,
         details=f"name={group.name}",
+        old_value={"name": group.name, "description": group.description},
     )
     db.delete(group)
     db.commit()
@@ -153,10 +161,16 @@ def set_group_authorities(
     valid_module_keys = {m.key for m in db.query(Module.key).all()}
     existing = {a.module_key: a for a in group.authorities}
 
+    old_value: dict[str, str] = {}
+    new_value: dict[str, str] = {}
     for entry in payload.authorities:
         if entry.module_key not in valid_module_keys:
             raise HTTPException(status_code=400, detail=f"Unknown module '{entry.module_key}'")
         row = existing.get(entry.module_key)
+        prior_level = row.access_level if row else AccessLevel.NONE
+        if prior_level != entry.access_level:
+            old_value[entry.module_key] = prior_level.value
+            new_value[entry.module_key] = entry.access_level.value
         if row:
             row.access_level = entry.access_level
         else:
@@ -175,6 +189,8 @@ def set_group_authorities(
         action="authorities_updated",
         actor_user_id=current_user.id,
         details=", ".join(f"{e.module_key}={e.access_level.value}" for e in payload.authorities),
+        old_value=old_value or None,
+        new_value=new_value or None,
     )
     db.commit()
     return GroupOut.from_model(_get_group_or_404(db, group_id), member_count=_member_count(db, group_id))

@@ -70,10 +70,27 @@ class User(Base):
 
 
 class AuditLogEntry(Base):
-    """Central audit trail. Every module writes here for actions that
-    must be auditable per CLAUDE.md's development rules and, concretely,
-    SRV-004's requirement that excess-usage decisions record who
-    decided, when, what, and why."""
+    """Central audit trail -- the data behind the Event Logs module (see
+    app/routers/event_logs.py). Every module writes here for actions
+    that must be auditable per CLAUDE.md's development rules and,
+    concretely, SRV-004's requirement that excess-usage decisions
+    record who decided, when, what, and why.
+
+    `actor_name`, `ip_address`, `user_agent`, and `device_id` are a
+    point-in-time snapshot taken when the entry is written (see
+    app/services/audit.py) so the trail stays meaningful even if the
+    actor's name later changes or their account is deactivated. Note:
+    a browser cannot expose a real hardware/PC serial number for
+    security reasons -- `device_id` is a random identifier the
+    frontend generates once and persists in that browser's storage
+    (see frontend/src/lib/deviceId.ts), which identifies "this browser
+    on this machine" rather than the physical hardware.
+
+    `old_value`/`new_value` hold a small JSON object of just the
+    fields that changed (e.g. '{"role": "support_engineer"}' ->
+    '{"role": "service_lead"}') for edits where a field-level diff is
+    meaningful; left null for actions where it isn't (e.g. a password
+    reset never records the password itself)."""
 
     __tablename__ = "audit_log_entries"
 
@@ -84,6 +101,12 @@ class AuditLogEntry(Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    actor_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    device_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

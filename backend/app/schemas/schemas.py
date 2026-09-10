@@ -69,8 +69,14 @@ class AuditLogEntryOut(BaseModel):
     entity_id: uuid.UUID
     action: str
     actor_user_id: uuid.UUID | None
+    actor_name: str | None
     reason: str | None
     details: str | None
+    old_value: str | None
+    new_value: str | None
+    ip_address: str | None
+    user_agent: str | None
+    device_id: str | None
     at: datetime
 
 

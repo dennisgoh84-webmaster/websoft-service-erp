@@ -54,12 +54,17 @@ from app.services.auth import hash_password
 DEMO_PASSWORD = "demo1234"
 
 # key -> (name, description, is_built, enabled_by_default)
-# Matches the 19 modules in docs/module-map.md. Commission Management
-# and Integrations (which owns future Odoo migration work) are listed
-# for completeness of the control plane but left disabled/not built --
-# deferred at the user's request until Service Operations is finalized.
+# Covers the 19 business-area modules in docs/module-map.md, plus
+# "event_logs" -- a Core / Administration capability (the Event Logs
+# master, see app/routers/event_logs.py) broken out as its own module
+# key so Group Authority can gate it independently of general admin
+# access. Commission Management and Integrations (which owns future
+# Odoo migration work) are listed for completeness of the control plane
+# but left disabled/not built -- deferred at the user's request until
+# Service Operations is finalized.
 MODULE_CATALOG = [
     ("core_administration", "Core / Administration", True, True),
+    ("event_logs", "Event Logs", True, True),
     ("crm", "CRM", False, False),
     ("sales", "Sales", False, False),
     ("customer_management", "Customer Management", True, True),
@@ -95,6 +100,7 @@ GROUP_CATALOG = {
             key: FULL
             for key in (
                 "core_administration",
+                "event_logs",
                 "customer_management",
                 "service_contracts",
                 "service_operations",
@@ -113,6 +119,7 @@ GROUP_CATALOG = {
             "customer_management": VIEW,
             "billing": VIEW,
             "core_administration": NONE,
+            "event_logs": NONE,  # system-wide audit trail -- Owner/Admin only by default
         },
     ),
     "Sales Team": (
@@ -125,6 +132,7 @@ GROUP_CATALOG = {
             "service_records": VIEW,
             "billing": VIEW,
             "core_administration": NONE,
+            "event_logs": NONE,
         },
     ),
     "Finance Team": (
@@ -136,6 +144,7 @@ GROUP_CATALOG = {
             "service_operations": NONE,
             "service_records": NONE,
             "core_administration": NONE,
+            "event_logs": NONE,
         },
     ),
 }

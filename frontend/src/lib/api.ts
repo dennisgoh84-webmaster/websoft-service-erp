@@ -1,6 +1,8 @@
 // Thin API client for the Websoft Service ERP Solution backend.
 // Talks to FastAPI via the Vite dev-server proxy (/api -> :8000).
 
+import { getDeviceId } from './deviceId'
+
 const TOKEN_KEY = 'websoft_token'
 
 export function getToken(): string | null {
@@ -20,6 +22,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     ...(options.body ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    'X-Device-Id': getDeviceId(),
   }
   const res = await fetch(`/api${path}`, { ...options, headers })
   if (!res.ok) {
@@ -36,17 +39,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>
 }
 
-function qs(params: Record<string, string | undefined>): string {
+function qs(params: Record<string, string | number | undefined>): string {
   const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
   if (entries.length === 0) return ''
-  return '?' + new URLSearchParams(entries as [string, string][]).toString()
+  return '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()
 }
 
 export async function login(email: string, password: string): Promise<string> {
   const body = new URLSearchParams({ username: email, password })
   const res = await fetch('/api/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Device-Id': getDeviceId() },
     body,
   })
   if (!res.ok) throw new Error('Invalid email or password')
@@ -82,9 +85,25 @@ export interface AuditLogEntry {
   entity_id: string
   action: string
   actor_user_id: string | null
+  actor_name: string | null
   reason: string | null
   details: string | null
+  old_value: string | null
+  new_value: string | null
+  ip_address: string | null
+  user_agent: string | null
+  device_id: string | null
   at: string
+}
+
+export interface EventLogFilters {
+  entity_type?: string
+  action?: string
+  actor_user_id?: string
+  date_from?: string
+  date_to?: string
+  q?: string
+  [key: string]: string | number | undefined
 }
 
 // ---- Group Authority ----
@@ -308,4 +327,19 @@ export const api = {
 
   listInvoices: (filters: { customer_id?: string; contract_id?: string } = {}) =>
     request<Invoice[]>(`/invoices${qs(filters)}`),
+
+  // Event Logs
+  listEventLogs: (filters: EventLogFilters & { limit?: number; offset?: number } = {}) =>
+    request<AuditLogEntry[]>(`/event-logs${qs(filters)}`),
+  exportEventLogsCsv: async (filters: EventLogFilters = {}): Promise<Blob> => {
+    const token = getToken()
+    const res = await fetch(`/api/event-logs/export${qs(filters)}`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'X-Device-Id': getDeviceId(),
+      },
+    })
+    if (!res.ok) throw new Error('Failed to export event logs')
+    return res.blob()
+  },
 }

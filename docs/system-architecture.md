@@ -307,21 +307,52 @@ approval workflows) without changing the shape described here.
 - Only the owner role can change module enablement; every toggle is
   audit-logged like any other administrative action.
 
-### Audit logging
+### Audit logging -- Event Logs module
 
 - Audit logging is a cross-cutting capability provided centrally (by
-  Core / Administration) and used by every module that creates or changes
-  financial or operational records, rather than each module inventing its
-  own logging.
-- An audit entry is expected to capture, at minimum: who performed the
-  action, when, what entity/record was affected, and what changed —
-  sufficient to reconstruct the history of a financial or operational
-  record without altering the original record (consistent with "never
-  permanently delete important business or financial records").
-- Audit logging is expected to sit close to where changes are committed
-  (e.g. triggered by the same backend business-logic layer that writes
-  the change) so that it cannot be bypassed by calling a data-access path
-  directly.
+  Core / Administration, `app/services/audit.py`) and used by every
+  module that creates, edits, or deletes a record or generates a report,
+  rather than each module inventing its own logging.
+- **Confirmed design (2026-09-10):** the audit trail is exposed through
+  its own gated master, **Event Logs** (module key `event_logs`,
+  `app/routers/event_logs.py`) -- a Group Authority module in its own
+  right (not folded into general `core_administration` access), so who
+  can see the system-wide audit trail is a deliberate, separately
+  configurable decision. Default seed: Owner / Admin only.
+- Each entry captures: the action (created/updated/deactivated/
+  deleted/etc.), the entity type + id it affected, **who** (both the
+  acting user's id and a point-in-time snapshot of their name, so the
+  trail still reads correctly if that person's name later changes or
+  their account is deactivated), **when**, and for edits, a field-level
+  **old value -> new value** diff (e.g. `role: support_engineer ->
+  service_lead`) rather than just a free-text description -- sufficient
+  to reconstruct the history of a record without altering the original
+  (consistent with "never permanently delete important business or
+  financial records"). A password reset never records the password
+  itself.
+- Every entry also captures the acting device: client **IP address**,
+  browser **User-Agent**, and a **device id** -- a random identifier the
+  frontend generates once and persists in that browser's local storage
+  (`frontend/src/lib/deviceId.ts`), sent as an `X-Device-Id` header on
+  every request. A web browser cannot expose a real hardware/PC serial
+  number (blocked for security/privacy reasons at the browser level), so
+  this identifies "this browser on this machine" rather than the
+  physical device -- the closest practical equivalent without installing
+  a native agent on staff machines, which has not been requested.
+- Request-scoped context (IP/User-Agent/device id) is captured once per
+  request by a FastAPI middleware into a `contextvar`, and
+  `audit.record()` reads it back automatically -- so business-logic
+  functions deep in the call stack (contract activation, service record
+  approval, etc.) don't each need a `Request` object threaded through
+  just to log an action.
+- Audit logging sits close to where changes are committed (the same
+  backend business-logic/router layer that writes the change) so it
+  cannot be bypassed by calling a data-access path directly.
+- Generating a report or export is itself an auditable event (action
+  `report_generated`, entity type `report`) -- e.g. exporting the Event
+  Logs themselves as CSV logs who ran the export, with which filters,
+  and how many rows it returned (`audit.record_report_generated()`).
+  Any future report/export feature should log through the same helper.
 - Reporting and the AI Assistant are expected to be read-only consumers
   of business data; whether their own read/query activity is itself
   audit-logged (relevant for PDPA) is an open question to track in

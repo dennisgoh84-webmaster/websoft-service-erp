@@ -7,6 +7,7 @@ import ContractDetailPage from './pages/ContractDetailPage'
 import ContractsPage from './pages/ContractsPage'
 import CustomersPage from './pages/CustomersPage'
 import DashboardPage from './pages/DashboardPage'
+import EventLogsPage from './pages/EventLogsPage'
 import ExcessReviewPage from './pages/ExcessReviewPage'
 import GroupsPage from './pages/GroupsPage'
 import InvoicesPage from './pages/InvoicesPage'
@@ -47,6 +48,7 @@ function AppRoutes() {
         <Route path="/staff" element={<StaffMasterPage />} />
         <Route path="/staff/:id" element={<StaffDetailPage />} />
         <Route path="/groups" element={<GroupsPage />} />
+        <Route path="/event-logs" element={<EventLogsPage />} />
       </Route>
     </Routes>
   )

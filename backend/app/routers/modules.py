@@ -67,6 +67,9 @@ def toggle_module(
     if not cm:
         cm = CompanyModule(company_id=current_user.company_id, module_key=module_key)
         db.add(cm)
+        db.flush()
+
+    old_value = {"enabled": cm.enabled, "license_type": cm.license_type.value}
 
     cm.enabled = payload.enabled
     if payload.license_type is not None:
@@ -83,6 +86,8 @@ def toggle_module(
         action="toggled",
         actor_user_id=current_user.id,
         details=f"module={module_key}, enabled={payload.enabled}",
+        old_value=old_value,
+        new_value={"enabled": cm.enabled, "license_type": cm.license_type.value},
     )
     db.commit()
 

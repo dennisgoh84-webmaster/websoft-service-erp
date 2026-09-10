@@ -20,6 +20,7 @@ export default function Layout() {
         {user?.role === 'owner' && <NavLink to="/modules">Module Control</NavLink>}
         {user?.role === 'owner' && <NavLink to="/staff">Staff Master</NavLink>}
         {user?.role === 'owner' && <NavLink to="/groups">Group Authority</NavLink>}
+        {user?.role === 'owner' && <NavLink to="/event-logs">Event Logs</NavLink>}
         <div className="user-info">
           <div>
             <strong>{user?.full_name}</strong>

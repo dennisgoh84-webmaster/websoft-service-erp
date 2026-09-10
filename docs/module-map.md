@@ -90,13 +90,23 @@ System administrators, IT admin, senior management (for org-wide settings).
 - System-wide configuration (e.g. currencies, number sequences, business
   calendar/holidays).
 - Central audit log service used by other modules.
+- **Event Logs** (confirmed 2026-09-10, module key `event_logs`): the
+  security-gated master over that audit log -- who created, edited (to
+  what old -> new value), or deleted a record, and who generated which
+  report, each with the acting staff member's name, IP address, and a
+  persistent per-browser device id (a real hardware/PC serial number
+  isn't obtainable from a browser). Deliberately its own Group Authority
+  module, not folded into general admin access, so viewing the
+  system-wide audit trail is a separately configurable permission
+  (default seed: Owner / Admin only). See system-architecture.md's Audit
+  logging section for the full design.
 - Master reference data shared across modules (e.g. countries, tax
   categories) where not owned by a more specific module.
 
 **Information managed**
 Companies/entities, users, employees (as system accounts), roles, Groups
-and their per-module Group Authority matrix, audit log entries, system
-settings, shared reference/lookup data.
+and their per-module Group Authority matrix, audit log entries (Event
+Logs), system settings, shared reference/lookup data.
 
 **Depends on**
 None — this is the foundational module.

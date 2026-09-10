@@ -74,6 +74,12 @@ def create_user(
         action="created",
         actor_user_id=current_user.id,
         details=f"email={payload.email}, role={payload.role.value}",
+        new_value={
+            "email": payload.email,
+            "full_name": payload.full_name,
+            "role": payload.role.value,
+            "group_id": str(payload.group_id) if payload.group_id else None,
+        },
     )
     db.commit()
     db.refresh(user)
@@ -120,15 +126,25 @@ def update_user(
     if "group_id" in fields and fields["group_id"] is not None and not db.get(Group, fields["group_id"]):
         raise HTTPException(status_code=400, detail="Unknown group_id")
 
+    old_value: dict[str, str | None] = {}
+    new_value: dict[str, str | None] = {}
+
+    def _apply(field: str, new: object) -> None:
+        old = getattr(user, field)
+        if old != new:
+            old_value[field] = old.value if hasattr(old, "value") else (str(old) if old is not None else None)
+            new_value[field] = new.value if hasattr(new, "value") else (str(new) if new is not None else None)
+        setattr(user, field, new)
+
     if "full_name" in fields:
-        user.full_name = fields["full_name"]
+        _apply("full_name", fields["full_name"])
     if "role" in fields:
-        user.role = fields["role"]
+        _apply("role", fields["role"])
     if "group_id" in fields:
         # Explicitly provided, even if null -- distinguishes "clear the
         # group" from "field omitted" (see UserUpdate: group_id defaults
         # to None either way, so `is not None` alone can't tell them apart).
-        user.group_id = fields["group_id"]
+        _apply("group_id", fields["group_id"])
 
     audit.record(
         db,
@@ -136,6 +152,8 @@ def update_user(
         entity_id=user.id,
         action="updated",
         actor_user_id=current_user.id,
+        old_value=old_value or None,
+        new_value=new_value or None,
     )
     db.commit()
     db.refresh(user)
@@ -158,6 +176,8 @@ def deactivate_user(
         entity_id=user.id,
         action="deactivated",
         actor_user_id=current_user.id,
+        old_value={"is_active": True},
+        new_value={"is_active": False},
     )
     db.commit()
     db.refresh(user)
@@ -178,6 +198,8 @@ def reactivate_user(
         entity_id=user.id,
         action="reactivated",
         actor_user_id=current_user.id,
+        old_value={"is_active": False},
+        new_value={"is_active": True},
     )
     db.commit()
     db.refresh(user)
