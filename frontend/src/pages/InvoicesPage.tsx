@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react'
-import { api, type Customer, type Invoice } from '../lib/api'
+import { api, type Customer, type Invoice, type InvoiceStatus } from '../lib/api'
+
+const STATUS_BADGE: Record<InvoiceStatus, string> = {
+  outstanding: 'draft',
+  partially_paid: 'exceeded',
+  paid: 'active',
+  written_off: 'expired',
+}
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -16,13 +23,18 @@ export default function InvoicesPage() {
 
   const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? id.slice(0, 8)
   const visible = filterType ? invoices.filter((i) => i.invoice_type === filterType) : invoices
-  const total = visible.reduce((sum, i) => sum + i.amount_sgd, 0)
+  const net = visible.reduce((sum, i) => sum + i.amount_sgd, 0)
+  const gst = visible.reduce((sum, i) => sum + i.gst_amount_sgd, 0)
+  const total = visible.reduce((sum, i) => sum + i.total_amount_sgd, 0)
+  const outstanding = visible.reduce((sum, i) => sum + i.outstanding_sgd, 0)
 
   return (
     <div>
       <h1>Invoices</h1>
       <p className="muted">
-        BILL-002: no approval required, issued directly. BILL-005: revenue recognized on invoice.
+        Tax invoices. BILL-002: no approval required, issued directly. BILL-005: revenue
+        recognized on invoice. GST is charged at the company's standard rate; the net column is the
+        revenue figure, since GST collected is owed to IRAS rather than earned.
       </p>
 
       <div className="card" style={{ marginTop: 20 }}>
@@ -58,38 +70,74 @@ export default function InvoicesPage() {
           </button>
         </div>
 
-        <h2>
-          Invoices ({visible.length}) -- total SGD {total.toFixed(2)}
-        </h2>
+        <h2>Invoices ({visible.length})</h2>
+        <p className="muted">
+          Net SGD {net.toFixed(2)} + GST SGD {gst.toFixed(2)} = SGD {total.toFixed(2)} billed
+          &middot; <strong>SGD {outstanding.toFixed(2)} outstanding</strong>
+        </p>
+        <div style={{ overflowX: 'auto' }}>
         <table>
           <thead>
             <tr>
+              <th>Invoice no.</th>
               <th>Customer</th>
-              <th>Type</th>
               <th>Description</th>
-              <th>Amount (SGD)</th>
-              <th>Issued</th>
+              <th>Net</th>
+              <th>GST</th>
+              <th>Total</th>
+              <th>Outstanding</th>
+              <th>Due</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((inv) => (
               <tr key={inv.id}>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {inv.invoice_number}
+                  <div className="muted">{new Date(inv.issued_at).toLocaleDateString()}</div>
+                </td>
                 <td>{customerName(inv.customer_id)}</td>
-                <td>{inv.invoice_type}</td>
-                <td>{inv.description}</td>
+                <td>
+                  {inv.description}
+                  <div className="muted">{inv.invoice_type}</div>
+                </td>
                 <td>{inv.amount_sgd.toFixed(2)}</td>
-                <td>{new Date(inv.issued_at).toLocaleString()}</td>
+                <td>
+                  {inv.gst_amount_sgd.toFixed(2)}
+                  <div className="muted">
+                    {inv.tax_code} {inv.gst_rate}%
+                  </div>
+                </td>
+                <td>
+                  <strong>{inv.total_amount_sgd.toFixed(2)}</strong>
+                </td>
+                <td>{inv.outstanding_sgd.toFixed(2)}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {inv.due_date ?? <span className="muted">no terms set</span>}
+                </td>
+                <td>
+                  <span className={`badge ${STATUS_BADGE[inv.status] ?? 'draft'}`}>
+                    {inv.status.replace('_', ' ')}
+                  </span>
+                  {inv.is_disputed && (
+                    <div>
+                      <span className="badge exceeded">disputed</span>
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={9} className="muted">
                   No invoices match these filters.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

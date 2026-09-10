@@ -17,8 +17,9 @@ RBAC is split across two independent axes (confirmed with Dennis,
 import enum
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -59,6 +60,25 @@ class Company(Base):
     currency: Mapped[str] = mapped_column(String(3), default="SGD")
     timezone: Mapped[str] = mapped_column(String(50), default="Asia/Singapore")
     logo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A Singapore tax invoice must show the supplier's name, address and
+    # GST registration number, so they live on the company record.
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    gst_registration_no: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # Approval thresholds. Each is DELIBERATELY nullable and unset: the
+    # values were never decided (open items 2.7 / 3.4 / 4.4), so rather
+    # than inventing a number the system requires owner approval for
+    # every such action until Dennis sets one here.
+    write_off_approval_threshold_sgd: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
+    credit_note_approval_threshold_sgd: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
+    po_approval_threshold_sgd: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
+
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

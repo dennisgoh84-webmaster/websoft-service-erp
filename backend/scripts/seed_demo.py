@@ -35,6 +35,7 @@ Sets up:
 import base64
 import sys
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -47,6 +48,7 @@ from app.models.customers import Customer
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
+from app.models.tax import TaxCode
 from app.services import billing as billing_svc
 from app.services import contracts as contract_svc
 from app.services import service_records as sr_svc
@@ -202,6 +204,25 @@ def seed_company_modules(db, company: Company, disabled_keys: set[str] = frozens
     db.flush()
 
 
+# GST tax codes. Confirmed 2026-09-10: Webmaster is GST-registered and
+# its services are standard-rated (SR). The others are seeded inactive-
+# ready so a future zero-rated/exempt supply doesn't need a code change.
+TAX_CODES = [
+    ("SR", "Standard-rated supply", Decimal("9.00")),
+    ("ZR", "Zero-rated supply (e.g. export of services)", Decimal("0.00")),
+    ("ES", "Exempt supply", Decimal("0.00")),
+    ("OS", "Out of scope", Decimal("0.00")),
+]
+
+
+def seed_tax_codes(db, company: Company):
+    for code, name, rate in TAX_CODES:
+        db.add(
+            TaxCode(company_id=company.id, code=code, name=name, rate_percent=rate, is_active=True)
+        )
+    db.flush()
+
+
 def logo_data_uri(initials: str, bg: str = "#7a1f2e") -> str:
     """A simple placeholder logo in the company colours (maroon/white),
     stored the same way an uploaded one is: an image data URI on the
@@ -223,13 +244,20 @@ def main():
         wipe_data(db)
 
         company = Company(
-            name="Webmaster Consultancy Pte Ltd", logo=logo_data_uri("WC")
+            name="Webmaster Consultancy Pte Ltd",
+            logo=logo_data_uri("WC"),
+            # A Singapore tax invoice must show these.
+            address="1 Demo Street, #01-01, Singapore 000001",
+            gst_registration_no="M9-0000001-2",
         )
         # A second entity, so multi-company is demonstrable rather than
         # just anticipated: its own logo, its own module mix, its own
         # groups, staff, customers and contracts.
         company2 = Company(
-            name="Websoft Digital Pte Ltd", logo=logo_data_uri("WD", bg="#1a1315")
+            name="Websoft Digital Pte Ltd",
+            logo=logo_data_uri("WD", bg="#1a1315"),
+            address="2 Demo Street, #02-02, Singapore 000002",
+            gst_registration_no="M9-0000002-3",
         )
         db.add_all([company, company2])
         db.flush()
@@ -243,6 +271,8 @@ def main():
             company2,
             disabled_keys={"service_contracts", "service_operations", "service_records"},
         )
+        seed_tax_codes(db, company)
+        seed_tax_codes(db, company2)
         groups = seed_groups(db, company)
         groups2 = seed_groups(db, company2)
 
@@ -317,12 +347,16 @@ def main():
         customer = Customer(
             company_id=company.id, name="Acme Manufacturing Pte Ltd",
             billing_email="accounts@acme-mfg.test",
+            billing_address="10 Factory Road, Singapore 100010",
+            payment_terms_days=30,  # terms vary per customer (confirmed)
         )
         # Company 2's own customer -- switching companies swaps the whole
         # dataset, so this is what Dennis sees under Websoft Digital.
         customer2 = Customer(
             company_id=company2.id, name="Northwind Retail Pte Ltd",
             billing_email="ap@northwind-retail.test",
+            billing_address="20 Orchard Lane, Singapore 200020",
+            payment_terms_days=14,  # a different customer, different terms
         )
         db.add_all([customer, customer2])
         db.flush()

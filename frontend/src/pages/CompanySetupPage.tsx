@@ -10,6 +10,11 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
   const [country, setCountry] = useState(company.country)
   const [currency, setCurrency] = useState(company.currency)
   const [timezone, setTimezone] = useState(company.timezone)
+  const [address, setAddress] = useState(company.address ?? '')
+  const [gstNo, setGstNo] = useState(company.gst_registration_no ?? '')
+  const [writeOffThreshold, setWriteOffThreshold] = useState(
+    company.write_off_approval_threshold_sgd?.toString() ?? '',
+  )
   const [logo, setLogo] = useState<string | null>(company.logo)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -41,7 +46,17 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
     setSaved(false)
     setSaving(true)
     try {
-      await api.updateCompany(company.id, { name, country, currency, timezone, logo })
+      await api.updateCompany(company.id, {
+        name,
+        country,
+        currency,
+        timezone,
+        logo,
+        address: address || null,
+        gst_registration_no: gstNo || null,
+        write_off_approval_threshold_sgd:
+          writeOffThreshold === '' ? null : parseFloat(writeOffThreshold),
+      })
       setSaved(true)
       onSaved()
     } catch (err) {
@@ -124,6 +139,33 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
             <div className="form-row">
               <label>Timezone</label>
               <input value={timezone} onChange={(e) => setTimezone(e.target.value)} />
+            </div>
+            <div className="form-row">
+              <label>Registered address (shown on tax invoices)</label>
+              <input value={address} onChange={(e) => setAddress(e.target.value)} />
+            </div>
+            <div className="form-row">
+              <label>GST registration number (shown on tax invoices)</label>
+              <input
+                value={gstNo}
+                onChange={(e) => setGstNo(e.target.value)}
+                placeholder="Leave blank if not GST-registered"
+              />
+            </div>
+            <div className="form-row">
+              <label>Write-off approval threshold (SGD)</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={writeOffThreshold}
+                onChange={(e) => setWriteOffThreshold(e.target.value)}
+                placeholder="Blank = every write-off needs owner approval"
+              />
+              <span className="muted">
+                AR-002: Finance may write off below this; above it, the owner approves. Blank means
+                the threshold has not been decided, so the owner approves every write-off.
+              </span>
             </div>
             <button type="submit" disabled={saving}>
               {saving ? 'Saving...' : 'Save company'}

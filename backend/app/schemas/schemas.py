@@ -43,6 +43,14 @@ class CompanyOut(BaseModel):
     currency: str
     timezone: str
     logo: str | None
+    # Shown on tax invoices.
+    address: str | None
+    gst_registration_no: str | None
+    # Approval thresholds -- null means "always require owner approval",
+    # since the values were never decided (open items 2.7 / 3.4 / 4.4).
+    write_off_approval_threshold_sgd: float | None
+    credit_note_approval_threshold_sgd: float | None
+    po_approval_threshold_sgd: float | None
     is_active: bool
     created_at: datetime
 
@@ -62,6 +70,11 @@ class CompanyUpdate(BaseModel):
     timezone: str | None = None
     # A data URI ("data:image/png;base64,..."). Pass null to clear the logo.
     logo: str | None = None
+    address: str | None = None
+    gst_registration_no: str | None = None
+    write_off_approval_threshold_sgd: float | None = None
+    credit_note_approval_threshold_sgd: float | None = None
+    po_approval_threshold_sgd: float | None = None
     is_active: bool | None = None
 
 
@@ -187,6 +200,18 @@ class GroupAuthoritiesUpdateRequest(BaseModel):
 class CustomerCreate(BaseModel):
     name: str
     billing_email: str | None = None
+    billing_address: str | None = None
+    # Days from invoice date. Terms vary per customer (confirmed
+    # 2026-09-10); null means not yet agreed, and invoices carry no due
+    # date until they are.
+    payment_terms_days: int | None = Field(default=None, ge=0)
+
+
+class CustomerUpdate(BaseModel):
+    name: str | None = None
+    billing_email: str | None = None
+    billing_address: str | None = None
+    payment_terms_days: int | None = Field(default=None, ge=0)
 
 
 class CustomerOut(BaseModel):
@@ -194,6 +219,8 @@ class CustomerOut(BaseModel):
     id: uuid.UUID
     name: str
     billing_email: str | None
+    billing_address: str | None
+    payment_terms_days: int | None
     is_active: bool
 
 
@@ -320,11 +347,24 @@ class ExcessUsageOut(BaseModel):
 class InvoiceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    invoice_number: str
     customer_id: uuid.UUID
     contract_id: uuid.UUID | None
     invoice_type: str
     description: str
+    # Net of GST -- this is the revenue figure. GST collected is a
+    # liability owed to IRAS, not income.
     amount_sgd: float
+    tax_code: str
+    gst_rate: float
+    gst_amount_sgd: float
+    total_amount_sgd: float
+    amount_paid_sgd: float
+    outstanding_sgd: float
+    due_date: date | None
+    status: str
+    is_disputed: bool
+    dispute_note: str | None
     issued_at: datetime
 
 

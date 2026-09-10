@@ -77,6 +77,12 @@ export interface Company {
   currency: string
   timezone: string
   logo: string | null
+  address: string | null
+  gst_registration_no: string | null
+  /** Null means "always require owner approval" -- no threshold set yet. */
+  write_off_approval_threshold_sgd: number | null
+  credit_note_approval_threshold_sgd: number | null
+  po_approval_threshold_sgd: number | null
   is_active: boolean
   created_at: string
 }
@@ -149,6 +155,9 @@ export interface Customer {
   id: string
   name: string
   billing_email: string | null
+  billing_address: string | null
+  /** Days from invoice date. Terms vary per customer; null = not agreed yet. */
+  payment_terms_days: number | null
   is_active: boolean
 }
 
@@ -214,13 +223,27 @@ export interface ExcessUsageRecord {
   invoiced: boolean
 }
 
+export type InvoiceStatus = 'outstanding' | 'partially_paid' | 'paid' | 'written_off'
+
 export interface Invoice {
   id: string
+  invoice_number: string
   customer_id: string
   contract_id: string | null
   invoice_type: string
   description: string
+  /** Net of GST -- the revenue figure. */
   amount_sgd: number
+  tax_code: string
+  gst_rate: number
+  gst_amount_sgd: number
+  total_amount_sgd: number
+  amount_paid_sgd: number
+  outstanding_sgd: number
+  due_date: string | null
+  status: InvoiceStatus
+  is_disputed: boolean
+  dispute_note: string | null
   issued_at: string
 }
 
@@ -269,6 +292,11 @@ export const api = {
       currency?: string
       timezone?: string
       logo?: string | null
+      address?: string | null
+      gst_registration_no?: string | null
+      write_off_approval_threshold_sgd?: number | null
+      credit_note_approval_threshold_sgd?: number | null
+      po_approval_threshold_sgd?: number | null
       is_active?: boolean
     },
   ) => request<Company>(`/companies/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
@@ -329,8 +357,21 @@ export const api = {
     request<ModuleInfo>(`/modules/${key}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
 
   listCustomers: () => request<Customer[]>('/customers'),
-  createCustomer: (name: string, billing_email?: string) =>
-    request<Customer>('/customers', { method: 'POST', body: JSON.stringify({ name, billing_email }) }),
+  createCustomer: (payload: {
+    name: string
+    billing_email?: string
+    billing_address?: string
+    payment_terms_days?: number | null
+  }) => request<Customer>('/customers', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCustomer: (
+    id: string,
+    payload: {
+      name?: string
+      billing_email?: string | null
+      billing_address?: string | null
+      payment_terms_days?: number | null
+    },
+  ) => request<Customer>(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
   listContracts: (filters: { status?: string; customer_id?: string } = {}) =>
     request<Contract[]>(`/contracts${qs(filters)}`),

@@ -2,15 +2,67 @@
 Billing business logic -- BILL-001 (annual upfront), BILL-002 (no
 approval needed), BILL-005 (revenue recognized on invoice), and SRV-008
 (excess usage billed at the contract's own blended rate).
+
+Every invoice raised here is a tax invoice: GST is applied per the
+company's tax code (confirmed standard-rated), it is serially numbered,
+and its due date comes from the customer's own payment terms (confirmed
+2026-09-10: terms vary per customer). A customer with no agreed terms
+gets no due date rather than an invented one.
 """
 import uuid
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.orm import Session
 
 from app.models.billing import Invoice, InvoiceType
 from app.models.contracts import Contract, ExcessUsageRecord
+from app.models.customers import Customer
 from app.services import audit
+from app.services.numbering import next_document_number
+from app.services.tax import apply_gst
+
+
+def _due_date_for(db: Session, customer_id: uuid.UUID, issued_on: date) -> date | None:
+    """Invoice due date from the customer's agreed payment terms. None
+    when no terms have been agreed -- see Customer.payment_terms_days."""
+    customer = db.get(Customer, customer_id)
+    if customer is None or customer.payment_terms_days is None:
+        return None
+    return issued_on + timedelta(days=customer.payment_terms_days)
+
+
+def _build_invoice(
+    db: Session,
+    *,
+    company_id: uuid.UUID,
+    customer_id: uuid.UUID,
+    invoice_type: InvoiceType,
+    description: str,
+    net_amount: Decimal,
+    contract_id: uuid.UUID | None = None,
+    excess_usage_record_id: uuid.UUID | None = None,
+) -> Invoice:
+    """Shared construction: numbering, GST, and due date."""
+    issued_on = date.today()
+    tax_code, gst_rate, gst_amount, total = apply_gst(
+        db, company_id=company_id, net_amount=Decimal(net_amount)
+    )
+    return Invoice(
+        company_id=company_id,
+        customer_id=customer_id,
+        contract_id=contract_id,
+        excess_usage_record_id=excess_usage_record_id,
+        invoice_number=next_document_number(db, company_id=company_id, doc_kind="invoice"),
+        invoice_type=invoice_type,
+        description=description,
+        amount_sgd=Decimal(net_amount),
+        tax_code=tax_code,
+        gst_rate=gst_rate,
+        gst_amount_sgd=gst_amount,
+        total_amount_sgd=total,
+        due_date=_due_date_for(db, customer_id, issued_on),
+    )
 
 
 def issue_contract_annual_invoice(
@@ -18,16 +70,17 @@ def issue_contract_annual_invoice(
 ) -> Invoice:
     """BILL-001: full 12-month contract value, billed at contract
     start/renewal. BILL-002: no approval required -- issued directly."""
-    invoice = Invoice(
+    invoice = _build_invoice(
+        db,
         company_id=contract.company_id,
         customer_id=contract.customer_id,
-        contract_id=contract.id,
         invoice_type=InvoiceType.CONTRACT_ANNUAL,
         description=(
             f"Annual service contract ({contract.start_date.isoformat()} to "
             f"{contract.end_date.isoformat()})"
         ),
-        amount_sgd=contract.contract_value_sgd,
+        net_amount=Decimal(contract.contract_value_sgd),
+        contract_id=contract.id,
     )
     db.add(invoice)
     db.flush()
@@ -38,7 +91,16 @@ def issue_contract_annual_invoice(
         entity_id=invoice.id,
         action="issued",
         actor_user_id=actor_user_id,
-        details=f"invoice_type=contract_annual, contract_id={contract.id}",
+        details=(
+            f"{invoice.invoice_number}, invoice_type=contract_annual, "
+            f"contract_id={contract.id}"
+        ),
+        new_value={
+            "invoice_number": invoice.invoice_number,
+            "net_sgd": str(invoice.amount_sgd),
+            "gst_sgd": str(invoice.gst_amount_sgd),
+            "total_sgd": str(invoice.total_amount_sgd),
+        },
     )
     return invoice
 
@@ -64,17 +126,18 @@ def issue_excess_usage_invoice(
     excess_hours = Decimal(excess_record.excess_minutes) / Decimal(60)
     amount = (rate * excess_hours).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    invoice = Invoice(
+    invoice = _build_invoice(
+        db,
         company_id=contract.company_id,
         customer_id=contract.customer_id,
-        contract_id=contract.id,
-        excess_usage_record_id=excess_record.id,
         invoice_type=InvoiceType.EXCESS_USAGE,
         description=(
             f"Excess support usage beyond contracted hours "
             f"({excess_hours} hrs @ SGD {rate}/hr)"
         ),
-        amount_sgd=amount,
+        net_amount=amount,
+        contract_id=contract.id,
+        excess_usage_record_id=excess_record.id,
     )
     db.add(invoice)
     excess_record.invoiced = True
@@ -86,6 +149,15 @@ def issue_excess_usage_invoice(
         entity_id=invoice.id,
         action="issued",
         actor_user_id=actor_user_id,
-        details=f"invoice_type=excess_usage, excess_usage_record_id={excess_record.id}",
+        details=(
+            f"{invoice.invoice_number}, invoice_type=excess_usage, "
+            f"excess_usage_record_id={excess_record.id}"
+        ),
+        new_value={
+            "invoice_number": invoice.invoice_number,
+            "net_sgd": str(invoice.amount_sgd),
+            "gst_sgd": str(invoice.gst_amount_sgd),
+            "total_sgd": str(invoice.total_amount_sgd),
+        },
     )
     return invoice

@@ -1,6 +1,13 @@
 """Import all model modules so Base.metadata is fully populated for
 Alembic autogenerate and for `create_all` in scripts/tests."""
-from app.models.billing import Invoice, InvoiceType  # noqa: F401
+from app.models.billing import Invoice, InvoiceStatus, InvoiceType  # noqa: F401
+from app.models.payments import (  # noqa: F401
+    Payment,
+    PaymentAllocation,
+    PaymentMethod,
+)
+from app.models.tax import TaxCode  # noqa: F401
+from app.services.numbering import DocumentSequence  # noqa: F401
 from app.models.contracts import (  # noqa: F401
     Contract,
     ContractStatus,
