@@ -25,20 +25,34 @@ export default function Layout() {
         <NavLink to="/" end>
           Dashboard
         </NavLink>
-        <NavLink to="/customers">Customers</NavLink>
-        <NavLink to="/contracts">Contracts</NavLink>
-        <NavLink to="/job-orders">Job Orders</NavLink>
-        <NavLink to="/excess-review">Excess Review</NavLink>
-        <NavLink to="/invoices">Invoices</NavLink>
-        <NavLink to="/accounts-receivable">Accounts Receivable</NavLink>
-        <NavLink to="/chart-of-accounts">Chart of Accounts</NavLink>
-        <NavLink to="/accounts-payable">Accounts Payable</NavLink>
-        <NavLink to="/general-ledger">General Ledger</NavLink>
-        {user?.role === 'owner' && <NavLink to="/company-setup">Company Setup</NavLink>}
-        {user?.role === 'owner' && <NavLink to="/modules">Module Control</NavLink>}
-        {user?.role === 'owner' && <NavLink to="/staff">Staff Master</NavLink>}
-        {user?.role === 'owner' && <NavLink to="/groups">Group Authority</NavLink>}
-        {user?.role === 'owner' && <NavLink to="/event-logs">Event Logs</NavLink>}
+
+        <div className="nav-section">
+          <div className="nav-section-label">Operations</div>
+          <NavLink to="/customers">Customers</NavLink>
+          <NavLink to="/contracts">Contracts</NavLink>
+          <NavLink to="/job-orders">Job Orders</NavLink>
+          <NavLink to="/excess-review">Excess Review</NavLink>
+        </div>
+
+        <div className="nav-section">
+          <div className="nav-section-label">Accounts</div>
+          <NavLink to="/invoices">Invoices</NavLink>
+          <NavLink to="/accounts-receivable">Accounts Receivable</NavLink>
+          <NavLink to="/chart-of-accounts">Chart of Accounts</NavLink>
+          <NavLink to="/accounts-payable">Accounts Payable</NavLink>
+          <NavLink to="/general-ledger">General Ledger</NavLink>
+        </div>
+
+        {user?.role === 'owner' && (
+          <div className="nav-section">
+            <div className="nav-section-label">Maintenance</div>
+            <NavLink to="/company-setup">Company Setup</NavLink>
+            <NavLink to="/modules">Module Control</NavLink>
+            <NavLink to="/staff">Staff Master</NavLink>
+            <NavLink to="/groups">Group Authority</NavLink>
+            <NavLink to="/event-logs">Event Logs</NavLink>
+          </div>
+        )}
         <div className="user-info">
           <div>
             <strong>{user?.full_name}</strong>

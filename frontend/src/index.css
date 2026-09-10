@@ -147,6 +147,20 @@ a {
   color: var(--accent-contrast);
 }
 
+/* Menu sections: Operations / Accounts / Maintenance. */
+.sidebar .nav-section {
+  margin-top: 14px;
+}
+.sidebar .nav-section-label {
+  padding: 0 10px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 .sidebar .user-info {
   margin-top: auto;
   padding-top: 16px;
