@@ -15,6 +15,7 @@ import DashboardPage from './pages/DashboardPage'
 import EventLogsPage from './pages/EventLogsPage'
 import ExcessReviewPage from './pages/ExcessReviewPage'
 import GroupsPage from './pages/GroupsPage'
+import InvoicePrintPage from './pages/InvoicePrintPage'
 import InvoicesPage from './pages/InvoicesPage'
 import JobOrderDetailPage from './pages/JobOrderDetailPage'
 import JobOrdersPage from './pages/JobOrdersPage'
@@ -61,6 +62,7 @@ function AppRoutes() {
         <Route path="/excess-review" element={<ExcessReviewPage />} />
         <Route path="/quotations" element={<QuotationsPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
+        <Route path="/invoices/:id/print" element={<InvoicePrintPage />} />
         <Route path="/receipts" element={<ReceiptsPage />} />
         <Route path="/accounts-payable" element={<AccountsPayablePage />} />
         <Route path="/payment-voucher" element={<PaymentVoucherPage />} />

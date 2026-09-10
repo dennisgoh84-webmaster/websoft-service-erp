@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, type AgingReport, type Customer, type CustomerStatement, type Invoice, type InvoiceStatus } from '../lib/api'
 
 const STATUS_BADGE: Record<InvoiceStatus, string> = {
@@ -320,6 +321,9 @@ export default function InvoicesPage() {
                   )}
                 </td>
                 <td style={{ display: 'flex', gap: 6 }}>
+                  <Link to={`/invoices/${inv.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
+                    Print
+                  </Link>
                   <button className="secondary" onClick={() => onToggleDispute(inv)}>
                     {inv.is_disputed ? 'Clear dispute' : 'Flag dispute'}
                   </button>

@@ -937,6 +937,7 @@ export const api = {
 
   listInvoices: (filters: { customer_id?: string; contract_id?: string } = {}) =>
     request<Invoice[]>(`/invoices${qs(filters)}`),
+  getInvoice: (id: string) => request<Invoice>(`/invoices/${id}`),
 
   // Accounts Receivable
   listPayments: (filters: { customer_id?: string; unallocated_only?: boolean } = {}) =>

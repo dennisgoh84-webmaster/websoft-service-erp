@@ -428,3 +428,88 @@ button:disabled {
   color: var(--text-muted);
   font-size: 13px;
 }
+
+/* Printable forms (Invoice, Receipt, ...): plain HTML/CSS "letterhead"
+   layouts, printed via the browser's own Print dialog -- no report
+   designer or separate tool involved. To change a form's look, edit
+   the page's JSX/CSS directly. */
+.invoice-sheet {
+  background: white;
+  color: #111;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px;
+  border: 1px solid var(--border);
+}
+.invoice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #111;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+.invoice-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  margin-bottom: 6px;
+}
+.invoice-company-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+.invoice-title {
+  text-align: right;
+}
+.invoice-title h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+.invoice-bill-to {
+  margin-bottom: 24px;
+}
+.invoice-lines {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+.invoice-lines th,
+.invoice-lines td {
+  border-bottom: 1px solid #ccc;
+  padding: 8px 4px;
+  text-align: left;
+}
+.invoice-totals {
+  margin-left: auto;
+  width: 260px;
+}
+.invoice-totals > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.invoice-total-line {
+  border-top: 2px solid #111;
+  font-weight: 700;
+  font-size: 16px;
+  margin-top: 4px;
+  padding-top: 8px !important;
+}
+
+@media print {
+  .sidebar,
+  .main-topbar,
+  .no-print {
+    display: none !important;
+  }
+  .main {
+    padding: 0;
+    max-width: none;
+  }
+  .invoice-sheet {
+    border: none;
+    max-width: none;
+    padding: 0;
+  }
+}
