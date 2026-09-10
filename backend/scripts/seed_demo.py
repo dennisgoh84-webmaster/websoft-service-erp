@@ -430,9 +430,10 @@ def main():
             ]
         )
 
-        # A demo group of companies -- Acme is tagged into it to show how
-        # "search for a particular customer or a group of customers"
-        # works; the other 4 entities aren't seeded, just the tag itself.
+        # A demo group of companies -- Acme Manufacturing and Acme
+        # Logistics are both tagged into it, showing how "search for a
+        # particular customer or a group of customers" works when a
+        # group actually has more than one member.
         acme_group = CustomerGroup(
             company_id=company.id, name="Acme Holdings Group",
             description="Acme Manufacturing and its related entities.",
@@ -456,6 +457,51 @@ def main():
             billing_notes="Requires PO number on every invoice.",
             payment_terms_days=30,  # terms vary per customer (confirmed)
         )
+        # More company-1 customers, so the Customer list/filter has
+        # enough rows to be worth demoing on screen.
+        acme_logistics = Customer(
+            company_id=company.id, name="Acme Logistics Pte Ltd",
+            customer_type=CustomerType.company,
+            customer_group_id=acme_group.id,  # same group as Acme Manufacturing
+            uen="201012346B",
+            contact_person="Mr Koh Boon Huat",
+            billing_email="ap@acme-logistics.test",
+            phone="6555 1030",
+            address_line1="12 Factory Road", address_city="Singapore",
+            address_postal_code="100012", address_country="Singapore",
+            payment_terms_days=30,
+        )
+        beacon = Customer(
+            company_id=company.id, name="Beacon Software Solutions Pte Ltd",
+            customer_type=CustomerType.company,
+            uen="201567890C",
+            contact_person="Ms Chloe Ng",
+            billing_email="finance@beacon-software.test",
+            phone="6555 3030", mobile="9555 3031",
+            address_line1="7 Ayer Rajah Crescent", address_city="Singapore",
+            address_postal_code="139951", address_country="Singapore",
+            payment_terms_days=45,
+        )
+        crestview = Customer(
+            company_id=company.id, name="Crestview Engineering Pte Ltd",
+            customer_type=CustomerType.company,
+            uen="201245678D",
+            contact_person="Mr Rajesh Kumar",
+            billing_email="ap@crestview-eng.test",
+            phone="6555 4040",
+            address_line1="55 Ubi Avenue 3", address_city="Singapore",
+            address_postal_code="408864", address_country="Singapore",
+            payment_terms_days=None,  # terms not agreed yet
+        )
+        tan_ah_kow = Customer(
+            company_id=company.id, name="Tan Ah Kow",
+            customer_type=CustomerType.individual,
+            billing_email="tanahkow@example.test",
+            mobile="9111 2233",
+            address_line1="Blk 123 Bishan St 12", address_city="Singapore",
+            address_postal_code="570123", address_country="Singapore",
+            payment_terms_days=7,
+        )
         # Company 2's own customer -- switching companies swaps the whole
         # dataset, so this is what Dennis sees under Websoft Digital.
         customer2 = Customer(
@@ -468,7 +514,7 @@ def main():
             address_postal_code="200020", address_country="Singapore",
             payment_terms_days=14,  # a different customer, different terms
         )
-        db.add_all([customer, customer2])
+        db.add_all([customer, acme_logistics, beacon, crestview, tan_ah_kow, customer2])
         db.flush()
 
         db.add_all(
