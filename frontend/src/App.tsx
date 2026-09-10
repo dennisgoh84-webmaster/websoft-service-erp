@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { ThemeProvider } from './lib/ThemeContext'
-import AccountsReceivablePage from './pages/AccountsReceivablePage'
 import AccountsPayablePage from './pages/AccountsPayablePage'
 import ChartOfAccountsPage from './pages/ChartOfAccountsPage'
 import GeneralLedgerPage from './pages/GeneralLedgerPage'
@@ -21,6 +20,11 @@ import JobOrderDetailPage from './pages/JobOrderDetailPage'
 import JobOrdersPage from './pages/JobOrdersPage'
 import Login from './pages/Login'
 import ModulesPage from './pages/ModulesPage'
+import PaymentVoucherPage from './pages/PaymentVoucherPage'
+import ProductCatalogPage from './pages/ProductCatalogPage'
+import QuotationsPage from './pages/QuotationsPage'
+import ReceiptsPage from './pages/ReceiptsPage'
+import ServiceRecordsPage from './pages/ServiceRecordsPage'
 import StaffDetailPage from './pages/StaffDetailPage'
 import StaffMasterPage from './pages/StaffMasterPage'
 
@@ -49,17 +53,21 @@ function AppRoutes() {
         <Route path="/contracts/:id" element={<ContractDetailPage />} />
         <Route path="/job-orders" element={<JobOrdersPage />} />
         <Route path="/job-orders/:id" element={<JobOrderDetailPage />} />
+        <Route path="/service-records" element={<ServiceRecordsPage />} />
         <Route path="/excess-review" element={<ExcessReviewPage />} />
+        <Route path="/quotations" element={<QuotationsPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
-        <Route path="/accounts-receivable" element={<AccountsReceivablePage />} />
-        <Route path="/chart-of-accounts" element={<ChartOfAccountsPage />} />
+        <Route path="/receipts" element={<ReceiptsPage />} />
         <Route path="/accounts-payable" element={<AccountsPayablePage />} />
+        <Route path="/payment-voucher" element={<PaymentVoucherPage />} />
+        <Route path="/chart-of-accounts" element={<ChartOfAccountsPage />} />
         <Route path="/general-ledger" element={<GeneralLedgerPage />} />
         <Route path="/company-setup" element={<CompanySetupPage />} />
         <Route path="/modules" element={<ModulesPage />} />
         <Route path="/staff" element={<StaffMasterPage />} />
         <Route path="/staff/:id" element={<StaffDetailPage />} />
         <Route path="/groups" element={<GroupsPage />} />
+        <Route path="/product-catalog" element={<ProductCatalogPage />} />
         <Route path="/event-logs" element={<EventLogsPage />} />
       </Route>
     </Routes>

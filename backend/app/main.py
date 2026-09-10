@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.routers import (
     accounts,
     payables,
+    catalog,
     ledger,
     accounts_receivable,
     auth,
@@ -30,6 +31,7 @@ from app.routers import (
     groups,
     job_orders,
     modules,
+    quotations,
     service_records,
     users,
 )
@@ -70,6 +72,8 @@ app.include_router(modules.router)
 app.include_router(event_logs.router)
 app.include_router(customers.router)
 app.include_router(customer_groups.router)
+app.include_router(catalog.router)
+app.include_router(quotations.router)
 app.include_router(contracts.router)
 app.include_router(job_orders.router)
 app.include_router(service_records.router)

@@ -568,6 +568,55 @@ export interface DashboardSummary {
   invoices_count: number
 }
 
+// ---- Product / Service Catalog ----
+export type ProductType = 'service' | 'product'
+
+export interface Product {
+  id: string
+  product_type: ProductType
+  name: string
+  internal_reference: string | null
+  product_category: string | null
+  tags: string | null
+  sales_price_sgd: number
+  cost_sgd: number | null
+  unit_of_measure: string | null
+  tax_code: string
+  is_active: boolean
+  created_at: string
+}
+
+// ---- Sales Quotation ----
+export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+
+export interface QuotationLine {
+  id: string
+  product_id: string | null
+  description: string
+  unit_of_measure: string | null
+  quantity: number
+  unit_price_sgd: number
+  line_total_sgd: number
+}
+
+export interface Quotation {
+  id: string
+  quotation_number: string
+  customer_id: string
+  quotation_date: string
+  valid_until: string | null
+  status: QuotationStatus
+  notes: string | null
+  amount_sgd: number
+  tax_code: string
+  gst_rate: number
+  gst_amount_sgd: number
+  total_amount_sgd: number
+  converted_contract_id: string | null
+  created_at: string
+  lines: QuotationLine[]
+}
+
 export const api = {
   me: () => request<CurrentUser>('/auth/me'),
   listUsers: () => request<CurrentUser[]>('/users'),
@@ -941,4 +990,56 @@ export const api = {
     if (!res.ok) throw new Error('Failed to export event logs')
     return res.blob()
   },
+
+  // Product / Service Catalog
+  listCatalog: (includeInactive = false) =>
+    request<Product[]>(`/catalog${includeInactive ? '?include_inactive=true' : ''}`),
+  createCatalogItem: (payload: {
+    product_type: ProductType
+    name: string
+    internal_reference?: string
+    product_category?: string
+    tags?: string
+    sales_price_sgd: number
+    cost_sgd?: number
+    unit_of_measure?: string
+    tax_code?: string
+  }) => request<Product>('/catalog', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCatalogItem: (
+    id: string,
+    payload: Partial<{
+      product_type: ProductType
+      name: string
+      internal_reference: string | null
+      product_category: string | null
+      tags: string | null
+      sales_price_sgd: number
+      cost_sgd: number | null
+      unit_of_measure: string | null
+      tax_code: string
+      is_active: boolean
+    }>,
+  ) => request<Product>(`/catalog/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  // Sales Quotation
+  listQuotations: (filters: { customer_id?: string; status?: string } = {}) =>
+    request<Quotation[]>(`/quotations${qs(filters)}`),
+  getQuotation: (id: string) => request<Quotation>(`/quotations/${id}`),
+  createQuotation: (payload: {
+    customer_id: string
+    quotation_date: string
+    valid_until?: string
+    notes?: string
+    lines: {
+      product_id?: string | null
+      description: string
+      unit_of_measure?: string
+      quantity: number
+      unit_price_sgd: number
+    }[]
+  }) => request<Quotation>('/quotations', { method: 'POST', body: JSON.stringify(payload) }),
+  sendQuotation: (id: string) => request<Quotation>(`/quotations/${id}/send`, { method: 'POST' }),
+  acceptQuotation: (id: string) =>
+    request<{ quotation: Quotation; message: string }>(`/quotations/${id}/accept`, { method: 'POST' }),
+  rejectQuotation: (id: string) => request<Quotation>(`/quotations/${id}/reject`, { method: 'POST' }),
 }

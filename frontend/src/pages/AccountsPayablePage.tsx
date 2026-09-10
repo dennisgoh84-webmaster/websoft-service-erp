@@ -1,12 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import {
-  api,
-  type APAgingReport,
-  type PurchaseOrder,
-  type Supplier,
-  type SupplierInvoice,
-  type SupplierPayment,
-} from '../lib/api'
+import { Link } from 'react-router-dom'
+import { api, type APAgingReport, type PurchaseOrder, type Supplier, type SupplierInvoice } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -22,7 +16,6 @@ export default function AccountsPayablePage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [pos, setPos] = useState<PurchaseOrder[]>([])
   const [bills, setBills] = useState<SupplierInvoice[]>([])
-  const [payments, setPayments] = useState<SupplierPayment[]>([])
   const [aging, setAging] = useState<APAgingReport | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -45,25 +38,16 @@ export default function AccountsPayablePage() {
   const [billGst, setBillGst] = useState('')
   const [billRef, setBillRef] = useState('')
 
-  // New payment
-  const [paySupplier, setPaySupplier] = useState('')
-  const [payAmount, setPayAmount] = useState('')
-  const [payRef, setPayRef] = useState('')
-
-  const [allocFor, setAllocFor] = useState<Record<string, { billId: string; amount: string }>>({})
-
   function refresh() {
     api.listSuppliers().then(setSuppliers).catch((e) => setError(e.message))
     api.listPurchaseOrders().then(setPos).catch((e) => setError(e.message))
     api.listBills().then(setBills).catch((e) => setError(e.message))
-    api.listSupplierPayments().then(setPayments).catch((e) => setError(e.message))
     api.apAging().then(setAging).catch((e) => setError(e.message))
   }
 
   useEffect(refresh, [])
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? id.slice(0, 8)
-  const openBills = bills.filter((b) => b.outstanding_sgd > 0)
 
   async function onAddSupplier(e: FormEvent) {
     e.preventDefault()
@@ -140,44 +124,6 @@ export default function AccountsPayablePage() {
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to record bill')
-    }
-  }
-
-  async function onRecordPayment(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setMessage(null)
-    try {
-      await api.recordSupplierPayment({
-        supplier_id: paySupplier,
-        payment_date: new Date().toISOString().slice(0, 10),
-        amount_sgd: parseFloat(payAmount),
-        reference: payRef || undefined,
-      })
-      setPayAmount('')
-      setPayRef('')
-      setMessage('Payment voucher recorded. Allocate it below to settle a bill.')
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record payment')
-    }
-  }
-
-  async function onAllocate(payment: SupplierPayment) {
-    const choice = allocFor[payment.id]
-    if (!choice?.billId || !choice.amount) {
-      setError('Pick a bill and an amount to allocate.')
-      return
-    }
-    setError(null)
-    try {
-      await api.allocateSupplierPayment(payment.id, [
-        { supplier_invoice_id: choice.billId, amount_sgd: parseFloat(choice.amount) },
-      ])
-      setAllocFor((prev) => ({ ...prev, [payment.id]: { billId: '', amount: '' } }))
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to allocate payment')
     }
   }
 
@@ -485,117 +431,9 @@ export default function AccountsPayablePage() {
         </form>
       </div>
 
-      <div className="card">
-        <h2>Payment vouchers ({payments.length})</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Voucher</th>
-              <th>Supplier</th>
-              <th>Amount</th>
-              <th>Unallocated</th>
-              <th>Allocate to bill</th>
-            </tr>
-          </thead>
-          <tbody>
-            {payments.map((p) => {
-              const choice = allocFor[p.id] ?? { billId: '', amount: '' }
-              const supplierBills = openBills.filter((b) => b.supplier_id === p.supplier_id)
-              return (
-                <tr key={p.id}>
-                  <td>{p.voucher_number}</td>
-                  <td>{supplierName(p.supplier_id)}</td>
-                  <td>{money(p.amount_sgd)}</td>
-                  <td>
-                    {p.unallocated_sgd > 0 ? (
-                      <strong>{money(p.unallocated_sgd)}</strong>
-                    ) : (
-                      <span className="muted">fully allocated</span>
-                    )}
-                    {p.allocations.length > 0 && (
-                      <div className="muted">
-                        {p.allocations.map((a) => `${a.bill_number}: ${money(a.amount_sgd)}`).join(', ')}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    {p.unallocated_sgd > 0 ? (
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <select
-                          value={choice.billId}
-                          onChange={(e) =>
-                            setAllocFor((prev) => ({ ...prev, [p.id]: { ...choice, billId: e.target.value } }))
-                          }
-                        >
-                          <option value="">Bill...</option>
-                          {supplierBills.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.bill_number} ({money(b.outstanding_sgd)} due)
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          placeholder="Amount"
-                          style={{ width: 100 }}
-                          value={choice.amount}
-                          onChange={(e) =>
-                            setAllocFor((prev) => ({ ...prev, [p.id]: { ...choice, amount: e.target.value } }))
-                          }
-                        />
-                        <button onClick={() => onAllocate(p)}>Allocate</button>
-                      </div>
-                    ) : (
-                      <span className="muted">-</span>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-            {payments.length === 0 && (
-              <tr>
-                <td colSpan={5} className="muted">
-                  No payments recorded yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        <h2 style={{ marginTop: 18 }}>Record a payment voucher</h2>
-        <form onSubmit={onRecordPayment}>
-          <div className="form-row">
-            <label>Supplier</label>
-            <select value={paySupplier} onChange={(e) => setPaySupplier(e.target.value)} required>
-              <option value="">Select...</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-row">
-            <label>Amount (SGD)</label>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={payAmount}
-              onChange={(e) => setPayAmount(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-row">
-            <label>Reference</label>
-            <input value={payRef} onChange={(e) => setPayRef(e.target.value)} />
-          </div>
-          <button type="submit" disabled={!paySupplier}>
-            Record payment
-          </button>
-        </form>
-      </div>
+      <p className="muted">
+        Payments to suppliers are recorded and allocated on the <Link to="/payment-voucher">Payment Voucher</Link> page.
+      </p>
     </div>
   )
 }

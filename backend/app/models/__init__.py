@@ -40,7 +40,9 @@ from app.models.core import (  # noqa: F401
     UserCompanyAccess,
     UserRole,
 )
-from app.models.customers import Contact, Customer  # noqa: F401
+from app.models.customers import Branch, Contact, Customer, CustomerGroup, CustomerType  # noqa: F401
+from app.models.catalog import Product, ProductType  # noqa: F401
+from app.models.quotations import Quotation, QuotationLine, QuotationStatus  # noqa: F401
 from app.models.groups import (  # noqa: F401
     ACCESS_LEVEL_ORDER,
     AccessLevel,

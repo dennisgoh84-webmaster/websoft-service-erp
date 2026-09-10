@@ -57,9 +57,12 @@ from app.models.payables import (
     SupplierPayment,
 )
 from app.models.tax import TaxCode
+from app.models.catalog import Product, ProductType
+from app.models.quotations import Quotation, QuotationLine, QuotationStatus
 from app.services import payables as ap_svc
 from app.services import billing as billing_svc
 from app.services import contracts as contract_svc
+from app.services import quotations as quotation_svc
 from app.services import service_records as sr_svc
 from app.services.auth import hash_password
 from app.services.numbering import next_document_number
@@ -80,7 +83,7 @@ MODULE_CATALOG = [
     ("core_administration", "Core / Administration", True, True),
     ("event_logs", "Event Logs", True, True),
     ("crm", "CRM", False, False),
-    ("sales", "Sales", False, False),
+    ("sales", "Sales (Quotations, Product/Service Catalog)", True, True),
     ("customer_management", "Customer Management", True, True),
     ("service_contracts", "Service Contracts", True, True),
     ("service_operations", "Helpdesk / Service Operations (Job Orders)", True, True),
@@ -124,6 +127,7 @@ GROUP_CATALOG = {
                 "service_operations",
                 "service_records",
                 "billing",
+                "sales",
             )
         },
     ),
@@ -146,6 +150,7 @@ GROUP_CATALOG = {
         {
             "customer_management": FULL,
             "service_contracts": FULL,
+            "sales": FULL,
             "service_operations": VIEW,
             "service_records": VIEW,
             "billing": VIEW,
@@ -167,6 +172,7 @@ GROUP_CATALOG = {
             "finance_accounting": FULL,
             "service_contracts": VIEW,
             "customer_management": VIEW,
+            "sales": VIEW,
             "service_operations": NONE,
             "service_records": NONE,
             "core_administration": NONE,
@@ -536,6 +542,41 @@ def main():
             )
         )
 
+        # Product/Service Catalog (confirmed 2026-09-10 from the Odoo
+        # Products screens) -- a handful of representative items so
+        # Sales Quotation has something to pick from.
+        catalog = {
+            p.name: p
+            for p in (
+                Product(
+                    company_id=company.id, product_type=ProductType.service,
+                    name="Service / Support Contract", internal_reference="SVC-HRS",
+                    product_category="Service Contracts", sales_price_sgd=Decimal("140.00"),
+                    unit_of_measure="Hours", tax_code="SR",
+                ),
+                Product(
+                    company_id=company.id, product_type=ProductType.service,
+                    name="Annual Software Maintenance Contract", internal_reference="SVC-ASM",
+                    product_category="In-house Software Subscription & Maintenance",
+                    sales_price_sgd=Decimal("1400.00"), unit_of_measure="Yearly", tax_code="SR",
+                ),
+                Product(
+                    company_id=company.id, product_type=ProductType.service,
+                    name="API Monthly Hosting Fee", internal_reference="SVC-API",
+                    product_category="In-house Software Subscription & Maintenance",
+                    sales_price_sgd=Decimal("4000.00"), unit_of_measure="Monthly", tax_code="SR",
+                ),
+                Product(
+                    company_id=company.id, product_type=ProductType.product,
+                    name="Domain / DNS Hosting & Subscription", internal_reference="PRD-DNS",
+                    product_category="Subscriptions", sales_price_sgd=Decimal("75.00"),
+                    unit_of_measure="Yearly", tax_code="SR",
+                ),
+            )
+        }
+        db.add_all(catalog.values())
+        db.flush()
+
         contract = contract_svc.create_contract(
             db, company_id=company.id, customer_id=customer.id,
             contracted_hours=10, contract_value_sgd=3000,
@@ -544,6 +585,42 @@ def main():
         )
         contract_svc.activate_contract(db, contract, actor_user_id=dennis.id)
         billing_svc.issue_contract_annual_invoice(db, contract, actor_user_id=dennis.id)
+
+        # A demo quotation for Acme, left "sent" (not yet accepted) so
+        # the Accept -> auto-convert-to-Contract behaviour can be shown
+        # live in the demo, same pattern as the pending Service Record
+        # below. Its hourly line (20 hrs) clears the Contract minimum
+        # (SRV-002/012) so acceptance will successfully auto-convert.
+        quotation = Quotation(
+            company_id=company.id, customer_id=customer.id,
+            quotation_number=next_document_number(db, company_id=company.id, doc_kind="quotation"),
+            quotation_date=date.today(), valid_until=date.today() + timedelta(days=30),
+            notes="Renewal support block + a year of DNS hosting.",
+            created_by_user_id=dennis.id,
+        )
+        db.add(quotation)
+        db.flush()
+        support = catalog["Service / Support Contract"]
+        dns = catalog["Domain / DNS Hosting & Subscription"]
+        db.add_all(
+            [
+                QuotationLine(
+                    quotation_id=quotation.id, product_id=support.id, description=support.name,
+                    unit_of_measure=support.unit_of_measure, quantity=Decimal("20"),
+                    unit_price_sgd=support.sales_price_sgd,
+                    line_total_sgd=(Decimal("20") * support.sales_price_sgd).quantize(Decimal("0.01")),
+                ),
+                QuotationLine(
+                    quotation_id=quotation.id, product_id=dns.id, description=dns.name,
+                    unit_of_measure=dns.unit_of_measure, quantity=Decimal("1"),
+                    unit_price_sgd=dns.sales_price_sgd, line_total_sgd=dns.sales_price_sgd,
+                ),
+            ]
+        )
+        db.flush()
+        db.refresh(quotation)
+        quotation_svc.recompute_totals(db, quotation)
+        quotation.status = QuotationStatus.sent
 
         job_order = JobOrder(
             company_id=company.id, customer_id=customer.id, contract_id=contract.id,

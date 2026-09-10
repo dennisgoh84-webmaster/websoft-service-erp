@@ -10,9 +10,11 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.accounting import AccountType, JournalStatus, VoucherType
+from app.models.catalog import ProductType
 from app.models.payables import BillMatchStatus, BillStatus, PurchaseOrderStatus
 from app.models.contracts import ContractStatus, ExcessTreatment
 from app.models.customers import CustomerType
+from app.models.quotations import QuotationStatus
 from app.models.core import UserRole
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrderPriority, JobOrderStatus
@@ -948,3 +950,97 @@ class DashboardSummary(BaseModel):
     missing_service_records: int  # SRV-015: submitted more than 3 business days after the work date
     invoices_total_sgd: float
     invoices_count: int
+
+
+# ---- Product / Service Catalog ----
+class ProductCreate(BaseModel):
+    product_type: ProductType = ProductType.service
+    name: str
+    internal_reference: str | None = None
+    product_category: str | None = None
+    tags: str | None = None
+    sales_price_sgd: float = Field(default=0, ge=0)
+    cost_sgd: float | None = Field(default=None, ge=0)
+    unit_of_measure: str | None = None
+    tax_code: str = "SR"
+
+
+class ProductUpdate(BaseModel):
+    product_type: ProductType | None = None
+    name: str | None = None
+    internal_reference: str | None = None
+    product_category: str | None = None
+    tags: str | None = None
+    sales_price_sgd: float | None = Field(default=None, ge=0)
+    cost_sgd: float | None = Field(default=None, ge=0)
+    unit_of_measure: str | None = None
+    tax_code: str | None = None
+    is_active: bool | None = None
+
+
+class ProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    product_type: ProductType
+    name: str
+    internal_reference: str | None
+    product_category: str | None
+    tags: str | None
+    sales_price_sgd: float
+    cost_sgd: float | None
+    unit_of_measure: str | None
+    tax_code: str
+    is_active: bool
+    created_at: datetime
+
+
+# ---- Sales Quotation ----
+class QuotationLineCreate(BaseModel):
+    product_id: uuid.UUID | None = None
+    description: str
+    unit_of_measure: str | None = None
+    quantity: float = Field(gt=0)
+    unit_price_sgd: float = Field(ge=0)
+
+
+class QuotationLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    product_id: uuid.UUID | None
+    description: str
+    unit_of_measure: str | None
+    quantity: float
+    unit_price_sgd: float
+    line_total_sgd: float
+
+
+class QuotationCreate(BaseModel):
+    customer_id: uuid.UUID
+    quotation_date: date
+    valid_until: date | None = None
+    notes: str | None = None
+    lines: list[QuotationLineCreate] = Field(default_factory=list)
+
+
+class QuotationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    quotation_number: str
+    customer_id: uuid.UUID
+    quotation_date: date
+    valid_until: date | None
+    status: QuotationStatus
+    notes: str | None
+    amount_sgd: float
+    tax_code: str
+    gst_rate: float
+    gst_amount_sgd: float
+    total_amount_sgd: float
+    converted_contract_id: uuid.UUID | None
+    created_at: datetime
+    lines: list[QuotationLineOut]
+
+
+class QuotationActionResult(BaseModel):
+    quotation: QuotationOut
+    message: str

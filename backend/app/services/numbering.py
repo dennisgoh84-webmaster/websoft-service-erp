@@ -44,6 +44,7 @@ PREFIXES = {
     "journal": "JV",        # journal voucher -- manual adjustment
     "purchase_order": "PO",
     "supplier_invoice": "BILL",
+    "quotation": "QUO",      # sales quotation
 }
 
 

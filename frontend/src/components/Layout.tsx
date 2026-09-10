@@ -31,15 +31,18 @@ export default function Layout() {
           <NavLink to="/customers">Customers</NavLink>
           <NavLink to="/contracts">Contracts</NavLink>
           <NavLink to="/job-orders">Job Orders</NavLink>
+          <NavLink to="/service-records">Service Records</NavLink>
           <NavLink to="/excess-review">Excess Review</NavLink>
         </div>
 
         <div className="nav-section">
           <div className="nav-section-label">Accounts</div>
+          <NavLink to="/quotations">Sales Quotation</NavLink>
           <NavLink to="/invoices">Invoices</NavLink>
-          <NavLink to="/accounts-receivable">Accounts Receivable</NavLink>
-          <NavLink to="/chart-of-accounts">Chart of Accounts</NavLink>
+          <NavLink to="/receipts">Receipts</NavLink>
           <NavLink to="/accounts-payable">Accounts Payable</NavLink>
+          <NavLink to="/payment-voucher">Payment Voucher</NavLink>
+          <NavLink to="/chart-of-accounts">Chart of Accounts</NavLink>
           <NavLink to="/general-ledger">General Ledger</NavLink>
         </div>
 
@@ -47,9 +50,10 @@ export default function Layout() {
           <div className="nav-section">
             <div className="nav-section-label">Maintenance</div>
             <NavLink to="/company-setup">Company Setup</NavLink>
-            <NavLink to="/modules">Module Control</NavLink>
             <NavLink to="/staff">Staff Master</NavLink>
+            <NavLink to="/modules">Module Control</NavLink>
             <NavLink to="/groups">Group Authority</NavLink>
+            <NavLink to="/product-catalog">Product Catalog</NavLink>
             <NavLink to="/event-logs">Event Logs</NavLink>
           </div>
         )}

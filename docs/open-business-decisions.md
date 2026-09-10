@@ -456,6 +456,33 @@ areas) are finalized.
    each)?
    *Arises in:* Integrations, all modules.
 
+## 11. Sales (Quotations & Product Catalog, raised 2026-09-10)
+
+11.1. **How should a Sales Quotation's mixed-unit line items map onto a
+   Service Contract's required hours**, when the quotation is accepted?
+   **Interim rule in place:** only lines whose unit of measure is
+   "Hours"/"Hour" count toward `contracted_hours`; the quotation's net
+   total becomes `contract_value_sgd`. Since the contract's 10-hour
+   minimum (SRV-002/012) has no override, a quotation with no (or too
+   few) hourly lines -- e.g. a pure subscription quote for the API
+   Hosting Fee / DNS / Annual Maintenance items in the catalog -- is
+   accepted but does **not** auto-convert to a contract. This has not
+   been confirmed as the intended real rule (most catalog items are
+   monthly/yearly subscriptions, not hour blocks), just a safe default
+   that never produces an invalid contract. Revisit once real quotation
+   usage clarifies what "accepted" should actually create for a
+   non-hourly quote (an invoice directly? a different document type?).
+   *Arises in:* Sales, Service Contracts, Billing.
+   *Where implemented:* `app/models/quotations.py`,
+   `app/services/quotations.py`.
+
+11.2. **Should an accepted quotation ever auto-create an Invoice**
+   directly (as an alternative or in addition to the Contract
+   conversion above), e.g. for one-off product/hardware lines that
+   aren't a service contract at all?
+   *Arises in:* Sales, Billing, Hardware Management (deferred, section
+   5).
+
 ---
 
 ## How to use this document
