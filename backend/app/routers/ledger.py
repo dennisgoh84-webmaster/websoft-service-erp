@@ -11,6 +11,7 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
@@ -24,12 +25,18 @@ from app.schemas.schemas import (
     TrialBalance,
     TrialBalanceRow,
 )
-from app.services import audit
+from app.services import audit, exports
 from app.services import ledger as ledger_svc
 from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/ledger", tags=["general-ledger"])
 MODULE = "finance_accounting"
+
+VOUCHER_EXPORT_FIELDS = [
+    "voucher_number", "voucher_type", "entry_date", "narration", "status",
+    "total_debit_sgd", "total_credit_sgd",
+]
+TRIAL_BALANCE_EXPORT_FIELDS = ["code", "name", "account_type", "debit_sgd", "credit_sgd", "balance_sgd"]
 
 
 def _entry_or_404(db: Session, entry_id: uuid.UUID, company_id: uuid.UUID) -> JournalEntry:
@@ -44,6 +51,24 @@ def _entry_or_404(db: Session, entry_id: uuid.UUID, company_id: uuid.UUID) -> Jo
     return entry
 
 
+def _filter_vouchers(
+    db: Session,
+    company_id: uuid.UUID,
+    voucher_type: VoucherType | None,
+    status: JournalStatus | None,
+) -> list[JournalEntry]:
+    query = (
+        db.query(JournalEntry)
+        .options(selectinload(JournalEntry.lines))
+        .filter(JournalEntry.company_id == company_id)
+    )
+    if voucher_type:
+        query = query.filter(JournalEntry.voucher_type == voucher_type)
+    if status:
+        query = query.filter(JournalEntry.status == status)
+    return query.order_by(JournalEntry.entry_date.desc(), JournalEntry.created_at.desc()).all()
+
+
 @router.get("/vouchers", response_model=list[JournalEntryOut])
 def list_vouchers(
     voucher_type: VoucherType | None = None,
@@ -51,17 +76,62 @@ def list_vouchers(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    query = (
-        db.query(JournalEntry)
-        .options(selectinload(JournalEntry.lines))
-        .filter(JournalEntry.company_id == current_user.company_id)
-    )
-    if voucher_type:
-        query = query.filter(JournalEntry.voucher_type == voucher_type)
-    if status:
-        query = query.filter(JournalEntry.status == status)
-    entries = query.order_by(JournalEntry.entry_date.desc(), JournalEntry.created_at.desc()).all()
+    entries = _filter_vouchers(db, current_user.company_id, voucher_type, status)
     return [JournalEntryOut.from_model(e) for e in entries]
+
+
+def _voucher_row(entry: JournalEntry) -> dict:
+    return {
+        "voucher_number": entry.voucher_number,
+        "voucher_type": entry.voucher_type.value,
+        "entry_date": entry.entry_date.isoformat(),
+        "narration": entry.narration,
+        "status": entry.status.value,
+        "total_debit_sgd": f"{float(entry.total_debit):.2f}",
+        "total_credit_sgd": f"{float(entry.total_credit):.2f}",
+    }
+
+
+def _vouchers_for_export(
+    db: Session,
+    company_id: uuid.UUID,
+    voucher_type: VoucherType | None,
+    status: JournalStatus | None,
+) -> list[dict]:
+    entries = _filter_vouchers(db, company_id, voucher_type, status)
+    return [_voucher_row(e) for e in entries]
+
+
+@router.get("/vouchers/export.csv")
+def export_vouchers_csv(
+    voucher_type: VoucherType | None = None,
+    status: JournalStatus | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _vouchers_for_export(db, current_user.company_id, voucher_type, status)
+    csv_text = exports.rows_to_csv(VOUCHER_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=vouchers.csv"},
+    )
+
+
+@router.get("/vouchers/export.xlsx")
+def export_vouchers_excel(
+    voucher_type: VoucherType | None = None,
+    status: JournalStatus | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _vouchers_for_export(db, current_user.company_id, voucher_type, status)
+    data = exports.rows_to_excel(VOUCHER_EXPORT_FIELDS, rows, sheet_name="Vouchers")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=vouchers.xlsx"},
+    )
 
 
 @router.get("/vouchers/{entry_id}", response_model=JournalEntryOut)
@@ -177,16 +247,9 @@ def reverse_voucher(
     return JournalEntryOut.from_model(reversal)
 
 
-@router.get("/trial-balance", response_model=TrialBalance)
-def trial_balance(
-    as_at: date | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
-):
-    """Posted debits and credits per account. Draft and reversed vouchers
-    are excluded -- only posted entries are part of the ledger."""
-    rows = ledger_svc.account_balances(db, current_user.company_id, as_at)
-    out = [
+def _trial_balance_rows(db: Session, company_id: uuid.UUID, as_at: date | None) -> list[TrialBalanceRow]:
+    rows = ledger_svc.account_balances(db, company_id, as_at)
+    return [
         TrialBalanceRow(
             account_id=r["account_id"],
             code=r["code"],
@@ -198,6 +261,17 @@ def trial_balance(
         )
         for r in rows
     ]
+
+
+@router.get("/trial-balance", response_model=TrialBalance)
+def trial_balance(
+    as_at: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    """Posted debits and credits per account. Draft and reversed vouchers
+    are excluded -- only posted entries are part of the ledger."""
+    out = _trial_balance_rows(db, current_user.company_id, as_at)
     total_debit = sum(r.debit_sgd for r in out)
     total_credit = sum(r.credit_sgd for r in out)
     return TrialBalance(
@@ -208,4 +282,48 @@ def trial_balance(
         # A trial balance that doesn't balance means something is wrong
         # with the ledger itself, so it is surfaced rather than hidden.
         is_balanced=round(total_debit, 2) == round(total_credit, 2),
+    )
+
+
+def _trial_balance_for_export(db: Session, company_id: uuid.UUID, as_at: date | None) -> list[dict]:
+    return [
+        {
+            "code": r.code,
+            "name": r.name,
+            "account_type": r.account_type,
+            "debit_sgd": f"{r.debit_sgd:.2f}",
+            "credit_sgd": f"{r.credit_sgd:.2f}",
+            "balance_sgd": f"{r.balance_sgd:.2f}",
+        }
+        for r in _trial_balance_rows(db, company_id, as_at)
+    ]
+
+
+@router.get("/trial-balance/export.csv")
+def export_trial_balance_csv(
+    as_at: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _trial_balance_for_export(db, current_user.company_id, as_at)
+    csv_text = exports.rows_to_csv(TRIAL_BALANCE_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=trial-balance.csv"},
+    )
+
+
+@router.get("/trial-balance/export.xlsx")
+def export_trial_balance_excel(
+    as_at: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _trial_balance_for_export(db, current_user.company_id, as_at)
+    data = exports.rows_to_excel(TRIAL_BALANCE_EXPORT_FIELDS, rows, sheet_name="Trial Balance")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=trial-balance.xlsx"},
     )

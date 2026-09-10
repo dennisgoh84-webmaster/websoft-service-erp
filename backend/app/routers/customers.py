@@ -1,12 +1,13 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.core import AuditLogEntry, User
-from app.models.customers import Branch, Contact, Customer
+from app.models.customers import Branch, Contact, Customer, CustomerGroup
 from app.models.groups import AccessLevel
 from app.schemas.schemas import (
     AuditLogEntryOut,
@@ -20,11 +21,17 @@ from app.schemas.schemas import (
     CustomerOut,
     CustomerUpdate,
 )
-from app.services import audit
+from app.services import audit, exports
 from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 MODULE = "customer_management"
+
+CUSTOMER_EXPORT_FIELDS = [
+    "name", "customer_type", "customer_group", "legacy_customer_code", "contact_person",
+    "uen", "gst_registration_no", "billing_email", "phone", "mobile", "address",
+    "payment_terms_days", "status",
+]
 
 CUSTOMER_FIELDS = (
     "customer_type",
@@ -180,20 +187,20 @@ def reactivate_customer(
     return customer
 
 
-@router.get("", response_model=list[CustomerOut])
-def list_customers(
-    q: str | None = None,
-    customer_group_id: uuid.UUID | None = None,
-    include_inactive: bool = False,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+def _filter_customers(
+    db: Session,
+    company_id: uuid.UUID,
+    q: str | None,
+    customer_group_id: uuid.UUID | None,
+    include_inactive: bool,
 ):
     """Dynamic filter for the Customer master: free-text `q` matches
     across name/email/phone/mobile/UEN/legacy code/tags, and
     `customer_group_id` narrows to one group of companies at a time --
     so you can search for a particular customer or pull up a whole
-    group together."""
-    query = db.query(Customer).filter(Customer.company_id == current_user.company_id)
+    group together. Shared by list_customers and the export endpoints
+    so "export what I'm looking at" always matches what's on screen."""
+    query = db.query(Customer).filter(Customer.company_id == company_id)
     if not include_inactive:
         query = query.filter(Customer.is_active)
     if customer_group_id:
@@ -213,6 +220,86 @@ def list_customers(
             )
         )
     return query.order_by(Customer.name).all()
+
+
+@router.get("", response_model=list[CustomerOut])
+def list_customers(
+    q: str | None = None,
+    customer_group_id: uuid.UUID | None = None,
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    return _filter_customers(db, current_user.company_id, q, customer_group_id, include_inactive)
+
+
+def _customer_row(customer: Customer, group_name: str) -> dict:
+    address = ", ".join(
+        filter(
+            None,
+            [
+                customer.address_line1, customer.address_line2, customer.address_city,
+                customer.address_state, customer.address_postal_code, customer.address_country,
+            ],
+        )
+    )
+    return {
+        "name": customer.name,
+        "customer_type": customer.customer_type.value,
+        "customer_group": group_name,
+        "legacy_customer_code": customer.legacy_customer_code or "",
+        "contact_person": customer.contact_person or "",
+        "uen": customer.uen or "",
+        "gst_registration_no": customer.gst_registration_no or "",
+        "billing_email": customer.billing_email or "",
+        "phone": customer.phone or "",
+        "mobile": customer.mobile or "",
+        "address": address,
+        "payment_terms_days": customer.payment_terms_days if customer.payment_terms_days is not None else "",
+        "status": "active" if customer.is_active else "inactive",
+    }
+
+
+def _customers_for_export(
+    db: Session, company_id: uuid.UUID, q: str | None, customer_group_id: uuid.UUID | None, include_inactive: bool
+) -> list[dict]:
+    customers = _filter_customers(db, company_id, q, customer_group_id, include_inactive)
+    group_names = {g.id: g.name for g in db.query(CustomerGroup).filter(CustomerGroup.company_id == company_id)}
+    return [_customer_row(c, group_names.get(c.customer_group_id, "")) for c in customers]
+
+
+@router.get("/export.csv")
+def export_customers_csv(
+    q: str | None = None,
+    customer_group_id: uuid.UUID | None = None,
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _customers_for_export(db, current_user.company_id, q, customer_group_id, include_inactive)
+    csv_text = exports.rows_to_csv(CUSTOMER_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=customers.csv"},
+    )
+
+
+@router.get("/export.xlsx")
+def export_customers_excel(
+    q: str | None = None,
+    customer_group_id: uuid.UUID | None = None,
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _customers_for_export(db, current_user.company_id, q, customer_group_id, include_inactive)
+    data = exports.rows_to_excel(CUSTOMER_EXPORT_FIELDS, rows, sheet_name="Customers")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=customers.xlsx"},
+    )
 
 
 @router.get("/{customer_id}", response_model=CustomerOut)

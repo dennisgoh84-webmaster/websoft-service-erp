@@ -8,6 +8,7 @@ how Webmaster actually wants its books structured.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.models.accounting import Account, AccountType
@@ -15,11 +16,27 @@ from app.core.database import get_db
 from app.models.core import User
 from app.models.groups import AccessLevel
 from app.schemas.schemas import AccountCreate, AccountOut, AccountUpdate
-from app.services import audit
+from app.services import audit, exports
 from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/accounts", tags=["chart-of-accounts"])
 MODULE = "finance_accounting"
+
+ACCOUNT_EXPORT_FIELDS = ["code", "name", "account_type", "description", "is_active"]
+
+
+def _filter_accounts(
+    db: Session,
+    company_id: uuid.UUID,
+    include_inactive: bool,
+    account_type: AccountType | None,
+) -> list[Account]:
+    query = db.query(Account).filter(Account.company_id == company_id)
+    if not include_inactive:
+        query = query.filter(Account.is_active)
+    if account_type:
+        query = query.filter(Account.account_type == account_type)
+    return query.order_by(Account.code).all()
 
 
 @router.get("", response_model=list[AccountOut])
@@ -29,12 +46,59 @@ def list_accounts(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    query = db.query(Account).filter(Account.company_id == current_user.company_id)
-    if not include_inactive:
-        query = query.filter(Account.is_active)
-    if account_type:
-        query = query.filter(Account.account_type == account_type)
-    return query.order_by(Account.code).all()
+    return _filter_accounts(db, current_user.company_id, include_inactive, account_type)
+
+
+def _account_row(account: Account) -> dict:
+    return {
+        "code": account.code,
+        "name": account.name,
+        "account_type": account.account_type.value,
+        "description": account.description or "",
+        "is_active": account.is_active,
+    }
+
+
+def _accounts_for_export(
+    db: Session,
+    company_id: uuid.UUID,
+    include_inactive: bool,
+    account_type: AccountType | None,
+) -> list[dict]:
+    accounts = _filter_accounts(db, company_id, include_inactive, account_type)
+    return [_account_row(a) for a in accounts]
+
+
+@router.get("/export.csv")
+def export_accounts_csv(
+    include_inactive: bool = False,
+    account_type: AccountType | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _accounts_for_export(db, current_user.company_id, include_inactive, account_type)
+    csv_text = exports.rows_to_csv(ACCOUNT_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=chart-of-accounts.csv"},
+    )
+
+
+@router.get("/export.xlsx")
+def export_accounts_excel(
+    include_inactive: bool = False,
+    account_type: AccountType | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    rows = _accounts_for_export(db, current_user.company_id, include_inactive, account_type)
+    data = exports.rows_to_excel(ACCOUNT_EXPORT_FIELDS, rows, sheet_name="Chart of Accounts")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=chart-of-accounts.xlsx"},
+    )
 
 
 @router.post("", response_model=AccountOut)
