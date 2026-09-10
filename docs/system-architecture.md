@@ -253,24 +253,41 @@ approval workflows) without changing the shape described here.
   cross-cutting architectural constraint, provided whatever is chosen
   supports the RBAC model below.
 
-### RBAC (role-based access control)
+### RBAC (role-based access control) — Group Authority
 
 - Permissions are defined and enforced centrally by Core / Administration
   and consulted by every module — modules do not define their own
   independent permission systems.
-- Access control is expected to operate at two levels: which modules/
-  functions a role can use (e.g. can this user access Accounts Payable at
-  all), and which records within a module a user can see or act on (e.g.
-  only the customers they own) — the latter connects directly to the
-  ownership questions raised in
-  [open-business-decisions.md](open-business-decisions.md) (customer
-  ownership, sales ownership, service ownership).
+- **Confirmed design (2026-09-10, resolves open item 8.4): "Group
+  Authority", split across two independent axes:**
+  - **Group Authority** — general per-module access. Every staff member
+    (Staff Master) belongs to **exactly one Group**. A Group has an access
+    level per module: **None / View / Edit / Full** (None: module hidden;
+    View: read-only; Edit: create/update within the module; Full: also its
+    sensitive lifecycle actions, e.g. activating/renewing a contract,
+    approving a service record, deciding excess usage, toggling module
+    licensing). This is *which modules/functions a user's Group allows*.
+  - **Named-responsibility roles** — a small fixed `role` field
+    (owner/service_lead/sales_manager/support_engineer/finance), used
+    *only* for the specific business rules already confirmed elsewhere
+    (e.g. SRV-004/SRV-011: Nico, or Cherish as backup, decides excess
+    usage). A route that implements such a rule enforces the Group
+    Authority access level *and* the named role — both must pass.
+  - The owner role always has Full Group Authority on every module
+    regardless of its actual Group assignment, so the owner can never be
+    locked out by a misconfigured Group.
+  - Record-level ownership within a module (e.g. only the customers a
+    given rep owns) is a separate, still-open question — see the
+    ownership items in
+    [open-business-decisions.md](open-business-decisions.md) (§8.1–8.3).
+  - Implementation: `Group` + `GroupModuleAuthority` (per-module access
+    level per Group) plus `User.group_id`, enforced backend-side via a
+    `require_module_access(module_key, min_level)` dependency applied to
+    each route — see `backend/app/models/groups.py` and
+    `backend/app/services/authority.py`.
 - RBAC must be enforced in the backend (the authority), with the frontend
   using the same role/permission data only to shape what it displays —
   consistent with backend validation being the security boundary.
-- The detailed role/permission catalogue is not yet decided (see
-  [open-business-decisions.md](open-business-decisions.md), item 8.4) —
-  this section fixes only where enforcement lives, not what the roles are.
 
 ### Module Control / multi-company licensing
 

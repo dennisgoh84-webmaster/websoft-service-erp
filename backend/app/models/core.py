@@ -1,12 +1,16 @@
 """
 Core / Administration models: Company, User, and the central Audit Log.
 
-RBAC here is intentionally minimal (a single `role` field) -- the
-detailed role/permission catalogue is still an open business decision
-(see docs/open-business-decisions.md, item 8.4). This is enough to
-support the named responsibilities already confirmed in the business
-rules (Dennis as owner, Nico as Service & Support lead, Cherish as
-Sales Manager / backup reviewer).
+RBAC is split across two independent axes (confirmed with Dennis,
+2026-09-10 -- resolves open item 8.4):
+- `User.role` is a small fixed enum used ONLY for the specific
+  named-responsibility rules already confirmed in the business rules
+  (e.g. SRV-004/SRV-011: Nico, or Cherish as backup, decides excess
+  usage; Dennis as owner). It does not drive general module access.
+- `User.group_id` -> Group Authority (see app/models/groups.py) drives
+  general per-module security: what a user can see/do in each module,
+  at None/View/Edit/Full granularity, controlled by which Group they
+  belong to (exactly one Group per user).
 """
 import enum
 import uuid
@@ -55,10 +59,14 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role"), nullable=False)
+    # Group Authority: exactly one Group per user, driving general
+    # per-module access (independent of `role` above).
+    group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     company: Mapped["Company"] = relationship()
+    group: Mapped["Group | None"] = relationship()  # noqa: F821
 
 
 class AuditLogEntry(Base):

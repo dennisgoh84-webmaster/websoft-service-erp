@@ -73,10 +73,20 @@ ready in the future while serving a single company today.
 System administrators, IT admin, senior management (for org-wide settings).
 
 **Key functions**
-- User account management (create/deactivate users, assign roles).
+- Staff Master: user account management (create/deactivate/reactivate,
+  reset password, assign role and Group).
 - Company/entity management (single company today; structure to support
   more later).
-- Role and permission definition (RBAC).
+- Module Control: per-company module enable/license (see Module Control /
+  Licensing below).
+- **Group Authority** (RBAC, confirmed 2026-09-10 — resolves open item
+  8.4): define Groups and, for each Group, a per-module access level of
+  None / View / Edit / Full. Every staff member belongs to exactly one
+  Group; that Group governs what they can see/do in each module. This is
+  independent of the small `role` field used only for specific
+  named-responsibility business rules already confirmed elsewhere (e.g.
+  SRV-004/SRV-011's excess-usage decider) — see open-business-decisions.md
+  §8.4 for the full design.
 - System-wide configuration (e.g. currencies, number sequences, business
   calendar/holidays).
 - Central audit log service used by other modules.
@@ -84,9 +94,9 @@ System administrators, IT admin, senior management (for org-wide settings).
   categories) where not owned by a more specific module.
 
 **Information managed**
-Companies/entities, users, employees (as system accounts), roles,
-permissions, audit log entries, system settings, shared reference/lookup
-data.
+Companies/entities, users, employees (as system accounts), roles, Groups
+and their per-module Group Authority matrix, audit log entries, system
+settings, shared reference/lookup data.
 
 **Depends on**
 None — this is the foundational module.

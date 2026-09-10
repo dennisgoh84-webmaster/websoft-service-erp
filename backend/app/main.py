@@ -20,6 +20,7 @@ from app.routers import (
     customers,
     dashboard,
     excess_usage,
+    groups,
     job_orders,
     modules,
     service_records,
@@ -39,6 +40,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(groups.router)
 app.include_router(modules.router)
 app.include_router(customers.router)
 app.include_router(contracts.router)

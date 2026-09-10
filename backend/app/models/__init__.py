@@ -10,6 +10,12 @@ from app.models.contracts import (  # noqa: F401
 )
 from app.models.core import AuditLogEntry, Company, User, UserRole  # noqa: F401
 from app.models.customers import Contact, Customer  # noqa: F401
+from app.models.groups import (  # noqa: F401
+    ACCESS_LEVEL_ORDER,
+    AccessLevel,
+    Group,
+    GroupModuleAuthority,
+)
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus  # noqa: F401
 from app.models.service_records import (  # noqa: F401
     ServiceRecord,

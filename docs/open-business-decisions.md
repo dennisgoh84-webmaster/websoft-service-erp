@@ -304,6 +304,30 @@ revisited.
 8.4. **What are the detailed user roles and permission levels** across the
    system (beyond "authentication and RBAC are required")? e.g. what can a
    support engineer see/edit vs. a finance user vs. a manager.
+   **Status: DECIDED (2026-09-10)** — "Group Authority", confirmed with
+   Dennis:
+   - Every staff member (Staff Master) belongs to **exactly one Group**.
+   - Each Group has an access level per module: **None / View / Edit /
+     Full**. None of the module is hidden; View is read-only; Edit allows
+     create/update within the module; Full additionally allows its
+     sensitive lifecycle actions (e.g. activating/renewing a contract,
+     approving a service record, deciding excess usage, toggling module
+     licensing).
+   - This is deliberately a **separate axis** from the specific
+     named-responsibility rules already confirmed elsewhere (e.g.
+     SRV-004/SRV-011: Nico, or Cherish as backup, decides excess usage;
+     Dennis as owner). Those rules stay keyed off the small fixed `role`
+     field on a user (owner/service_lead/sales_manager/support_engineer/
+     finance) and are enforced in addition to, not instead of, Group
+     Authority — a user needs both the Group's access level AND (where a
+     rule names a role) the matching role to perform that specific action.
+   - The owner role always has Full access to every module regardless of
+     group, so the owner can never be locked out by a misconfigured Group.
+   - Default Groups seeded for the demo: Owner / Admin, Service Team,
+     Sales Team, Finance Team — see `backend/scripts/seed_demo.py` for the
+     starting matrix; Dennis can create/edit Groups and their matrix from
+     the Group Authority admin page, and assign staff to Groups from
+     Staff Master.
    *Arises in:* Core / Administration — this affects every module.
 
 ## 9. Service Records & Approval

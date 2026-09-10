@@ -7,11 +7,13 @@ import ContractsPage from './pages/ContractsPage'
 import CustomersPage from './pages/CustomersPage'
 import DashboardPage from './pages/DashboardPage'
 import ExcessReviewPage from './pages/ExcessReviewPage'
+import GroupsPage from './pages/GroupsPage'
 import InvoicesPage from './pages/InvoicesPage'
 import JobOrderDetailPage from './pages/JobOrderDetailPage'
 import JobOrdersPage from './pages/JobOrdersPage'
 import Login from './pages/Login'
 import ModulesPage from './pages/ModulesPage'
+import StaffMasterPage from './pages/StaffMasterPage'
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth()
@@ -40,6 +42,8 @@ function AppRoutes() {
         <Route path="/excess-review" element={<ExcessReviewPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/modules" element={<ModulesPage />} />
+        <Route path="/staff" element={<StaffMasterPage />} />
+        <Route path="/groups" element={<GroupsPage />} />
       </Route>
     </Routes>
   )

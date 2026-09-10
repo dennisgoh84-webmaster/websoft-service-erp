@@ -4,21 +4,23 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
 from app.models.core import User
+from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrder
 from app.models.service_records import ServiceRecord
 from app.schemas.schemas import ServiceRecordCreate, ServiceRecordOut
 from app.services import service_records as service_record_svc
+from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/service-records", tags=["service-records"])
+MODULE = "service_records"
 
 
 @router.post("", response_model=ServiceRecordOut)
 def submit_service_record(
     payload: ServiceRecordCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
     record = service_record_svc.submit_service_record(
         db,
@@ -38,7 +40,7 @@ def list_service_records(
     employee_user_id: uuid.UUID | None = None,
     status: str | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     query = db.query(ServiceRecord)
     if job_order_id:
@@ -54,7 +56,7 @@ def list_service_records(
 def approve_service_record(
     record_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
     record = db.get(ServiceRecord, record_id)
     if not record:

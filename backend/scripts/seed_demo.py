@@ -12,6 +12,17 @@ Sets up:
   migration, deferred for now) left disabled.
 - Users: Dennis (owner), Nico (service_lead), Cherish (sales_manager),
   Wei Ling (support_engineer) -- all password "demo1234"
+- Group Authority: default Groups (Owner / Admin, Service Team, Sales
+  Team, Finance Team) with a per-module access matrix, and each seeded
+  user assigned to the appropriate Group. Dennis's OWNER role already
+  grants him FULL access everywhere regardless of group (see
+  app/services/authority.py); he is still put in "Owner / Admin" so
+  Staff Master doesn't show him as ungrouped. Nico and Wei Ling both
+  land in "Service Team" -- the group grants them broad Service
+  Operations/Contracts access, but the SRV-004/SRV-011 named-person
+  rule (Nico, or Cherish as backup, decides excess usage) is enforced
+  separately by role, not by group, so Wei Ling still can't approve a
+  Service Record or decide excess usage despite sharing Nico's group.
 - Customer: Acme Manufacturing Pte Ltd
 - One Active 10-hour contract (SGD 3,000), already invoiced annually
 - A job order with Service Records already approved, deliberately left
@@ -32,6 +43,7 @@ from sqlalchemy import text
 from app.core.database import Base, SessionLocal, engine
 from app.models.core import Company, User, UserRole
 from app.models.customers import Customer
+from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
 from app.services import billing as billing_svc
@@ -69,6 +81,83 @@ MODULE_CATALOG = [
 ]
 
 
+# Default Groups and their per-module access matrix (Group Authority).
+# name -> description -> {module_key: AccessLevel}. Modules not listed
+# for a group default to AccessLevel.NONE (see GroupModuleAuthority).
+NONE, VIEW, EDIT, FULL = AccessLevel.NONE, AccessLevel.VIEW, AccessLevel.EDIT, AccessLevel.FULL
+
+GROUP_CATALOG = {
+    "Owner / Admin": (
+        "Full access to every module. Dennis's OWNER role already grants this "
+        "regardless of group -- this group exists so Staff Master shows him as "
+        "grouped, and as the template for any future admin hires.",
+        {
+            key: FULL
+            for key in (
+                "core_administration",
+                "customer_management",
+                "service_contracts",
+                "service_operations",
+                "service_records",
+                "billing",
+            )
+        },
+    ),
+    "Service Team": (
+        "Nico (Service & Support Lead) and the support engineers who log and "
+        "resolve Job Orders and submit/approve Service Records.",
+        {
+            "service_operations": FULL,
+            "service_records": FULL,
+            "service_contracts": FULL,  # incl. excess-usage review; SRV-004 role check still applies
+            "customer_management": VIEW,
+            "billing": VIEW,
+            "core_administration": NONE,
+        },
+    ),
+    "Sales Team": (
+        "Cherish (Sales Manager) -- owns customers and contracts, and is the "
+        "SRV-004/SRV-011 backup decider for excess usage.",
+        {
+            "customer_management": FULL,
+            "service_contracts": FULL,
+            "service_operations": VIEW,
+            "service_records": VIEW,
+            "billing": VIEW,
+            "core_administration": NONE,
+        },
+    ),
+    "Finance Team": (
+        "Billing and invoicing oversight. No staff seeded into this group yet.",
+        {
+            "billing": FULL,
+            "service_contracts": VIEW,
+            "customer_management": VIEW,
+            "service_operations": NONE,
+            "service_records": NONE,
+            "core_administration": NONE,
+        },
+    ),
+}
+
+
+def seed_groups(db, company: Company) -> dict[str, Group]:
+    groups = {}
+    for name, (description, matrix) in GROUP_CATALOG.items():
+        group = Group(company_id=company.id, name=name, description=description)
+        db.add(group)
+        db.flush()
+        for module_key, access_level in matrix.items():
+            db.add(
+                GroupModuleAuthority(
+                    group_id=group.id, module_key=module_key, access_level=access_level
+                )
+            )
+        groups[name] = group
+    db.flush()
+    return groups
+
+
 def wipe_data(db):
     """Truncate all app tables for a clean, repeatable demo reset."""
     table_names = [t.name for t in reversed(Base.metadata.sorted_tables)]
@@ -103,26 +192,27 @@ def main():
         db.flush()
 
         seed_modules(db, company)
+        groups = seed_groups(db, company)
 
         dennis = User(
             company_id=company.id, email="dennis@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Dennis (Owner)",
-            role=UserRole.OWNER,
+            role=UserRole.OWNER, group_id=groups["Owner / Admin"].id,
         )
         nico = User(
             company_id=company.id, email="nico@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Nico (Service & Support Lead)",
-            role=UserRole.SERVICE_LEAD,
+            role=UserRole.SERVICE_LEAD, group_id=groups["Service Team"].id,
         )
         cherish = User(
             company_id=company.id, email="cherish@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Cherish (Sales Manager)",
-            role=UserRole.SALES_MANAGER,
+            role=UserRole.SALES_MANAGER, group_id=groups["Sales Team"].id,
         )
         engineer = User(
             company_id=company.id, email="weiling@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Wei Ling (Support Engineer)",
-            role=UserRole.SUPPORT_ENGINEER,
+            role=UserRole.SUPPORT_ENGINEER, group_id=groups["Service Team"].id,
         )
         db.add_all([dennis, nico, cherish, engineer])
         db.flush()
@@ -180,9 +270,11 @@ def main():
         print(f"Job order: {job_order.id} -- {job_order.subject}")
         print(f"Pending service record (approve live in demo): {final_record.id} -- {final_record.raw_minutes} raw min -> {final_record.rounded_minutes} rounded min")
         print("\nEnabled modules:", ", ".join(k for k, _, _, e in MODULE_CATALOG if e))
+        print("\nGroups:", ", ".join(GROUP_CATALOG.keys()))
         print("\nLogins (all password: demo1234):")
         for u in (dennis, nico, cherish, engineer):
-            print(f"  {u.email:30s} {u.role.value}")
+            group_name = next(name for name, g in groups.items() if g.id == u.group_id)
+            print(f"  {u.email:30s} role={u.role.value:16s} group={group_name}")
     except Exception:
         db.rollback()
         raise

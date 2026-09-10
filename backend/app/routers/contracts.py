@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
 from app.models.contracts import Contract, ContractStatus, ExcessUsageRecord
 from app.models.core import User
+from app.models.groups import AccessLevel
 from app.schemas.schemas import (
     ContractCreate,
     ContractOut,
@@ -15,8 +15,10 @@ from app.schemas.schemas import (
 )
 from app.services import billing as billing_svc
 from app.services import contracts as contract_svc
+from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/contracts", tags=["contracts"])
+MODULE = "service_contracts"
 
 
 def _get_contract_or_404(db: Session, contract_id: uuid.UUID) -> Contract:
@@ -30,7 +32,7 @@ def _get_contract_or_404(db: Session, contract_id: uuid.UUID) -> Contract:
 def create_contract(
     payload: ContractCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
     try:
         contract = contract_svc.create_contract(
@@ -54,7 +56,7 @@ def list_contracts(
     status: ContractStatus | None = None,
     customer_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     query = db.query(Contract).filter(Contract.company_id == current_user.company_id)
     if status:
@@ -68,7 +70,7 @@ def list_contracts(
 def get_contract(
     contract_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     return ContractOut.from_model(_get_contract_or_404(db, contract_id))
 
@@ -77,7 +79,7 @@ def get_contract(
 def activate_contract(
     contract_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
     contract = _get_contract_or_404(db, contract_id)
     try:
@@ -96,7 +98,7 @@ def renew_contract(
     contract_id: uuid.UUID,
     payload: ContractRenewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
     prior = _get_contract_or_404(db, contract_id)
     try:
@@ -119,7 +121,7 @@ def renew_contract(
 def list_excess_usage(
     contract_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     records = (
         db.query(ExcessUsageRecord).filter(ExcessUsageRecord.contract_id == contract_id).all()

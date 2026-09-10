@@ -62,6 +62,35 @@ export interface CurrentUser {
   full_name: string
   email: string
   role: UserRole
+  group_id: string | null
+}
+
+// ---- Staff Master ----
+export interface StaffUser {
+  id: string
+  full_name: string
+  email: string
+  role: UserRole
+  group_id: string | null
+  is_active: boolean
+  created_at: string
+}
+
+// ---- Group Authority ----
+export type AccessLevel = 'none' | 'view' | 'edit' | 'full'
+
+export interface GroupAuthority {
+  module_key: string
+  access_level: AccessLevel
+}
+
+export interface Group {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+  authorities: GroupAuthority[]
+  member_count: number
 }
 
 export interface Customer {
@@ -170,6 +199,42 @@ export interface DashboardSummary {
 export const api = {
   me: () => request<CurrentUser>('/auth/me'),
   listUsers: () => request<CurrentUser[]>('/users'),
+
+  // Staff Master (full CRUD; distinct from the plain listUsers directory above)
+  listStaff: (includeInactive = false) =>
+    request<StaffUser[]>(`/users${includeInactive ? '?include_inactive=true' : ''}`),
+  getStaff: (id: string) => request<StaffUser>(`/users/${id}`),
+  createStaff: (payload: {
+    full_name: string
+    email: string
+    password: string
+    role: UserRole
+    group_id?: string | null
+  }) => request<StaffUser>('/users', { method: 'POST', body: JSON.stringify(payload) }),
+  updateStaff: (
+    id: string,
+    payload: { full_name?: string; role?: UserRole; group_id?: string | null },
+  ) => request<StaffUser>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deactivateStaff: (id: string) => request<StaffUser>(`/users/${id}/deactivate`, { method: 'POST' }),
+  reactivateStaff: (id: string) => request<StaffUser>(`/users/${id}/reactivate`, { method: 'POST' }),
+  resetStaffPassword: (id: string, new_password: string) =>
+    request<StaffUser>(`/users/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ new_password }),
+    }),
+
+  // Group Authority
+  listGroups: () => request<Group[]>('/groups'),
+  createGroup: (name: string, description?: string) =>
+    request<Group>('/groups', { method: 'POST', body: JSON.stringify({ name, description }) }),
+  updateGroup: (id: string, payload: { name?: string; description?: string }) =>
+    request<Group>(`/groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteGroup: (id: string) => request<void>(`/groups/${id}`, { method: 'DELETE' }),
+  setGroupAuthorities: (id: string, authorities: GroupAuthority[]) =>
+    request<Group>(`/groups/${id}/authorities`, {
+      method: 'PUT',
+      body: JSON.stringify({ authorities }),
+    }),
 
   dashboardSummary: () => request<DashboardSummary>('/dashboard/summary'),
 

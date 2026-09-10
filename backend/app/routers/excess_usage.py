@@ -4,20 +4,22 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
 from app.models.contracts import Contract, ExcessUsageRecord
 from app.models.core import User
+from app.models.groups import AccessLevel
 from app.schemas.schemas import ExcessUsageDecision, ExcessUsageOut, InvoiceOut
 from app.services import excess_usage as excess_svc
+from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/excess-usage", tags=["excess-usage"])
+MODULE = "service_contracts"
 
 
 @router.get("", response_model=list[ExcessUsageOut])
 def list_all_excess_usage(
     pending_only: bool = False,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     query = db.query(ExcessUsageRecord)
     if pending_only:
@@ -30,7 +32,7 @@ def decide_excess_usage(
     record_id: uuid.UUID,
     payload: ExcessUsageDecision,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
     record = db.get(ExcessUsageRecord, record_id)
     if not record:

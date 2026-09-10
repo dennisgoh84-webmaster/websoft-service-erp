@@ -3,29 +3,27 @@ Module Control -- lets an owner see and toggle which business-area
 modules are enabled/licensed for their company. See
 app/models/licensing.py for the data model rationale.
 """
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
-from app.models.core import User, UserRole
+from app.models.core import User
+from app.models.groups import AccessLevel
 from app.models.licensing import CompanyModule, Module
 from app.schemas.schemas import ModuleOut, ModuleToggleRequest
 from app.services import audit
+from app.services.authority import require_module_access
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api/modules", tags=["modules"])
-
-
-def _require_owner(user: User):
-    if user.role != UserRole.OWNER:
-        raise HTTPException(status_code=403, detail="Only the owner can manage module licensing.")
+MODULE = "core_administration"
 
 
 @router.get("", response_model=list[ModuleOut])
-def list_modules(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_modules(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
     modules = db.query(Module).order_by(Module.key).all()
     company_modules = {
         cm.module_key: cm
@@ -52,9 +50,8 @@ def toggle_module(
     module_key: str,
     payload: ModuleToggleRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
-    _require_owner(current_user)
     module = db.get(Module, module_key)
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")

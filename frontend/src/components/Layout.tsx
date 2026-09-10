@@ -17,6 +17,8 @@ export default function Layout() {
         <NavLink to="/excess-review">Excess Review</NavLink>
         <NavLink to="/invoices">Invoices</NavLink>
         {user?.role === 'owner' && <NavLink to="/modules">Module Control</NavLink>}
+        {user?.role === 'owner' && <NavLink to="/staff">Staff Master</NavLink>}
+        {user?.role === 'owner' && <NavLink to="/groups">Group Authority</NavLink>}
         <div className="user-info">
           <div>
             <strong>{user?.full_name}</strong>

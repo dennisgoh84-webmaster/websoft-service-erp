@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.contracts import ContractStatus, ExcessTreatment
 from app.models.core import UserRole
+from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrderPriority, JobOrderStatus
 from app.models.licensing import LicenseType
 from app.models.service_records import ServiceRecordOutcome, ServiceRecordStatus
@@ -28,6 +29,86 @@ class CurrentUser(BaseModel):
     full_name: str
     email: str
     role: UserRole
+    group_id: uuid.UUID | None = None
+
+
+# ---- Staff Master (Users) ----
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    full_name: str
+    email: str
+    role: UserRole
+    group_id: uuid.UUID | None
+    is_active: bool
+    created_at: datetime
+
+
+class UserCreate(BaseModel):
+    full_name: str
+    email: str
+    password: str = Field(min_length=8)
+    role: UserRole
+    group_id: uuid.UUID | None = None
+
+
+class UserUpdate(BaseModel):
+    full_name: str | None = None
+    role: UserRole | None = None
+    group_id: uuid.UUID | None = None
+
+
+class UserPasswordReset(BaseModel):
+    new_password: str = Field(min_length=8)
+
+
+# ---- Group Authority ----
+class GroupAuthorityOut(BaseModel):
+    module_key: str
+    access_level: AccessLevel
+
+
+class GroupOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    description: str | None
+    created_at: datetime
+    authorities: list[GroupAuthorityOut] = []
+    member_count: int = 0
+
+    @classmethod
+    def from_model(cls, group, member_count: int = 0) -> "GroupOut":
+        return cls(
+            id=group.id,
+            name=group.name,
+            description=group.description,
+            created_at=group.created_at,
+            authorities=[
+                GroupAuthorityOut(module_key=a.module_key, access_level=a.access_level)
+                for a in group.authorities
+            ],
+            member_count=member_count,
+        )
+
+
+class GroupCreate(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class GroupUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class GroupAuthoritySet(BaseModel):
+    module_key: str
+    access_level: AccessLevel
+
+
+class GroupAuthoritiesUpdateRequest(BaseModel):
+    authorities: list[GroupAuthoritySet]
 
 
 # ---- Customers ----
