@@ -64,7 +64,7 @@ export default function DashboardPage() {
                   <div className="stat-label">Currency</div>
                 </div>
                 <div className="card stat-tile">
-                  <div className="stat-value">{activeCompany.gst_registration_no ?? '-'}</div>
+                  <div className="stat-value stat-value-text">{activeCompany.gst_registration_no ?? '-'}</div>
                   <div className="stat-label">GST Reg. No.</div>
                 </div>
                 <div className="card stat-tile">

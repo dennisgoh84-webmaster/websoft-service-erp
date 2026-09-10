@@ -405,6 +405,12 @@ button:disabled {
   font-size: 28px;
   font-weight: 700;
   color: var(--text);
+  overflow-wrap: break-word;
+}
+/* For text/code values (e.g. a GST reg. no.) rather than a short count,
+   where the default 28px is too large to fit the tile. */
+.stat-value-text {
+  font-size: 17px;
 }
 .stat-label {
   font-size: 13px;
