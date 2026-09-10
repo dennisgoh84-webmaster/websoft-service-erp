@@ -12,6 +12,9 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
   const [timezone, setTimezone] = useState(company.timezone)
   const [address, setAddress] = useState(company.address ?? '')
   const [gstNo, setGstNo] = useState(company.gst_registration_no ?? '')
+  const [phone, setPhone] = useState(company.phone ?? '')
+  const [website, setWebsite] = useState(company.website ?? '')
+  const [uen, setUen] = useState(company.uen ?? '')
   const [writeOffThreshold, setWriteOffThreshold] = useState(
     company.write_off_approval_threshold_sgd?.toString() ?? '',
   )
@@ -54,6 +57,9 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
         logo,
         address: address || null,
         gst_registration_no: gstNo || null,
+        phone: phone || null,
+        website: website || null,
+        uen: uen || null,
         write_off_approval_threshold_sgd:
           writeOffThreshold === '' ? null : parseFloat(writeOffThreshold),
       })
@@ -151,6 +157,18 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
                 onChange={(e) => setGstNo(e.target.value)}
                 placeholder="Leave blank if not GST-registered"
               />
+            </div>
+            <div className="form-row">
+              <label>Phone (shown on printed forms)</label>
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 6709 1233 / 6747 0705" />
+            </div>
+            <div className="form-row">
+              <label>Website (shown on printed forms)</label>
+              <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g. www.websoft.sg" />
+            </div>
+            <div className="form-row">
+              <label>Business Reg. No. / UEN (shown on printed forms)</label>
+              <input value={uen} onChange={(e) => setUen(e.target.value)} />
             </div>
             <div className="form-row">
               <label>Write-off approval threshold (SGD)</label>

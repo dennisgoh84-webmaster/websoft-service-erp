@@ -1,7 +1,9 @@
-// A printable Tax Invoice "form" -- plain HTML/CSS, rendered with live
-// data and printed with the browser's own Print dialog (Save as PDF).
-// No report designer, no separate tool: to change the layout, edit the
-// JSX/CSS below exactly like any other page in this app.
+// A printable Tax Invoice "form" -- plain HTML/CSS, matching Webmaster's
+// own Quotation letterhead format (reference: Quote_0160, shared
+// 2026-09-10), rendered with live data and printed with the browser's
+// own Print dialog (Save as PDF). No report designer, no separate
+// tool: to change the layout, edit the JSX/CSS below exactly like any
+// other page in this app.
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api, downloadBlob, type Customer, type Invoice } from '../lib/api'
@@ -50,64 +52,118 @@ export default function InvoicePrintPage() {
         <button onClick={onExport}>Export</button>
       </div>
 
-      <div className="invoice-header">
-        <div>
-          {activeCompany?.logo && <img src={activeCompany.logo} alt="" className="invoice-logo" />}
-          <div className="invoice-company-name">{activeCompany?.name}</div>
-          <div className="muted">{activeCompany?.address}</div>
-          {activeCompany?.gst_registration_no && (
-            <div className="muted">GST Reg. No: {activeCompany.gst_registration_no}</div>
-          )}
-        </div>
-        <div className="invoice-title">
-          <h1>TAX INVOICE</h1>
-          <div>{invoice.invoice_number}</div>
-          <div className="muted">Issued {new Date(invoice.issued_at).toLocaleDateString()}</div>
-          {invoice.due_date && <div className="muted">Due {invoice.due_date}</div>}
+      <div className="form-header">
+        <div>{activeCompany?.logo && <img src={activeCompany.logo} alt="" className="invoice-logo" />}</div>
+        <div className="form-header-right">
+          <div className="form-company-name">{activeCompany?.name}</div>
+          {activeCompany?.address && <div>{activeCompany.address}</div>}
+          {activeCompany?.phone && <div>Tel: {activeCompany.phone}</div>}
+          {activeCompany?.website && <div className="form-website">{activeCompany.website}</div>}
+          {activeCompany?.uen && <div>Business Reg# {activeCompany.uen}</div>}
+          {activeCompany?.gst_registration_no && <div>GST Reg# {activeCompany.gst_registration_no}</div>}
         </div>
       </div>
 
-      <div className="invoice-bill-to">
-        <div className="muted">Bill To</div>
-        <strong>{customer.name}</strong>
-        {customer.uen && <div className="muted">UEN: {customer.uen}</div>}
-        {billTo && <div>{billTo}</div>}
+      <div className="form-meta">
+        <div>
+          <div className="form-customer-name">{customer.name}</div>
+          {billTo && <div>{billTo}</div>}
+          {customer.contact_person && (
+            <div className="form-meta-row">
+              <span className="muted">Contact Person</span>
+              <span>: {customer.contact_person}</span>
+            </div>
+          )}
+          {customer.billing_email && (
+            <div className="form-meta-row">
+              <span className="muted">Contact Email</span>
+              <span>: {customer.billing_email}</span>
+            </div>
+          )}
+          {customer.phone && (
+            <div className="form-meta-row">
+              <span className="muted">Contact No</span>
+              <span>: {customer.phone}</span>
+            </div>
+          )}
+        </div>
+        <div className="form-meta-right">
+          <div className="form-meta-row">
+            <span className="muted">Invoice No</span>
+            <span>: {invoice.invoice_number}</span>
+          </div>
+          <div className="form-meta-row">
+            <span className="muted">Date</span>
+            <span>: {new Date(invoice.issued_at).toLocaleDateString()}</span>
+          </div>
+          {invoice.due_date && (
+            <div className="form-meta-row">
+              <span className="muted">Due Date</span>
+              <span>: {invoice.due_date}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <table className="invoice-lines">
         <thead>
           <tr>
-            <th>Description</th>
-            <th style={{ textAlign: 'right' }}>Net (SGD)</th>
+            <th style={{ width: 30 }}>#</th>
+            <th>DESCRIPTION</th>
+            <th style={{ textAlign: 'right' }}>QTY</th>
+            <th style={{ textAlign: 'right' }}>UNIT PRICE ($)</th>
+            <th style={{ textAlign: 'right' }}>AMOUNT ($)</th>
           </tr>
         </thead>
         <tbody>
           <tr>
+            <td>1</td>
             <td>{invoice.description}</td>
+            <td style={{ textAlign: 'right' }}>1.00</td>
             <td style={{ textAlign: 'right' }}>{money(invoice.amount_sgd)}</td>
+            <td className="invoice-amount-cell" style={{ textAlign: 'right' }}>
+              {money(invoice.amount_sgd)}
+            </td>
           </tr>
         </tbody>
       </table>
 
-      <div className="invoice-totals">
-        <div>
-          <span>Net amount</span>
-          <span>{money(invoice.amount_sgd)}</span>
+      <div className="totals-strip">
+        <div className="totals-box">
+          <div className="muted">Subtotal</div>
+          <div className="totals-value">S$ {money(invoice.amount_sgd)}</div>
         </div>
-        <div>
-          <span>
-            GST ({invoice.tax_code} {invoice.gst_rate}%)
-          </span>
-          <span>{money(invoice.gst_amount_sgd)}</span>
+        <div className="totals-box">
+          <div className="muted">
+            Tax {invoice.gst_rate}% ({invoice.tax_code})
+          </div>
+          <div className="totals-value">S$ {money(invoice.gst_amount_sgd)}</div>
         </div>
-        <div className="invoice-total-line">
-          <span>Total</span>
-          <span>SGD {money(invoice.total_amount_sgd)}</span>
+        <div className="totals-box totals-box-grand">
+          <div>Grand Total</div>
+          <div className="totals-value">S$ {money(invoice.total_amount_sgd)}</div>
         </div>
       </div>
 
-      <p className="muted" style={{ marginTop: 40, fontSize: 12 }}>
-        Thank you for your business.
+      {customer.terms_and_conditions && (
+        <div className="form-terms">
+          <div className="form-section-label">Terms &amp; Conditions</div>
+          {customer.terms_and_conditions.split('\n').map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+      )}
+
+      <div className="form-signature-row">
+        <div />
+        <div>
+          Signature &amp; Company Stamp
+          <div className="form-signature-line" />
+        </div>
+      </div>
+
+      <p className="muted" style={{ marginTop: 24, fontSize: 12 }}>
+        Computer generated and no signature is required.
       </p>
     </div>
   )

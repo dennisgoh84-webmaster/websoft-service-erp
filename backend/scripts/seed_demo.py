@@ -331,6 +331,17 @@ def logo_data_uri(initials: str, bg: str = "#7a1f2e") -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
 
 
+def file_data_uri(path: Path, mime: str) -> str:
+    """The real Webmaster Consultancy logo, extracted from Dennis's own
+    Quotation letterhead (Quote_0160, shared 2026-09-10) so printed
+    forms match that reference exactly, rather than the SVG placeholder
+    above."""
+    return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode("ascii")
+
+
+WEBMASTER_LOGO_PATH = Path(__file__).parent / "assets" / "webmaster_logo.png"
+
+
 def main():
     Base.metadata.create_all(bind=engine)  # no-op if migrations already applied
     db = SessionLocal()
@@ -338,11 +349,19 @@ def main():
         wipe_data(db)
 
         company = Company(
-            name="Webmaster Consultancy Pte Ltd",
-            logo=logo_data_uri("WC"),
-            # A Singapore tax invoice must show these.
-            address="1 Demo Street, #01-01, Singapore 000001",
-            gst_registration_no="M9-0000001-2",
+            name="Web Master Consultancy Pte Ltd",
+            logo=(
+                file_data_uri(WEBMASTER_LOGO_PATH, "image/png")
+                if WEBMASTER_LOGO_PATH.exists()
+                else logo_data_uri("WC")
+            ),
+            # Real letterhead details, from Dennis's own Quotation
+            # (Quote_0160, shared 2026-09-10) -- editable in Company Setup.
+            address="8 Ubi Road 2 #05-12/13/14 Zervex, Singapore 408538",
+            phone="6709 1233 / 6747 0705",
+            website="www.websoft.sg",
+            uen="199802145E",
+            gst_registration_no="199802145E",
         )
         # A second entity, so multi-company is demonstrable rather than
         # just anticipated: its own logo, its own module mix, its own

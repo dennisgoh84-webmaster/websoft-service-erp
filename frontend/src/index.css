@@ -434,66 +434,130 @@ button:disabled {
    the page's JSX/CSS directly. */
 .invoice-sheet {
   background: white;
-  color: #111;
-  max-width: 720px;
+  color: #222;
+  max-width: 780px;
   margin: 0 auto;
-  padding: 32px;
+  padding: 40px;
   border: 1px solid var(--border);
+  font-size: 13.5px;
 }
-.invoice-header {
+
+/* Header: logo left, company letterhead right -- matches Webmaster's
+   own Quotation letterhead (reference: Quote_0160). */
+.form-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 2px solid #111;
   padding-bottom: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #ccc;
 }
 .invoice-logo {
-  width: 44px;
   height: 44px;
   object-fit: contain;
-  margin-bottom: 6px;
 }
-.invoice-company-name {
-  font-weight: 700;
-  font-size: 16px;
-}
-.invoice-title {
+.form-header-right {
   text-align: right;
+  color: #666;
+  line-height: 1.5;
 }
-.invoice-title h1 {
-  font-size: 20px;
-  margin: 0 0 4px;
+.form-company-name {
+  font-weight: 700;
+  color: #222;
+  font-size: 15px;
 }
-.invoice-bill-to {
-  margin-bottom: 24px;
+.form-website {
+  color: #2563a8;
 }
+
+/* Bill-to (left) / document meta (right), two columns. */
+.form-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #ccc;
+}
+.form-customer-name {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.form-meta-right {
+  min-width: 220px;
+}
+.form-meta-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.form-meta-row .muted {
+  min-width: 100px;
+}
+
 .invoice-lines {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
-.invoice-lines th,
-.invoice-lines td {
-  border-bottom: 1px solid #ccc;
-  padding: 8px 4px;
+.invoice-lines th {
+  border-bottom: 2px solid #222;
+  padding: 6px 4px;
   text-align: left;
+  font-size: 12px;
 }
-.invoice-totals {
-  margin-left: auto;
-  width: 260px;
+.invoice-lines td {
+  border-bottom: 1px solid #eee;
+  padding: 8px 4px;
 }
-.invoice-totals > div {
+.invoice-amount-cell {
+  background: #f0f0f0;
+  font-weight: 600;
+}
+
+/* Subtotal / Tax / Grand Total strip -- Grand Total in the brand
+   accent colour, matching the reference letterhead's red total box. */
+.totals-strip {
+  display: flex;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+}
+.totals-box {
+  flex: 1;
+  padding: 10px 14px;
+  border-right: 1px solid #ddd;
+}
+.totals-box:last-child {
+  border-right: none;
+}
+.totals-value {
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.totals-box-grand {
+  background: var(--accent);
+  color: #fff;
+}
+
+.form-section-label {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.form-terms p {
+  margin: 4px 0;
+  font-size: 12.5px;
+}
+
+.form-signature-row {
   display: flex;
   justify-content: space-between;
-  padding: 4px 0;
+  margin-top: 40px;
 }
-.invoice-total-line {
-  border-top: 2px solid #111;
-  font-weight: 700;
-  font-size: 16px;
-  margin-top: 4px;
-  padding-top: 8px !important;
+.form-signature-line {
+  width: 220px;
+  border-top: 1px solid #888;
+  margin-top: 40px;
 }
 
 @media print {

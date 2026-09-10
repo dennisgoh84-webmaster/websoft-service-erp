@@ -104,6 +104,9 @@ export interface Company {
   logo: string | null
   address: string | null
   gst_registration_no: string | null
+  phone: string | null
+  website: string | null
+  uen: string | null
   /** Null means "always require owner approval" -- no threshold set yet. */
   write_off_approval_threshold_sgd: number | null
   credit_note_approval_threshold_sgd: number | null
@@ -719,6 +722,9 @@ export const api = {
       logo?: string | null
       address?: string | null
       gst_registration_no?: string | null
+      phone?: string | null
+      website?: string | null
+      uen?: string | null
       write_off_approval_threshold_sgd?: number | null
       credit_note_approval_threshold_sgd?: number | null
       po_approval_threshold_sgd?: number | null

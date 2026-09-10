@@ -51,6 +51,10 @@ class CompanyOut(BaseModel):
     # Shown on tax invoices.
     address: str | None
     gst_registration_no: str | None
+    # Shown on printed forms' letterhead (Company Dashboard/Setup).
+    phone: str | None
+    website: str | None
+    uen: str | None
     # Approval thresholds -- null means "always require owner approval",
     # since the values were never decided (open items 2.7 / 3.4 / 4.4).
     write_off_approval_threshold_sgd: float | None
@@ -77,6 +81,9 @@ class CompanyUpdate(BaseModel):
     logo: str | None = None
     address: str | None = None
     gst_registration_no: str | None = None
+    phone: str | None = None
+    website: str | None = None
+    uen: str | None = None
     write_off_approval_threshold_sgd: float | None = None
     credit_note_approval_threshold_sgd: float | None = None
     po_approval_threshold_sgd: float | None = None

@@ -64,6 +64,14 @@ class Company(Base):
     # GST registration number, so they live on the company record.
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     gst_registration_no: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Confirmed 2026-09-10, from Webmaster's own Quotation letterhead
+    # (reference: Quote_0160): shown on every printed form's header.
+    phone: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # ACRA business registration number ("Business Reg#" on the
+    # reference letterhead) -- distinct from gst_registration_no even
+    # though the two happen to match for a GST-registered sole entity.
+    uen: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Approval thresholds. Each is DELIBERATELY nullable and unset: the
     # values were never decided (open items 2.7 / 3.4 / 4.4), so rather

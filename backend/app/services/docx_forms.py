@@ -23,8 +23,14 @@ def invoice_to_docx(invoice: Invoice, customer: Customer, company: Company) -> b
     header.add_run(company.name).bold = True
     if company.address:
         doc.add_paragraph(company.address)
+    if company.phone:
+        doc.add_paragraph(f"Tel: {company.phone}")
+    if company.website:
+        doc.add_paragraph(company.website)
+    if company.uen:
+        doc.add_paragraph(f"Business Reg# {company.uen}")
     if company.gst_registration_no:
-        doc.add_paragraph(f"GST Reg. No: {company.gst_registration_no}")
+        doc.add_paragraph(f"GST Reg# {company.gst_registration_no}")
 
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -43,34 +49,44 @@ def invoice_to_docx(invoice: Invoice, customer: Customer, company: Company) -> b
     bill_to.add_run(customer.name + "\n").bold = True
     if customer.uen:
         bill_to.add_run(f"UEN: {customer.uen}\n")
+    if customer.contact_person:
+        bill_to.add_run(f"Contact Person: {customer.contact_person}\n")
+    if customer.billing_email:
+        bill_to.add_run(f"Contact Email: {customer.billing_email}\n")
+    if customer.phone:
+        bill_to.add_run(f"Contact No: {customer.phone}\n")
     address = ", ".join(
         filter(None, [customer.address_line1, customer.address_line2, customer.address_city, customer.address_country])
     )
     if address:
         bill_to.add_run(address)
 
-    table = doc.add_table(rows=1, cols=2)
+    table = doc.add_table(rows=1, cols=4)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
     hdr[0].text = "Description"
-    hdr[1].text = "Net (SGD)"
+    hdr[1].text = "Qty"
+    hdr[2].text = "Unit Price ($)"
+    hdr[3].text = "Amount ($)"
     row = table.add_row().cells
     row[0].text = invoice.description
-    row[1].text = f"{invoice.amount_sgd:.2f}"
+    row[1].text = "1.00"
+    row[2].text = f"{invoice.amount_sgd:.2f}"
+    row[3].text = f"{invoice.amount_sgd:.2f}"
 
     doc.add_paragraph()
     totals = doc.add_table(rows=3, cols=2)
     for i, (label, value) in enumerate(
         [
-            ("Net amount", f"{invoice.amount_sgd:.2f}"),
-            (f"GST ({invoice.tax_code} {invoice.gst_rate}%)", f"{invoice.gst_amount_sgd:.2f}"),
-            ("Total (SGD)", f"{invoice.total_amount_sgd:.2f}"),
+            ("Subtotal", f"{invoice.amount_sgd:.2f}"),
+            (f"Tax {invoice.gst_rate}% ({invoice.tax_code})", f"{invoice.gst_amount_sgd:.2f}"),
+            ("Grand Total (SGD)", f"{invoice.total_amount_sgd:.2f}"),
         ]
     ):
         cells = totals.rows[i].cells
         cells[0].text = label
         cells[1].text = value
-        if label.startswith("Total"):
+        if label.startswith("Grand Total"):
             for cell in cells:
                 for p in cell.paragraphs:
                     for r in p.runs:
