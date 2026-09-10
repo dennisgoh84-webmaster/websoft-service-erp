@@ -8,6 +8,10 @@ interface AuthState {
   companies: Company[]
   /** The company they are currently working in -- everything is scoped to it. */
   activeCompany: Company | null
+  /** module_key -> can this user reach it right now (Group Authority AND Module
+   * Control both say yes), re-read on every login/refresh/company switch since
+   * both can differ per company. Drives which nav links show at all. */
+  moduleAccess: Record<string, boolean>
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
@@ -21,6 +25,7 @@ const AuthContext = createContext<AuthState | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [companies, setCompanies] = useState<Company[]>([])
+  const [moduleAccess, setModuleAccess] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
 
   async function loadSession() {
@@ -31,6 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // A company list is a nice-to-have for the header; never block sign-in on it.
       setCompanies([])
+    }
+    try {
+      setModuleAccess(await api.myModuleAccess())
+    } catch {
+      // Same: never block sign-in on it, just hide every gated nav link.
+      setModuleAccess({})
     }
   }
 
@@ -54,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearToken()
     setUser(null)
     setCompanies([])
+    setModuleAccess({})
   }
 
   async function switchCompany(companyId: string) {
@@ -69,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         companies,
         activeCompany,
+        moduleAccess,
         loading,
         login,
         logout,

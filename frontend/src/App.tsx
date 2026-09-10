@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { ThemeProvider } from './lib/ThemeContext'
+import AccountingReportsPage from './pages/AccountingReportsPage'
 import AccountsPayablePage from './pages/AccountsPayablePage'
 import ChartOfAccountsPage from './pages/ChartOfAccountsPage'
 import GeneralLedgerPage from './pages/GeneralLedgerPage'
@@ -21,6 +22,7 @@ import JobOrderDetailPage from './pages/JobOrderDetailPage'
 import JobOrdersPage from './pages/JobOrdersPage'
 import Login from './pages/Login'
 import ModulesPage from './pages/ModulesPage'
+import OperationsReportsPage from './pages/OperationsReportsPage'
 import PaymentVoucherPage from './pages/PaymentVoucherPage'
 import ProductCatalogPage from './pages/ProductCatalogPage'
 import QuotationsPage from './pages/QuotationsPage'
@@ -60,6 +62,7 @@ function AppRoutes() {
         <Route path="/support-monitoring" element={<SupportMonitoringPage />} />
         <Route path="/software-tasks" element={<SoftwareTasksPage />} />
         <Route path="/excess-review" element={<ExcessReviewPage />} />
+        <Route path="/operations-reports" element={<OperationsReportsPage />} />
         <Route path="/quotations" element={<QuotationsPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/invoices/:id/print" element={<InvoicePrintPage />} />
@@ -68,6 +71,7 @@ function AppRoutes() {
         <Route path="/payment-voucher" element={<PaymentVoucherPage />} />
         <Route path="/chart-of-accounts" element={<ChartOfAccountsPage />} />
         <Route path="/general-ledger" element={<GeneralLedgerPage />} />
+        <Route path="/accounting-reports" element={<AccountingReportsPage />} />
         <Route path="/company-setup" element={<CompanySetupPage />} />
         <Route path="/modules" element={<ModulesPage />} />
         <Route path="/staff" element={<StaffMasterPage />} />

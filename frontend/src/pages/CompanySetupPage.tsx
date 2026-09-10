@@ -90,7 +90,7 @@ function CompanyCard({ company, onSaved }: { company: Company; onSaved: () => vo
               <label>Logo (shown at the top-left)</label>
               <div
                 style={{
-                  width: 96,
+                  width: 220,
                   height: 96,
                   border: '1px solid var(--border)',
                   borderRadius: 10,

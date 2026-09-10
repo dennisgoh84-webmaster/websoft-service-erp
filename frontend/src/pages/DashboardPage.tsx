@@ -3,10 +3,24 @@ import { Link } from 'react-router-dom'
 import { api, type DashboardSummary } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
-function Stat({ label, value, hint, to }: { label: string; value: string | number; hint?: string; to?: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+  to,
+  small,
+}: {
+  label: string
+  value: string | number
+  hint?: string
+  to?: string
+  /** Currency/text values (e.g. "S$ 12,345.67") need the smaller variant to
+      fit a tile on one line -- see .stat-value-text in index.css. */
+  small?: boolean
+}) {
   const inner = (
     <div className="card stat-tile">
-      <div className="stat-value">{value}</div>
+      <div className={`stat-value${small ? ' stat-value-text' : ''}`}>{value}</div>
       <div className="stat-label">{label}</div>
       {hint && <div className="muted" style={{ marginTop: 4 }}>{hint}</div>}
     </div>
@@ -23,71 +37,69 @@ function Stat({ label, value, hint, to }: { label: string; value: string | numbe
 export default function DashboardPage() {
   const { activeCompany } = useAuth()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
-  const [staffCount, setStaffCount] = useState<number | null>(null)
-  const [customerCount, setCustomerCount] = useState<number | null>(null)
 
   useEffect(() => {
     api.dashboardSummary().then(setSummary)
-    api.listStaff().then((s) => setStaffCount(s.length))
-    api.listCustomers().then((c) => setCustomerCount(c.length))
   }, [])
 
   if (!summary) return <p>Loading...</p>
 
+  const netReceivable = summary.ar_outstanding_sgd - summary.ap_outstanding_sgd
+
   return (
     <div>
-      <h1>Company Dashboard</h1>
-      <p className="muted">Company summary, then Service Operations -- see docs/business-requirements.md for the full requirements list.</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {activeCompany?.logo && (
+          <img
+            src={activeCompany.logo}
+            alt={`${activeCompany.name} logo`}
+            style={{ height: 40, width: 'auto', maxWidth: 160, objectFit: 'contain' }}
+          />
+        )}
+        <h1 style={{ margin: 0 }}>Company Dashboard</h1>
+      </div>
+      <p className="muted">
+        Financial and operations summary for {activeCompany?.name ?? 'this company'} -- see
+        docs/business-requirements.md for the full requirements list. Company details (address, GST no.,
+        logo) live under Company Setup.
+      </p>
 
-      {activeCompany && (
-        <div className="card">
-          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-            {activeCompany.logo && (
-              <img
-                src={activeCompany.logo}
-                alt={`${activeCompany.name} logo`}
-                style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10 }}
-              />
-            )}
-            <div style={{ flex: 1 }}>
-              <h2 style={{ margin: '0 0 4px' }}>{activeCompany.name}</h2>
-              <p className="muted" style={{ margin: 0 }}>
-                {activeCompany.address ?? 'No address set'}
-              </p>
-              <div className="stat-grid" style={{ marginTop: 12 }}>
-                <div className="card stat-tile">
-                  <div className="stat-value">{activeCompany.country}</div>
-                  <div className="stat-label">Country</div>
-                </div>
-                <div className="card stat-tile">
-                  <div className="stat-value">{activeCompany.currency}</div>
-                  <div className="stat-label">Currency</div>
-                </div>
-                <div className="card stat-tile">
-                  <div className="stat-value stat-value-text">{activeCompany.gst_registration_no ?? '-'}</div>
-                  <div className="stat-label">GST Reg. No.</div>
-                </div>
-                <div className="card stat-tile">
-                  <div className="stat-value">{staffCount ?? '...'}</div>
-                  <div className="stat-label">Staff</div>
-                </div>
-                <div className="card stat-tile">
-                  <div className="stat-value">{customerCount ?? '...'}</div>
-                  <div className="stat-label">Customers</div>
-                </div>
-                <div className="card stat-tile">
-                  <span className={`badge ${activeCompany.is_active ? 'active' : 'draft'}`}>
-                    {activeCompany.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                  <div className="stat-label" style={{ marginTop: 4 }}>
-                    Status
-                  </div>
-                </div>
-              </div>
-            </div>
+      <h2>Financial Summary</h2>
+      <div className="stat-grid">
+        <Stat
+          small
+          label="AR outstanding"
+          value={`S$ ${summary.ar_outstanding_sgd.toFixed(2)}`}
+          hint={`incl. S$ ${summary.ar_overdue_sgd.toFixed(2)} overdue`}
+          to="/invoices"
+        />
+        <Stat
+          small
+          label="AP outstanding"
+          value={`S$ ${summary.ap_outstanding_sgd.toFixed(2)}`}
+          hint={`incl. S$ ${summary.ap_overdue_sgd.toFixed(2)} overdue`}
+          to="/accounts-payable"
+        />
+        <Stat
+          small
+          label="Net receivable position"
+          value={`S$ ${netReceivable.toFixed(2)}`}
+          hint="AR outstanding less AP outstanding"
+        />
+        <Stat small label="Invoiced to date" value={`S$ ${summary.invoices_total_sgd.toFixed(2)}`} to="/invoices" />
+        <div className="card stat-tile">
+          <span className={`badge ${summary.gl_is_balanced ? 'active' : 'exceeded'}`}>
+            {summary.gl_is_balanced ? 'Balanced' : 'OUT OF BALANCE'}
+          </span>
+          <div className="stat-label" style={{ marginTop: 4 }}>
+            GL Trial Balance
           </div>
         </div>
-      )}
+      </div>
+      <p className="muted" style={{ marginTop: -4 }}>
+        Full breakdowns: <Link to="/accounting-reports">Accounting Reports</Link> (AR/AP aging, trial
+        balance).
+      </p>
 
       <h2>Service Operations</h2>
       <div className="stat-grid">
@@ -127,13 +139,6 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="card">
-        <h2>Billing</h2>
-        <p>
-          <strong>SGD {summary.invoices_total_sgd.toFixed(2)}</strong> invoiced across {summary.invoices_count} invoice
-          {summary.invoices_count === 1 ? '' : 's'} (BILL-001/002/005).
-        </p>
-      </div>
     </div>
   )
 }

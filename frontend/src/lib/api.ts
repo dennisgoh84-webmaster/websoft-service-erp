@@ -39,7 +39,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>
 }
 
-function qs(params: Record<string, string | number | undefined>): string {
+function qs(params: Record<string, string | number | boolean | undefined>): string {
   const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
   if (entries.length === 0) return ''
   return '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()
@@ -313,6 +313,34 @@ export interface JobOrder {
   created_at: string
 }
 
+// ---- Operations/Accounting Reports filters ----
+export interface ContractReportFilters {
+  status?: ContractStatus
+  contract_kind?: ContractKind
+  customer_id?: string
+  expiring_within_days?: number
+  start_date?: string
+  end_date?: string
+}
+
+export interface JobOrderReportFilters {
+  status?: JobOrderStatus
+  customer_id?: string
+  assigned_to_user_id?: string
+  overdue_only?: boolean
+  start_date?: string
+  end_date?: string
+}
+
+export interface ServiceRecordReportFilters {
+  status?: ServiceRecordStatus
+  outcome?: ServiceRecordOutcome
+  customer_id?: string
+  employee_user_id?: string
+  start_date?: string
+  end_date?: string
+}
+
 // ---- Support Monitoring ----
 export interface StaffMonitoring {
   user_id: string
@@ -361,7 +389,7 @@ export interface SoftwareTask {
 }
 
 export type ServiceRecordStatus = 'submitted' | 'approved'
-export type ServiceRecordOutcome = 'pending' | 'contract_deduction' | 'excess_usage'
+export type ServiceRecordOutcome = 'pending' | 'contract_deduction' | 'excess_usage' | 'not_hour_metered'
 
 export interface ServiceRecord {
   id: string
@@ -647,6 +675,11 @@ export interface DashboardSummary {
   missing_service_records: number
   invoices_total_sgd: number
   invoices_count: number
+  ar_outstanding_sgd: number
+  ar_overdue_sgd: number
+  ap_outstanding_sgd: number
+  ap_overdue_sgd: number
+  gl_is_balanced: boolean
 }
 
 // ---- Product / Service Catalog ----
@@ -786,6 +819,9 @@ export const api = {
   listModules: () => request<ModuleInfo[]>('/modules'),
   toggleModule: (key: string, enabled: boolean) =>
     request<ModuleInfo>(`/modules/${key}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+  /** module_key -> can the current user reach it right now (Group Authority AND
+   * Module Control both say yes)? Drives which nav links show at all. */
+  myModuleAccess: () => request<Record<string, boolean>>('/modules/my-access'),
 
   // Dynamic filter: free-text `q` matches name/email/phone/mobile/UEN/
   // legacy code/tags; customer_group_id pulls up a whole group of
@@ -1176,4 +1212,44 @@ export const api = {
   acceptQuotation: (id: string) =>
     request<{ quotation: Quotation; message: string }>(`/quotations/${id}/accept`, { method: 'POST' }),
   rejectQuotation: (id: string) => request<Quotation>(`/quotations/${id}/reject`, { method: 'POST' }),
+
+  // ---- Operations Reports ----
+  reportContracts: (filters: ContractReportFilters = {}) =>
+    request<Contract[]>(`/reports/operations/contracts${qs(filters)}`),
+  exportContractsReportCsv: (filters: ContractReportFilters = {}) =>
+    requestBlob(`/reports/operations/contracts/export.csv${qs(filters)}`),
+  exportContractsReportExcel: (filters: ContractReportFilters = {}) =>
+    requestBlob(`/reports/operations/contracts/export.xlsx${qs(filters)}`),
+
+  reportJobOrders: (filters: JobOrderReportFilters = {}) =>
+    request<JobOrder[]>(`/reports/operations/job-orders${qs(filters)}`),
+  exportJobOrdersReportCsv: (filters: JobOrderReportFilters = {}) =>
+    requestBlob(`/reports/operations/job-orders/export.csv${qs(filters)}`),
+  exportJobOrdersReportExcel: (filters: JobOrderReportFilters = {}) =>
+    requestBlob(`/reports/operations/job-orders/export.xlsx${qs(filters)}`),
+
+  reportServiceRecords: (filters: ServiceRecordReportFilters = {}) =>
+    request<ServiceRecord[]>(`/reports/operations/service-records${qs(filters)}`),
+  exportServiceRecordsReportCsv: (filters: ServiceRecordReportFilters = {}) =>
+    requestBlob(`/reports/operations/service-records/export.csv${qs(filters)}`),
+  exportServiceRecordsReportExcel: (filters: ServiceRecordReportFilters = {}) =>
+    requestBlob(`/reports/operations/service-records/export.xlsx${qs(filters)}`),
+
+  // ---- Accounting Reports ----
+  reportArAging: (as_at?: string) => request<AgingReport>(`/reports/accounting/ar-aging${qs({ as_at })}`),
+  exportArAgingReportCsv: (as_at?: string) => requestBlob(`/reports/accounting/ar-aging/export.csv${qs({ as_at })}`),
+  exportArAgingReportExcel: (as_at?: string) =>
+    requestBlob(`/reports/accounting/ar-aging/export.xlsx${qs({ as_at })}`),
+
+  reportApAging: (as_at?: string) => request<APAgingReport>(`/reports/accounting/ap-aging${qs({ as_at })}`),
+  exportApAgingReportCsv: (as_at?: string) => requestBlob(`/reports/accounting/ap-aging/export.csv${qs({ as_at })}`),
+  exportApAgingReportExcel: (as_at?: string) =>
+    requestBlob(`/reports/accounting/ap-aging/export.xlsx${qs({ as_at })}`),
+
+  reportTrialBalance: (as_at?: string) =>
+    request<TrialBalance>(`/reports/accounting/trial-balance${qs({ as_at })}`),
+  exportTrialBalanceReportCsv: (as_at?: string) =>
+    requestBlob(`/reports/accounting/trial-balance/export.csv${qs({ as_at })}`),
+  exportTrialBalanceReportExcel: (as_at?: string) =>
+    requestBlob(`/reports/accounting/trial-balance/export.xlsx${qs({ as_at })}`),
 }

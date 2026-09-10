@@ -100,6 +100,12 @@ MODULE_CATALOG = [
     ("finance_accounting", "Finance / Accounting", True, True),
     ("reporting", "Reporting / Management Dashboard", True, True),
     ("software_development", "Software Development (Software Tasks)", True, True),
+    # Separate from "reporting" (which is Support Monitoring's dashboard)
+    # so Finance can be granted Accounting Reports without also getting
+    # Support Monitoring, and vice versa for Service/Sales -- least
+    # privilege per module, not one shared reporting bucket.
+    ("operations_reports", "Operations Reports (Contracts / Job Orders / Service Records)", True, True),
+    ("accounting_reports", "Accounting Reports (AR/AP Aging, Trial Balance)", True, True),
     ("integrations", "Integrations (incl. Odoo migration)", False, False),  # deferred
     ("ai_assistant", "AI Assistant", False, False),
 ]
@@ -132,6 +138,8 @@ GROUP_CATALOG = {
                 "sales",
                 "reporting",
                 "software_development",
+                "operations_reports",
+                "accounting_reports",
             )
         },
     ),
@@ -144,6 +152,7 @@ GROUP_CATALOG = {
             "service_contracts": FULL,  # incl. excess-usage review; SRV-004 role check still applies
             "customer_management": VIEW,
             "billing": VIEW,
+            "operations_reports": VIEW,
             "core_administration": NONE,
             "event_logs": NONE,  # system-wide audit trail -- Owner/Admin only by default
         },
@@ -159,6 +168,8 @@ GROUP_CATALOG = {
             "service_records": VIEW,
             "billing": VIEW,
             "accounts_receivable": VIEW,
+            "operations_reports": VIEW,
+            "accounting_reports": VIEW,
             "core_administration": NONE,
             "event_logs": NONE,
         },
@@ -177,6 +188,7 @@ GROUP_CATALOG = {
             "service_contracts": VIEW,
             "customer_management": VIEW,
             "sales": VIEW,
+            "accounting_reports": FULL,
             "service_operations": NONE,
             "service_records": NONE,
             "core_administration": NONE,

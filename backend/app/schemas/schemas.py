@@ -970,6 +970,15 @@ class DashboardSummary(BaseModel):
     missing_service_records: int  # SRV-015: submitted more than 3 business days after the work date
     invoices_total_sgd: float
     invoices_count: int
+    # Financial summary -- same figures as the AR/AP aging reports and the
+    # GL trial balance, just totalled for an at-a-glance dashboard tile
+    # (see app/services/reports.py, which both this and the Accounting
+    # Reports screen read from).
+    ar_outstanding_sgd: float
+    ar_overdue_sgd: float  # outstanding minus the "current" (not yet due) bucket
+    ap_outstanding_sgd: float
+    ap_overdue_sgd: float
+    gl_is_balanced: bool
 
 
 # ---- Product / Service Catalog ----

@@ -33,6 +33,7 @@ from app.routers import (
     modules,
     monitoring,
     quotations,
+    reports,
     service_records,
     software_tasks,
     users,
@@ -88,6 +89,7 @@ app.include_router(payables.router)
 app.include_router(dashboard.router)
 app.include_router(monitoring.router)
 app.include_router(software_tasks.router)
+app.include_router(reports.router)
 
 
 @app.get("/api/health")
