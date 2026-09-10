@@ -23,7 +23,7 @@ export default function Layout() {
           {activeCompany && <div className="brand-company">{activeCompany.name}</div>}
         </div>
         <NavLink to="/" end>
-          Dashboard
+          Company Dashboard
         </NavLink>
 
         <div className="nav-section">

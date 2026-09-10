@@ -4,7 +4,7 @@
 // JSX/CSS below exactly like any other page in this app.
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { api, type Customer, type Invoice } from '../lib/api'
+import { api, downloadBlob, type Customer, type Invoice } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
 const money = (n: number) => n.toFixed(2)
@@ -23,6 +23,12 @@ export default function InvoicePrintPage() {
     })
   }, [id])
 
+  async function onExportWord() {
+    if (!id || !invoice) return
+    const blob = await api.exportInvoiceDocx(id)
+    downloadBlob(blob, `${invoice.invoice_number}.docx`)
+  }
+
   if (!invoice || !customer) return <p>Loading...</p>
 
   const billTo = [customer.address_line1, customer.address_line2, customer.address_city, customer.address_country]
@@ -31,9 +37,12 @@ export default function InvoicePrintPage() {
 
   return (
     <div className="invoice-sheet">
-      <button className="no-print" onClick={() => window.print()} style={{ marginBottom: 16 }}>
-        Print / Save as PDF
-      </button>
+      <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+        <button onClick={() => window.print()}>Print / Save as PDF</button>
+        <button className="secondary" onClick={onExportWord}>
+          Export to Word
+        </button>
+      </div>
 
       <div className="invoice-header">
         <div>

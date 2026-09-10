@@ -45,6 +45,31 @@ function qs(params: Record<string, string | number | undefined>): string {
   return '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()
 }
 
+async function requestBlob(path: string): Promise<Blob> {
+  const token = getToken()
+  const res = await fetch(`/api${path}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Device-Id': getDeviceId(),
+    },
+  })
+  if (!res.ok) throw new Error('Export failed')
+  return res.blob()
+}
+
+/** Triggers a browser download for an already-fetched file (CSV/Excel/
+ * Word/...) -- the shared second half of every "Export" button. */
+export function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export async function login(email: string, password: string): Promise<string> {
   const body = new URLSearchParams({ username: email, password })
   const res = await fetch('/api/auth/login', {
@@ -938,6 +963,11 @@ export const api = {
   listInvoices: (filters: { customer_id?: string; contract_id?: string } = {}) =>
     request<Invoice[]>(`/invoices${qs(filters)}`),
   getInvoice: (id: string) => request<Invoice>(`/invoices/${id}`),
+  exportInvoicesCsv: (filters: { customer_id?: string; contract_id?: string } = {}) =>
+    requestBlob(`/invoices/export.csv${qs(filters)}`),
+  exportInvoicesExcel: (filters: { customer_id?: string; contract_id?: string } = {}) =>
+    requestBlob(`/invoices/export.xlsx${qs(filters)}`),
+  exportInvoiceDocx: (id: string) => requestBlob(`/invoices/${id}/export.docx`),
 
   // Accounts Receivable
   listPayments: (filters: { customer_id?: string; unallocated_only?: boolean } = {}) =>

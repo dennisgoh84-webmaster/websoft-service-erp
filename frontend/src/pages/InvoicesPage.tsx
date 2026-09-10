@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type AgingReport, type Customer, type CustomerStatement, type Invoice, type InvoiceStatus } from '../lib/api'
+import { api, downloadBlob, type AgingReport, type Customer, type CustomerStatement, type Invoice, type InvoiceStatus } from '../lib/api'
 
 const STATUS_BADGE: Record<InvoiceStatus, string> = {
   outstanding: 'draft',
@@ -38,6 +38,26 @@ export default function InvoicesPage() {
 
   function openStatement(customerIdToShow: string) {
     api.customerStatement(customerIdToShow).then(setStatement).catch((e) => setError(e.message))
+  }
+
+  async function onExportCsv() {
+    setError(null)
+    try {
+      const blob = await api.exportInvoicesCsv({ customer_id: filterCustomer || undefined })
+      downloadBlob(blob, 'invoices.csv')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export CSV')
+    }
+  }
+
+  async function onExportExcel() {
+    setError(null)
+    try {
+      const blob = await api.exportInvoicesExcel({ customer_id: filterCustomer || undefined })
+      downloadBlob(blob, 'invoices.xlsx')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export Excel')
+    }
   }
 
   async function onWriteOff(invoice: Invoice) {
@@ -260,6 +280,12 @@ export default function InvoicesPage() {
             }}
           >
             Reset filters
+          </button>
+          <button type="button" className="secondary" onClick={onExportCsv}>
+            Export CSV
+          </button>
+          <button type="button" className="secondary" onClick={onExportExcel}>
+            Export Excel
           </button>
         </div>
 
