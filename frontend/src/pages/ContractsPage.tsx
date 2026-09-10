@@ -14,12 +14,15 @@ export default function ContractsPage() {
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
   const [error, setError] = useState<string | null>(null)
 
+  const [filterStatus, setFilterStatus] = useState(searchParams.get('status') ?? '')
+  const [filterCustomer, setFilterCustomer] = useState(preselectedCustomer)
+
   function refresh() {
-    api.listContracts().then(setContracts)
+    api.listContracts({ status: filterStatus || undefined, customer_id: filterCustomer || undefined }).then(setContracts)
     api.listCustomers().then(setCustomers)
   }
 
-  useEffect(refresh, [])
+  useEffect(refresh, [filterStatus, filterCustomer])
 
   const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? id.slice(0, 8)
 
@@ -39,9 +42,10 @@ export default function ContractsPage() {
     }
   }
 
-  const visibleContracts = preselectedCustomer
-    ? contracts.filter((c) => c.customer_id === preselectedCustomer)
-    : contracts
+  function resetFilters() {
+    setFilterStatus('')
+    setFilterCustomer('')
+  }
 
   return (
     <div>
@@ -84,7 +88,35 @@ export default function ContractsPage() {
       </div>
 
       <div className="card">
-        <h2>{preselectedCustomer ? `Contracts for ${customerName(preselectedCustomer)}` : 'All contracts'}</h2>
+        <div className="filter-bar">
+          <div className="form-row" style={{ margin: 0 }}>
+            <label>Status</label>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="">All</option>
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="exceeded">Exceeded</option>
+              <option value="expired">Expired</option>
+              <option value="renewed">Renewed</option>
+            </select>
+          </div>
+          <div className="form-row" style={{ margin: 0 }}>
+            <label>Customer</label>
+            <select value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)}>
+              <option value="">All</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button type="button" className="secondary" onClick={resetFilters}>
+            Reset filters
+          </button>
+        </div>
+
+        <h2>Contracts ({contracts.length})</h2>
         <table>
           <thead>
             <tr>
@@ -96,7 +128,7 @@ export default function ContractsPage() {
             </tr>
           </thead>
           <tbody>
-            {visibleContracts.map((c) => (
+            {contracts.map((c) => (
               <tr key={c.id}>
                 <td>{customerName(c.customer_id)}</td>
                 <td>
@@ -113,10 +145,10 @@ export default function ContractsPage() {
                 </td>
               </tr>
             ))}
-            {visibleContracts.length === 0 && (
+            {contracts.length === 0 && (
               <tr>
                 <td colSpan={5} className="muted">
-                  No contracts yet.
+                  No contracts match these filters.
                 </td>
               </tr>
             )}

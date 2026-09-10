@@ -1,11 +1,11 @@
-"""Timesheets model, implementing SRV-007 (15-min rounding) and
-SRV-015 (3-business-day submission deadline).
+"""Service Records (formerly "Timesheets"), implementing SRV-007
+(15-min rounding) and SRV-015 (3-business-day submission deadline).
 
-Who approves timesheets, and within what timeframe, remains an open
-business decision (docs/open-business-decisions.md, item 9.1). For this
-build, any user with role service_lead, sales_manager, or owner can
-approve -- a pragmatic default, not a business rule, and clearly
-revisable once 9.1 is decided.
+Who approves a Service Record, and within what timeframe, remains an
+open business decision (docs/open-business-decisions.md, item 9.1),
+currently deferred at the user's request. For this build, any user with
+role service_lead, sales_manager, or owner can approve -- a pragmatic
+default, not a business rule, and clearly revisable once 9.1 is decided.
 """
 import enum
 import math
@@ -20,12 +20,12 @@ from app.core.database import Base
 from app.models.contracts import HOUR_ROUNDING_MINUTES
 
 
-class TimesheetStatus(str, enum.Enum):
+class ServiceRecordStatus(str, enum.Enum):
     SUBMITTED = "submitted"
     APPROVED = "approved"
 
 
-class TimesheetOutcome(str, enum.Enum):
+class ServiceRecordOutcome(str, enum.Enum):
     PENDING = "pending"  # not yet approved / processed
     CONTRACT_DEDUCTION = "contract_deduction"  # SRV-003: hours remained
     EXCESS_USAGE = "excess_usage"  # SRV-003/004: hours were exhausted
@@ -38,24 +38,24 @@ def round_up_to_nearest(minutes: int, increment: int = HOUR_ROUNDING_MINUTES) ->
     return math.ceil(minutes / increment) * increment
 
 
-class TimesheetEntry(Base):
-    __tablename__ = "timesheet_entries"
+class ServiceRecord(Base):
+    __tablename__ = "service_records"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    ticket_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("helpdesk_tickets.id"), nullable=False)
+    job_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("job_orders.id"), nullable=False)
     employee_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
 
     work_date: Mapped[date] = mapped_column(nullable=False)
     raw_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     rounded_minutes: Mapped[int] = mapped_column(Integer, nullable=False)  # SRV-007
 
-    status: Mapped[TimesheetStatus] = mapped_column(
-        Enum(TimesheetStatus, name="timesheet_status"), default=TimesheetStatus.SUBMITTED
+    status: Mapped[ServiceRecordStatus] = mapped_column(
+        Enum(ServiceRecordStatus, name="service_record_status"), default=ServiceRecordStatus.SUBMITTED
     )
-    outcome: Mapped[TimesheetOutcome] = mapped_column(
-        Enum(TimesheetOutcome, name="timesheet_outcome"), default=TimesheetOutcome.PENDING
+    outcome: Mapped[ServiceRecordOutcome] = mapped_column(
+        Enum(ServiceRecordOutcome, name="service_record_outcome"), default=ServiceRecordOutcome.PENDING
     )
 
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -64,13 +64,13 @@ class TimesheetEntry(Base):
         ForeignKey("users.id"), nullable=True
     )
 
-    ticket: Mapped["HelpdeskTicket"] = relationship()  # noqa: F821
+    job_order: Mapped["JobOrder"] = relationship()  # noqa: F821
 
     @property
     def is_late(self) -> bool:
         """SRV-015: flagged missing if not submitted within 3 business
         days of the work being performed. (Business-day precision is a
         future refinement; this demo uses calendar days.)"""
-        from app.models.contracts import TIMESHEET_SUBMISSION_DEADLINE_DAYS
+        from app.models.contracts import SERVICE_RECORD_SUBMISSION_DEADLINE_DAYS
 
-        return (self.submitted_at.date() - self.work_date).days > TIMESHEET_SUBMISSION_DEADLINE_DAYS
+        return (self.submitted_at.date() - self.work_date).days > SERVICE_RECORD_SUBMISSION_DEADLINE_DAYS

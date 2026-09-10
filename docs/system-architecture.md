@@ -272,6 +272,24 @@ approval workflows) without changing the shape described here.
   [open-business-decisions.md](open-business-decisions.md), item 8.4) —
   this section fixes only where enforcement lives, not what the roles are.
 
+### Module Control / multi-company licensing
+
+- Core / Administration also owns a lightweight **module catalog**: a
+  fixed list of the business-area modules in
+  [module-map.md](module-map.md), each with an `is_built` flag (does it
+  have application code yet), and a **per-company enablement record**
+  (enabled/disabled, license type) rather than a single global on/off
+  switch.
+- This exists specifically so the multi-company future in CLAUDE.md's
+  approved architecture has somewhere to hang "which modules does this
+  company have" from the outset, rather than retrofitting it once a
+  second company exists.
+- It is deliberately minimal: a flag and a license-type label, not seat
+  counts, expiry dates, or billing integration — those would be a future
+  decision, not assumed now.
+- Only the owner role can change module enablement; every toggle is
+  audit-logged like any other administrative action.
+
 ### Audit logging
 
 - Audit logging is a cross-cutting capability provided centrally (by
@@ -326,16 +344,16 @@ approval workflows) without changing the shape described here.
 - Jobs that create financial or operational records are audit-logged the
   same way user-triggered actions are.
 - A confirmed example of this pattern is the Service Operations
-  pre-expiry check (SRV-006): scanning for open tickets, missing
-  timesheets, unapproved excess usage, and unbilled billable excess ahead
+  pre-expiry check (SRV-006): scanning for open job orders, missing
+  service records, unapproved excess usage, and unbilled billable excess ahead
   of a contract's expiry is naturally a background/periodic job rather
   than something a user must remember to run — see
   [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
 
 ### Notifications
 
-- The system needs to notify users of events across modules — e.g. ticket
-  assignment, SLA breach warnings, timesheet approval requests, contract
+- The system needs to notify users of events across modules — e.g. job order
+  assignment, SLA breach warnings, service record approval requests, contract
   renewal reminders, invoice approval requests, commission approval
   requests.
 - Notifications are treated as a cross-cutting capability triggered by

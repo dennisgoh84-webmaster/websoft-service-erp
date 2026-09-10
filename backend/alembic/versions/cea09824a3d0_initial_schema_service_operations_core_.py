@@ -1,8 +1,8 @@
-"""initial service operations core schema
+"""initial schema: service operations core, job orders, service records, module control
 
-Revision ID: 336b3f8e2cad
+Revision ID: cea09824a3d0
 Revises: 
-Create Date: 2026-09-10 00:39:43.070369
+Create Date: 2026-09-10 01:05:36.668817
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '336b3f8e2cad'
+revision: str = 'cea09824a3d0'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,6 +29,27 @@ def upgrade() -> None:
     sa.Column('timezone', sa.String(length=50), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('modules',
+    sa.Column('key', sa.String(length=50), nullable=False),
+    sa.Column('name', sa.String(length=100), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('is_built', sa.Boolean(), nullable=False),
+    sa.PrimaryKeyConstraint('key')
+    )
+    op.create_table('company_modules',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('company_id', sa.UUID(), nullable=False),
+    sa.Column('module_key', sa.String(length=50), nullable=False),
+    sa.Column('enabled', sa.Boolean(), nullable=False),
+    sa.Column('license_type', sa.Enum('INCLUDED', 'ADD_ON', 'TRIAL', name='license_type'), nullable=False),
+    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('enabled_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['company_id'], ['companies.id'], ),
+    sa.ForeignKeyConstraint(['module_key'], ['modules.key'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('company_id', 'module_key', name='uq_company_module')
     )
     op.create_table('customers',
     sa.Column('id', sa.UUID(), nullable=False),
@@ -102,13 +123,13 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['contract_id'], ['contracts.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('helpdesk_tickets',
+    op.create_table('job_orders',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('customer_id', sa.UUID(), nullable=False),
     sa.Column('contract_id', sa.UUID(), nullable=True),
     sa.Column('subject', sa.String(length=255), nullable=False),
-    sa.Column('priority', sa.Enum('LOW', 'NORMAL', 'HIGH', 'CRITICAL', name='ticket_priority'), nullable=False),
-    sa.Column('status', sa.Enum('OPEN', 'ASSIGNED', 'RESOLVED', 'CLOSED', name='ticket_status'), nullable=False),
+    sa.Column('priority', sa.Enum('LOW', 'NORMAL', 'HIGH', 'CRITICAL', name='job_order_priority'), nullable=False),
+    sa.Column('status', sa.Enum('OPEN', 'ASSIGNED', 'RESOLVED', 'CLOSED', name='job_order_status'), nullable=False),
     sa.Column('assigned_to_user_id', sa.UUID(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('resolved_at', sa.DateTime(timezone=True), nullable=True),
@@ -117,27 +138,27 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('timesheet_entries',
+    op.create_table('service_records',
     sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('ticket_id', sa.UUID(), nullable=False),
+    sa.Column('job_order_id', sa.UUID(), nullable=False),
     sa.Column('employee_user_id', sa.UUID(), nullable=False),
     sa.Column('work_date', sa.Date(), nullable=False),
     sa.Column('raw_minutes', sa.Integer(), nullable=False),
     sa.Column('rounded_minutes', sa.Integer(), nullable=False),
-    sa.Column('status', sa.Enum('SUBMITTED', 'APPROVED', name='timesheet_status'), nullable=False),
-    sa.Column('outcome', sa.Enum('PENDING', 'CONTRACT_DEDUCTION', 'EXCESS_USAGE', name='timesheet_outcome'), nullable=False),
+    sa.Column('status', sa.Enum('SUBMITTED', 'APPROVED', name='service_record_status'), nullable=False),
+    sa.Column('outcome', sa.Enum('PENDING', 'CONTRACT_DEDUCTION', 'EXCESS_USAGE', name='service_record_outcome'), nullable=False),
     sa.Column('submitted_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('approved_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('approved_by_user_id', sa.UUID(), nullable=True),
     sa.ForeignKeyConstraint(['approved_by_user_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['employee_user_id'], ['users.id'], ),
-    sa.ForeignKeyConstraint(['ticket_id'], ['helpdesk_tickets.id'], ),
+    sa.ForeignKeyConstraint(['job_order_id'], ['job_orders.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('excess_usage_records',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('contract_id', sa.UUID(), nullable=False),
-    sa.Column('timesheet_entry_id', sa.UUID(), nullable=False),
+    sa.Column('service_record_id', sa.UUID(), nullable=False),
     sa.Column('excess_minutes', sa.Integer(), nullable=False),
     sa.Column('treatment', sa.Enum('BILLABLE', 'APPROVED_NON_BILLABLE', 'WARRANTY_GOODWILL', 'INTERNAL_WRITE_OFF', 'OTHER', name='excess_treatment'), nullable=True),
     sa.Column('reason', sa.Text(), nullable=True),
@@ -147,7 +168,7 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['contract_id'], ['contracts.id'], ),
     sa.ForeignKeyConstraint(['decided_by_user_id'], ['users.id'], ),
-    sa.ForeignKeyConstraint(['timesheet_entry_id'], ['timesheet_entries.id'], ),
+    sa.ForeignKeyConstraint(['service_record_id'], ['service_records.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('invoices',
@@ -172,13 +193,15 @@ def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_table('invoices')
     op.drop_table('excess_usage_records')
-    op.drop_table('timesheet_entries')
-    op.drop_table('helpdesk_tickets')
+    op.drop_table('service_records')
+    op.drop_table('job_orders')
     op.drop_table('expired_hours_records')
     op.drop_table('contracts')
     op.drop_table('contacts')
     op.drop_table('audit_log_entries')
     op.drop_table('users')
     op.drop_table('customers')
+    op.drop_table('company_modules')
+    op.drop_table('modules')
     op.drop_table('companies')
     # ### end Alembic commands ###

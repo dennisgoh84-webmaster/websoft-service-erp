@@ -11,8 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.contracts import ContractStatus, ExcessTreatment
 from app.models.core import UserRole
-from app.models.tickets import TicketPriority, TicketStatus
-from app.models.timesheets import TimesheetOutcome, TimesheetStatus
+from app.models.job_orders import JobOrderPriority, JobOrderStatus
+from app.models.licensing import LicenseType
+from app.models.service_records import ServiceRecordOutcome, ServiceRecordStatus
 
 
 # ---- Auth ----
@@ -86,48 +87,48 @@ class ContractRenewRequest(BaseModel):
     force_start_date: date | None = None
 
 
-# ---- Tickets ----
-class TicketCreate(BaseModel):
+# ---- Job Orders (formerly "Tickets") ----
+class JobOrderCreate(BaseModel):
     customer_id: uuid.UUID
     contract_id: uuid.UUID
     subject: str
-    priority: TicketPriority = TicketPriority.NORMAL
+    priority: JobOrderPriority = JobOrderPriority.NORMAL
 
 
-class TicketAssign(BaseModel):
+class JobOrderAssign(BaseModel):
     assigned_to_user_id: uuid.UUID
 
 
-class TicketOut(BaseModel):
+class JobOrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     customer_id: uuid.UUID
     contract_id: uuid.UUID | None
     subject: str
-    priority: TicketPriority
-    status: TicketStatus
+    priority: JobOrderPriority
+    status: JobOrderStatus
     assigned_to_user_id: uuid.UUID | None
     created_at: datetime
 
 
-# ---- Timesheets ----
-class TimesheetCreate(BaseModel):
-    ticket_id: uuid.UUID
+# ---- Service Records (formerly "Timesheets") ----
+class ServiceRecordCreate(BaseModel):
+    job_order_id: uuid.UUID
     employee_user_id: uuid.UUID
     work_date: date
     raw_minutes: int = Field(gt=0)
 
 
-class TimesheetOut(BaseModel):
+class ServiceRecordOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
-    ticket_id: uuid.UUID
+    job_order_id: uuid.UUID
     employee_user_id: uuid.UUID
     work_date: date
     raw_minutes: int
     rounded_minutes: int
-    status: TimesheetStatus
-    outcome: TimesheetOutcome
+    status: ServiceRecordStatus
+    outcome: ServiceRecordOutcome
     is_late: bool
 
 
@@ -141,7 +142,7 @@ class ExcessUsageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     contract_id: uuid.UUID
-    timesheet_entry_id: uuid.UUID
+    service_record_id: uuid.UUID
     excess_hours: float
     treatment: ExcessTreatment | None
     reason: str | None
@@ -153,7 +154,7 @@ class ExcessUsageOut(BaseModel):
         return cls(
             id=record.id,
             contract_id=record.contract_id,
-            timesheet_entry_id=record.timesheet_entry_id,
+            service_record_id=record.service_record_id,
             excess_hours=record.excess_minutes / 60,
             treatment=record.treatment,
             reason=record.reason,
@@ -172,3 +173,34 @@ class InvoiceOut(BaseModel):
     description: str
     amount_sgd: float
     issued_at: datetime
+
+
+# ---- Module Control / licensing ----
+class ModuleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    key: str
+    name: str
+    description: str | None
+    is_built: bool
+    enabled: bool
+    license_type: LicenseType
+
+
+class ModuleToggleRequest(BaseModel):
+    enabled: bool
+    license_type: LicenseType | None = None
+    notes: str | None = None
+
+
+# ---- Dashboard ----
+class DashboardSummary(BaseModel):
+    active_contracts: int
+    contracts_expiring_soon: int  # SRV-014: within 30 days of expiry
+    total_contracted_hours: float
+    total_consumed_hours: float
+    total_remaining_hours: float
+    excess_awaiting_review: int
+    open_job_orders: int
+    missing_service_records: int  # SRV-015: submitted more than 3 business days after the work date
+    invoices_total_sgd: float
+    invoices_count: int

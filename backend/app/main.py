@@ -2,8 +2,11 @@
 Websoft Service ERP Solution -- API entrypoint.
 
 Scope for this build: the Service Operations core slice (Customer,
-Service Contract, Helpdesk Ticket, Timesheet, Excess Usage Review,
-Billing/Invoice) implementing the confirmed SRV-001..018 business rules.
+Service Contract, Job Order, Service Record, Excess Usage Review,
+Billing/Invoice) implementing the confirmed SRV-001..018 business rules,
+plus Module Control / multi-company licensing and a summary dashboard.
+Commission Management, further Service Record business-rule decisions,
+and Odoo migration work are deferred for now at the user's request.
 See ../../docs/business-requirements.md for the source of truth on rules.
 """
 from fastapi import FastAPI
@@ -15,9 +18,11 @@ from app.routers import (
     billing,
     contracts,
     customers,
+    dashboard,
     excess_usage,
-    tickets,
-    timesheets,
+    job_orders,
+    modules,
+    service_records,
     users,
 )
 
@@ -34,12 +39,14 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(modules.router)
 app.include_router(customers.router)
 app.include_router(contracts.router)
-app.include_router(tickets.router)
-app.include_router(timesheets.router)
+app.include_router(job_orders.router)
+app.include_router(service_records.router)
 app.include_router(excess_usage.router)
 app.include_router(billing.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/api/health")

@@ -35,7 +35,7 @@ STANDARD_CONTRACT_MONTHS = 12  # SRV-001
 HOUR_ROUNDING_MINUTES = 15  # SRV-007
 RENEWAL_BACKDATING_WINDOW_DAYS = 14  # SRV-016 (2 weeks)
 PRE_EXPIRY_CHECK_LEAD_DAYS = 30  # SRV-014
-TIMESHEET_SUBMISSION_DEADLINE_DAYS = 3  # SRV-015 (business days, treated as calendar days for this demo)
+SERVICE_RECORD_SUBMISSION_DEADLINE_DAYS = 3  # SRV-015: Service Record submission deadline (business days, treated as calendar days for this demo)
 
 
 class ContractStatus(str, enum.Enum):
@@ -114,8 +114,8 @@ class ExcessUsageRecord(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     contract_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contracts.id"), nullable=False)
-    timesheet_entry_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("timesheet_entries.id"), nullable=False
+    service_record_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("service_records.id"), nullable=False
     )
     excess_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
 

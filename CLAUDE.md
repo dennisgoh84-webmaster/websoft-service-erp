@@ -31,19 +31,21 @@ eventual project.
 - Sales
 - Customer Management
 - Service Contracts
-- Helpdesk
-- Service Operations
+- Helpdesk / Service Operations (Job Orders)
 - Projects
-- Timesheets
+- Service Records
 - Billing
 - Accounts Receivable
 - Accounts Payable
 - Purchasing
 - Inventory
 - Hardware Management
-- Commission Management
+- Commission Management — **deferred for now** (see [docs/open-business-decisions.md](docs/open-business-decisions.md))
 - Management Reporting
 - AI Assistant
+
+"Ticket"/"Timesheet" terminology has been renamed throughout to "Job
+Order"/"Service Record" respectively, at Dennis's request.
 
 ## Approved Architecture Decisions
 
@@ -103,11 +105,18 @@ Active development has begun. A first working slice exists: the
 **Service Operations core** (`backend/`, FastAPI + PostgreSQL; `frontend/`,
 React + TypeScript), implementing the confirmed Service Operations and
 Billing/AR/Purchasing/Inventory rules end-to-end (Customer → Contract →
-Ticket → Timesheet → Contract Hour Validation → Excess Review → Invoice).
-See [DEV_SETUP.md](DEV_SETUP.md) to run it. No other business area has
-application code yet; further modules are built incrementally, resolving
-the remaining items in
-[docs/open-business-decisions.md](docs/open-business-decisions.md) as
-each area is reached rather than blocking all development on them
-upfront — pragmatic implementation defaults taken in the meantime are
-called out in code comments, not silently assumed.
+Job Order → Service Record → Contract Hour Validation → Excess Review →
+Invoice). It also includes Module Control / multi-company licensing
+(Core / Administration — see [docs/system-architecture.md](docs/system-architecture.md)),
+a summary dashboard, and dynamic filters on the main list views. See
+[DEV_SETUP.md](DEV_SETUP.md) to run it.
+
+No other business area has application code yet. **Commission
+Management, further Service Record business-rule decisions (open item
+9.1), and Odoo migration planning are deferred for now at Dennis's
+request** — see [docs/open-business-decisions.md](docs/open-business-decisions.md)
+— and will be revisited once Service Operations and related areas are
+finalized. Further modules are otherwise built incrementally, resolving
+open decisions as each area is reached rather than blocking all
+development on them upfront — pragmatic implementation defaults taken in
+the meantime are called out in code comments, not silently assumed.

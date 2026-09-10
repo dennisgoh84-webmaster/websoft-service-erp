@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api, type Contract, type ExcessUsageRecord, type Invoice } from '../lib/api'
 
 export default function ContractDetailPage() {
@@ -15,7 +15,7 @@ export default function ContractDetailPage() {
     if (!id) return
     api.getContract(id).then(setContract)
     api.listContractExcessUsage(id).then(setExcessUsage)
-    api.listInvoices(id).then(setInvoices)
+    api.listInvoices({ contract_id: id }).then(setInvoices)
   }
 
   useEffect(refresh, [id])
@@ -76,6 +76,9 @@ export default function ContractDetailPage() {
         </p>
 
         {contract.status === 'draft' && <button onClick={onActivate}>Activate contract</button>}
+        <p style={{ marginTop: 10 }}>
+          <Link to={`/job-orders?contract=${contract.id}`}>View job orders for this contract</Link>
+        </p>
       </div>
 
       {(contract.status === 'exceeded' || contract.status === 'expired') && (

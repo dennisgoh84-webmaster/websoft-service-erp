@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.contracts import Contract, ExcessUsageRecord
+from app.models.contracts import Contract, ContractStatus, ExcessUsageRecord
 from app.models.core import User
 from app.schemas.schemas import (
     ContractCreate,
@@ -50,9 +50,18 @@ def create_contract(
 
 
 @router.get("", response_model=list[ContractOut])
-def list_contracts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    contracts = db.query(Contract).filter(Contract.company_id == current_user.company_id).all()
-    return [ContractOut.from_model(c) for c in contracts]
+def list_contracts(
+    status: ContractStatus | None = None,
+    customer_id: uuid.UUID | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(Contract).filter(Contract.company_id == current_user.company_id)
+    if status:
+        query = query.filter(Contract.status == status)
+    if customer_id:
+        query = query.filter(Contract.customer_id == customer_id)
+    return [ContractOut.from_model(c) for c in query.all()]
 
 
 @router.get("/{contract_id}", response_model=ContractOut)

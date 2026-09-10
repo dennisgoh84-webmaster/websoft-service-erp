@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
-import { api, type CurrentUser, type TimesheetEntry, type Ticket } from '../lib/api'
+import { api, type CurrentUser, type ServiceRecord, type JobOrder } from '../lib/api'
 
-export default function TicketDetailPage() {
+export default function JobOrderDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [ticket, setTicket] = useState<Ticket | null>(null)
-  const [entries, setEntries] = useState<TimesheetEntry[]>([])
+  const [jobOrder, setJobOrder] = useState<JobOrder | null>(null)
+  const [records, setRecords] = useState<ServiceRecord[]>([])
   const [users, setUsers] = useState<CurrentUser[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -16,8 +16,8 @@ export default function TicketDetailPage() {
 
   function refresh() {
     if (!id) return
-    api.getTicket(id).then(setTicket)
-    api.listTimesheets(id).then(setEntries)
+    api.getJobOrder(id).then(setJobOrder)
+    api.listServiceRecords({ job_order_id: id }).then(setRecords)
     api.listUsers().then(setUsers)
   }
 
@@ -30,54 +30,54 @@ export default function TicketDetailPage() {
     if (!id) return
     setError(null)
     try {
-      await api.assignTicket(id, assignee)
+      await api.assignJobOrder(id, assignee)
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to assign')
     }
   }
 
-  async function onLogTime(e: FormEvent) {
+  async function onLogRecord(e: FormEvent) {
     e.preventDefault()
     if (!id) return
     setError(null)
     try {
-      await api.submitTimesheet({
-        ticket_id: id,
+      await api.submitServiceRecord({
+        job_order_id: id,
         employee_user_id: employee,
         work_date: workDate,
         raw_minutes: parseInt(minutes, 10),
       })
       refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log time')
+      setError(err instanceof Error ? err.message : 'Failed to log service record')
     }
   }
 
-  async function onApprove(entryId: string) {
+  async function onApprove(recordId: string) {
     setError(null)
     try {
-      await api.approveTimesheet(entryId)
+      await api.approveServiceRecord(recordId)
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve')
     }
   }
 
-  if (!ticket) return <p>Loading...</p>
+  if (!jobOrder) return <p>Loading...</p>
 
   return (
     <div>
-      <h1>{ticket.subject}</h1>
+      <h1>{jobOrder.subject}</h1>
       <p>
-        <span className="badge active">{ticket.status}</span>{' '}
-        <span className="muted">Priority: {ticket.priority} (SRV-009: no formal SLA target yet)</span>
+        <span className="badge active">{jobOrder.status}</span>{' '}
+        <span className="muted">Priority: {jobOrder.priority} (SRV-009: no formal SLA target yet)</span>
       </p>
       {error && <div className="error-banner">{error}</div>}
 
       <div className="card">
         <h2>Assignment</h2>
-        <p>Currently assigned to: {userName(ticket.assigned_to_user_id)}</p>
+        <p>Currently assigned to: {userName(jobOrder.assigned_to_user_id)}</p>
         <form onSubmit={onAssign}>
           <div className="form-row">
             <label>Assign to</label>
@@ -95,8 +95,8 @@ export default function TicketDetailPage() {
       </div>
 
       <div className="card">
-        <h2>Log time (SRV-007: rounds up to nearest 15 min)</h2>
-        <form onSubmit={onLogTime}>
+        <h2>Log a Service Record (SRV-007: rounds up to nearest 15 min)</h2>
+        <form onSubmit={onLogRecord}>
           <div className="form-row">
             <label>Employee</label>
             <select value={employee} onChange={(e) => setEmployee(e.target.value)} required>
@@ -116,12 +116,12 @@ export default function TicketDetailPage() {
             <label>Minutes worked</label>
             <input type="number" min={1} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
           </div>
-          <button type="submit">Submit timesheet entry</button>
+          <button type="submit">Submit Service Record</button>
         </form>
       </div>
 
       <div className="card">
-        <h2>Timesheet entries</h2>
+        <h2>Service Records</h2>
         <table>
           <thead>
             <tr>
@@ -134,24 +134,27 @@ export default function TicketDetailPage() {
             </tr>
           </thead>
           <tbody>
-            {entries.map((e) => (
-              <tr key={e.id}>
-                <td>{userName(e.employee_user_id)}</td>
-                <td>{e.work_date}</td>
+            {records.map((r) => (
+              <tr key={r.id}>
+                <td>{userName(r.employee_user_id)}</td>
+                <td>{r.work_date}</td>
                 <td>
-                  {e.raw_minutes}m &rarr; {e.rounded_minutes}m
+                  {r.raw_minutes}m &rarr; {r.rounded_minutes}m
                 </td>
-                <td>{e.status}</td>
-                <td>{e.outcome}</td>
                 <td>
-                  {e.status === 'submitted' && <button onClick={() => onApprove(e.id)}>Approve</button>}
+                  {r.status}
+                  {r.is_late && <span className="badge exceeded" style={{ marginLeft: 6 }}>late</span>}
+                </td>
+                <td>{r.outcome}</td>
+                <td>
+                  {r.status === 'submitted' && <button onClick={() => onApprove(r.id)}>Approve</button>}
                 </td>
               </tr>
             ))}
-            {entries.length === 0 && (
+            {records.length === 0 && (
               <tr>
                 <td colSpan={6} className="muted">
-                  No timesheet entries yet.
+                  No Service Records yet.
                 </td>
               </tr>
             )}

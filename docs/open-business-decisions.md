@@ -25,10 +25,10 @@ sub-detail is called out explicitly).
 ## 1. Service Contracts & Hours
 
 1.1. **How do service contracts calculate consumed hours?**
-   **Status: DECIDED — SRV-007.** Each timesheet entry is rounded up to
+   **Status: DECIDED — SRV-007.** Each service record is rounded up to
    the nearest 15 minutes before deduction from the contract balance. See
    [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
-   *Arises in:* Service Contracts, Timesheets; Workflow C.
+   *Arises in:* Service Contracts, Service Records; Workflow C.
 
 1.2. **Do unused contract hours expire, roll over, or get forfeited** at
    the end of a contract period, and if they roll over, is there a cap?
@@ -60,7 +60,7 @@ sub-detail is called out explicitly).
 1.5. **What SLA terms apply, and how are SLA breaches handled?**
    **Status: DECIDED (deferred) — SRV-009.** No formal SLA response/
    resolution targets are defined at this time; this is an explicit
-   decision to defer, not an open gap. Ticket priority and timestamps
+   decision to defer, not an open gap. Job Order priority and timestamps
    are still tracked so targets can be added later without a data-model
    change.
    *Arises in:* Service Contracts, Helpdesk / Service Operations;
@@ -106,7 +106,7 @@ sub-detail is called out explicitly).
    *Arises in:* Service Contracts, Billing; Workflow C.
 
 1.11. **What lead time before contract expiry should the SRV-006
-   pre-expiry accounting check (open tickets, missing timesheets,
+   pre-expiry accounting check (open job orders, missing service records,
    unapproved/unbilled excess) begin?**
    **Status: DECIDED — SRV-014.** The check begins 30 days before a
    contract's expiry date.
@@ -244,6 +244,11 @@ sub-detail is called out explicitly).
 
 ## 6. Commission Management
 
+Status: **DEFERRED** (2026-09-10, at Dennis's request) — Commission
+Management is not being worked on for now; the items below are parked
+until Service Operations (and related areas) are finalized, then
+revisited.
+
 6.1. **How are commissions calculated?**
    e.g. flat percentage, tiered by volume, product-specific rates, split
    commissions across multiple salespeople.
@@ -274,7 +279,7 @@ sub-detail is called out explicitly).
 
 7.2. **What labour cost rate is used for project cost tracking** (e.g.
    standard cost per role, actual salary-based cost)?
-   *Arises in:* Projects, Timesheets, Finance / Accounting; Workflow D.
+   *Arises in:* Projects, Service Records, Finance / Accounting; Workflow D.
 
 7.3. **Who approves milestone completion** for milestone-based billing?
    *Arises in:* Projects, Billing; Workflow D.
@@ -292,7 +297,7 @@ sub-detail is called out explicitly).
    resolved?
    *Arises in:* CRM, Sales, Commission Management.
 
-8.3. **How is service ownership defined** for ongoing contracts/tickets
+8.3. **How is service ownership defined** for ongoing contracts/job orders
    (e.g. a named account engineer vs. a shared team queue)?
    *Arises in:* Service Contracts, Helpdesk / Service Operations.
 
@@ -301,32 +306,41 @@ sub-detail is called out explicitly).
    support engineer see/edit vs. a finance user vs. a manager.
    *Arises in:* Core / Administration — this affects every module.
 
-## 9. Timesheets & Approval
+## 9. Service Records & Approval
 
-9.1. **Who approves submitted timesheets**, and within what time frame
+9.1. **Who approves submitted service records**, and within what time frame
    (e.g. weekly approval by a direct manager)?
-   *Arises in:* Timesheets; Workflows C, D.
+   **Status: DEFERRED** (2026-09-10, at Dennis's request) — not being
+   decided for now. The current build uses a pragmatic default (any user
+   with role service_lead, sales_manager, or owner can approve) purely so
+   the application functions end-to-end; this is not a business decision
+   and should be revisited when this area is finalized.
+   *Arises in:* Service Records; Workflows C, D.
 
 9.2. **How is time classified as billable, non-billable, or
    contract-covered**, and can staff choose, or is it determined by the
-   ticket/project/contract context automatically? **Status: PARTIALLY
+   job order/project/contract context automatically? **Status: PARTIALLY
    DECIDED** — SRV-003/SRV-004 confirm that the contract balance itself
    determines whether logged time is contract-covered or Excess Usage
    requiring Nico's review; still open is how billable vs. non-billable
    is classified once work is not tied to a contract at all (e.g. pure
    project time).
-   *Arises in:* Timesheets, Helpdesk / Service Operations, Projects,
+   *Arises in:* Service Records, Helpdesk / Service Operations, Projects,
    Service Contracts; Workflow C.
 
-9.3. **What is the expected timeframe for submitting timesheets**, such
-   that a "missing timesheet" can be flagged?
-   **Status: DECIDED — SRV-015.** Timesheets must be submitted within 3
-   business days of the work being performed; a timesheet not submitted
+9.3. **What is the expected timeframe for submitting service records**, such
+   that a "missing service record" can be flagged?
+   **Status: DECIDED — SRV-015.** Service Records must be submitted within 3
+   business days of the work being performed; a service record not submitted
    within that window is flagged as missing, feeding the SRV-014
    pre-expiry check and the Service Operations dashboard.
-   *Arises in:* Timesheets, Service Contracts; Workflow C, Workflow I.
+   *Arises in:* Service Records, Service Contracts; Workflow C, Workflow I.
 
 ## 10. Data & Scope (carried over from business requirements)
+
+Status: **DEFERRED** (2026-09-10, at Dennis's request) — Odoo migration
+planning is parked for now; revisit once Service Operations (and related
+areas) are finalized.
 
 10.1. **Which historical Odoo data is "important" and must be migrated
    as fully operational**, versus which can be archived in a read-only/

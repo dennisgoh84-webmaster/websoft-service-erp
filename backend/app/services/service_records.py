@@ -1,7 +1,8 @@
 """
-Timesheets business logic: SRV-007 rounding, SRV-015 missing-timesheet
-flagging, and the SRV-003/SRV-004 contract-hour validation that decides
-Contract Deduction vs. Excess Review on approval.
+Service Records business logic (formerly "Timesheets"): SRV-007
+rounding, SRV-015 missing-record flagging, and the SRV-003/SRV-004
+contract-hour validation that decides Contract Deduction vs. Excess
+Review on approval.
 """
 import uuid
 from datetime import date, datetime, timezone
@@ -9,91 +10,91 @@ from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models.contracts import ExcessUsageRecord
-from app.models.core import UserRole
-from app.models.tickets import HelpdeskTicket
-from app.models.timesheets import (
-    TimesheetEntry,
-    TimesheetOutcome,
-    TimesheetStatus,
+from app.models.core import User, UserRole
+from app.models.job_orders import JobOrder
+from app.models.service_records import (
+    ServiceRecord,
+    ServiceRecordOutcome,
+    ServiceRecordStatus,
     round_up_to_nearest,
 )
-from app.models.core import User
 from app.services import audit
 from app.services.contracts import ContractRuleViolation, deduct_minutes
 
-# Pragmatic default pending open decision 9.1 (who approves timesheets,
-# and within what timeframe). Revisit once that is decided.
-TIMESHEET_APPROVER_ROLES = {UserRole.SERVICE_LEAD, UserRole.SALES_MANAGER, UserRole.OWNER}
+# Pragmatic default pending open decision 9.1 (who approves Service
+# Records, and within what timeframe) -- deferred for now at the user's
+# request. Revisit once that is decided.
+SERVICE_RECORD_APPROVER_ROLES = {UserRole.SERVICE_LEAD, UserRole.SALES_MANAGER, UserRole.OWNER}
 # SRV-004/SRV-011: excess usage is reviewed by Nico (service lead) or,
 # as backup, Cherish (sales manager). Owner (Dennis) can also act.
 EXCESS_REVIEWER_ROLES = {UserRole.SERVICE_LEAD, UserRole.SALES_MANAGER, UserRole.OWNER}
 
 
-def submit_timesheet_entry(
+def submit_service_record(
     db: Session,
     *,
-    ticket_id: uuid.UUID,
+    job_order_id: uuid.UUID,
     employee_user_id: uuid.UUID,
     work_date: date,
     raw_minutes: int,
-) -> TimesheetEntry:
-    entry = TimesheetEntry(
-        ticket_id=ticket_id,
+) -> ServiceRecord:
+    record = ServiceRecord(
+        job_order_id=job_order_id,
         employee_user_id=employee_user_id,
         work_date=work_date,
         raw_minutes=raw_minutes,
         rounded_minutes=round_up_to_nearest(raw_minutes),  # SRV-007
-        status=TimesheetStatus.SUBMITTED,
-        outcome=TimesheetOutcome.PENDING,
+        status=ServiceRecordStatus.SUBMITTED,
+        outcome=ServiceRecordOutcome.PENDING,
     )
-    db.add(entry)
+    db.add(record)
     db.flush()
 
     audit.record(
         db,
-        entity_type="timesheet_entry",
-        entity_id=entry.id,
+        entity_type="service_record",
+        entity_id=record.id,
         action="submitted",
         actor_user_id=employee_user_id,
-        details=f"raw_minutes={raw_minutes}, rounded_minutes={entry.rounded_minutes}",
+        details=f"raw_minutes={raw_minutes}, rounded_minutes={record.rounded_minutes}",
     )
-    return entry
+    return record
 
 
-def approve_timesheet_entry(
+def approve_service_record(
     db: Session,
-    entry: TimesheetEntry,
-    ticket: HelpdeskTicket,
+    record: ServiceRecord,
+    job_order: JobOrder,
     *,
     approver: User,
 ) -> ExcessUsageRecord | None:
-    if approver.role not in TIMESHEET_APPROVER_ROLES:
+    if approver.role not in SERVICE_RECORD_APPROVER_ROLES:
         raise ContractRuleViolation(
-            "This user's role cannot approve timesheets (pending decision on "
+            "This user's role cannot approve Service Records (pending decision on "
             "open item 9.1; current default roles: service_lead, sales_manager, owner)."
         )
-    if entry.status != TimesheetStatus.SUBMITTED:
-        raise ContractRuleViolation("Only a submitted timesheet entry can be approved.")
-    if ticket.contract_id is None:
+    if record.status != ServiceRecordStatus.SUBMITTED:
+        raise ContractRuleViolation("Only a submitted Service Record can be approved.")
+    if job_order.contract_id is None:
         raise ContractRuleViolation(
-            "This ticket has no linked Service Contract; contract-hour validation "
+            "This job order has no linked Service Contract; contract-hour validation "
             "requires one for this build's scope."
         )
 
-    entry.status = TimesheetStatus.APPROVED
-    entry.approved_at = datetime.now(timezone.utc)
-    entry.approved_by_user_id = approver.id
+    record.status = ServiceRecordStatus.APPROVED
+    record.approved_at = datetime.now(timezone.utc)
+    record.approved_by_user_id = approver.id
 
-    contract = ticket.contract
+    contract = job_order.contract
     remaining = contract.remaining_minutes
-    rounded = entry.rounded_minutes
+    rounded = record.rounded_minutes
 
     excess_record: ExcessUsageRecord | None = None
 
     if remaining >= rounded:
         # SRV-003: hours remain -- straightforward contract deduction.
         deduct_minutes(db, contract, rounded, actor_user_id=approver.id)
-        entry.outcome = TimesheetOutcome.CONTRACT_DEDUCTION
+        record.outcome = ServiceRecordOutcome.CONTRACT_DEDUCTION
     else:
         # SRV-003: no grace period. Deduct whatever balance remains (may be
         # zero) and the rest becomes Excess Usage immediately -- never a
@@ -103,11 +104,11 @@ def approve_timesheet_entry(
         excess_minutes = rounded - remaining
         excess_record = ExcessUsageRecord(
             contract_id=contract.id,
-            timesheet_entry_id=entry.id,
+            service_record_id=record.id,
             excess_minutes=excess_minutes,
         )
         db.add(excess_record)
-        entry.outcome = TimesheetOutcome.EXCESS_USAGE
+        record.outcome = ServiceRecordOutcome.EXCESS_USAGE
         db.flush()
 
         audit.record(
@@ -121,11 +122,11 @@ def approve_timesheet_entry(
 
     audit.record(
         db,
-        entity_type="timesheet_entry",
-        entity_id=entry.id,
+        entity_type="service_record",
+        entity_id=record.id,
         action="approved",
         actor_user_id=approver.id,
-        details=f"outcome={entry.outcome.value}",
+        details=f"outcome={record.outcome.value}",
     )
     db.flush()
     return excess_record

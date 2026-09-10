@@ -30,7 +30,7 @@ export default function CustomersPage() {
   return (
     <div>
       <h1>Customers</h1>
-      <p className="muted">Customer Management -- the account each contract, ticket, and invoice belongs to.</p>
+      <p className="muted">Customer Management -- the account each contract, job order, and invoice belongs to.</p>
 
       <div className="card" style={{ marginTop: 20 }}>
         <h2>Add customer</h2>

@@ -9,12 +9,14 @@ export default function Layout() {
       <nav className="sidebar">
         <div className="brand">Websoft Service ERP</div>
         <NavLink to="/" end>
-          Customers
+          Dashboard
         </NavLink>
+        <NavLink to="/customers">Customers</NavLink>
         <NavLink to="/contracts">Contracts</NavLink>
-        <NavLink to="/tickets">Tickets</NavLink>
+        <NavLink to="/job-orders">Job Orders</NavLink>
         <NavLink to="/excess-review">Excess Review</NavLink>
         <NavLink to="/invoices">Invoices</NavLink>
+        {user?.role === 'owner' && <NavLink to="/modules">Module Control</NavLink>}
         <div className="user-info">
           <div>
             <strong>{user?.full_name}</strong>

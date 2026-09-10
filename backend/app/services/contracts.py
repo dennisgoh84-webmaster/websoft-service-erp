@@ -5,7 +5,7 @@ SRV-001, SRV-002, SRV-005, SRV-010, SRV-012, SRV-014, SRV-016, SRV-018
 
 Per docs/system-architecture.md's Backend architecture section: "only
 Service Contracts logic decides how contract hours are deducted" --
-this module (plus services/timesheets.py, which calls into it) is that
+this module (plus services/service_records.py, which calls into it) is that
 single place.
 """
 import uuid
@@ -96,7 +96,7 @@ def activate_contract(db: Session, contract: Contract, *, actor_user_id: uuid.UU
 
 
 def deduct_minutes(db: Session, contract: Contract, minutes: int, *, actor_user_id: uuid.UUID) -> None:
-    """Reduce the contract's remaining balance. Caller (services/timesheets.py)
+    """Reduce the contract's remaining balance. Caller (services/service_records.py)
     is responsible for ensuring `minutes` does not exceed the remaining
     balance -- SRV-004 requires the balance to never go negative."""
     if minutes > contract.remaining_minutes:

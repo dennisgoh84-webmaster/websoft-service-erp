@@ -38,7 +38,7 @@ Core / Administration
 Customer Management ──► CRM ──► Sales ──► Service Contracts ──► Helpdesk / Service Operations
         │                          │             │                        │
         │                          │             ▼                        ▼
-        │                          │        Projects ───────────────► Timesheets
+        │                          │        Projects ───────────────► Service Records
         │                          │             │                        │
         │                          ▼             ▼                        ▼
         │                     Hardware Mgmt ◄─ Inventory ◄─ Purchasing    Billing
@@ -93,7 +93,7 @@ None — this is the foundational module.
 
 **Depended on by**
 Every other module (CRM, Sales, Customer Management, Service Contracts,
-Helpdesk/Service Operations, Projects, Timesheets, Billing, Accounts
+Helpdesk/Service Operations, Projects, Service Records, Billing, Accounts
 Receivable, Accounts Payable, Purchasing, Inventory, Hardware Management,
 Commission Management, Finance/Accounting, Reporting, Integrations, AI
 Assistant) — all rely on it for authentication, RBAC, audit logging, and
@@ -174,7 +174,7 @@ sales); Reporting.
 **Purpose**
 Own the authoritative record of who the customer is: the customer/company
 record, its contacts, sites, and ownership — independent of any one deal,
-contract, or ticket.
+contract, or job order.
 
 **Main users**
 Sales, account managers, customer service, finance (for billing details).
@@ -247,7 +247,7 @@ administration, finance (for recurring billing terms).
   fresh, non-contiguous contract (handling not yet decided).
 - Triggering renewal opportunities ahead of expiry, including a
   pre-expiry check — starting **30 days before expiry** (CONFIRMED,
-  SRV-014) — for open tickets, missing timesheets, and unapproved/unbilled
+  SRV-014) — for open job orders, missing service records, and unapproved/unbilled
   excess usage (CONFIRMED requirement, SRV-006).
 
 **Information managed**
@@ -261,12 +261,12 @@ Core / Administration; Customer Management; Sales (originating quotation/
 order).
 
 **Depended on by**
-Helpdesk / Service Operations (tickets consume contract hours); Billing
+Helpdesk / Service Operations (job orders consume contract hours); Billing
 (recurring contract billing); CRM/Sales (renewal opportunities); Reporting.
 
 ---
 
-## 6. Helpdesk / Service Operations
+## 6. Helpdesk / Service Operations (Job Orders)
 
 **Purpose**
 Manage customer-reported issues and service requests from intake through
@@ -274,36 +274,36 @@ resolution, and connect that work to contracts, staffing, and billing.
 
 **Main users**
 Service/support staff, service operations managers; customers may
-eventually raise tickets via a portal (not yet decided).
+eventually raise job orders via a portal (not yet decided).
 
 **Key functions**
-- Ticket intake, categorization, and prioritization.
-- Tracking ticket priority and timestamps; **no formal SLA response/
+- Job Order intake, categorization, and prioritization.
+- Tracking job order priority and timestamps; **no formal SLA response/
   resolution targets are defined at this time** (CONFIRMED deferral,
   SRV-009) — the data is captured so targets can be added later without
   a data-model change.
 - Staff assignment and escalation.
-- Linking tickets to the relevant contract (for hour validation) and/or
+- Linking job orders to the relevant contract (for hour validation) and/or
   hardware asset.
 - Validating logged service time against the contract's remaining
   balance before deduction, and routing usage beyond entitlement to
   Nico's (or Cherish's, as backup) Excess Review instead of
   auto-deducting or auto-billing (CONFIRMED, SRV-003/SRV-004/SRV-011 —
   see Service Contracts above).
-- Ticket resolution and closure tracking, feeding the pre-expiry
+- Job Order resolution and closure tracking, feeding the pre-expiry
   "Unaccounted Service Activity" check (CONFIRMED, SRV-006).
 
 **Information managed**
-Helpdesk tickets, ticket status/history, SLA timers, assignment records,
-ticket-to-contract and ticket-to-asset links.
+Job Orders, job order status/history, SLA timers, assignment records,
+job order-to-contract links, and job order-to-asset links.
 
 **Depends on**
 Core / Administration; Customer Management; Service Contracts (to know
-entitlement/hours and SLA); Hardware Management (when a ticket relates to
+entitlement/hours and SLA); Hardware Management (when a job order relates to
 a specific asset).
 
 **Depended on by**
-Timesheets (time logged against tickets); Billing (billable ticket work,
+Service Records (time logged against job orders); Billing (billable job order work,
 work beyond contract entitlement); Reporting.
 
 ---
@@ -322,7 +322,7 @@ operations management.
 - Project setup (scope, timeline, budget) — often from a sales order.
 - Task/milestone breakdown and assignment.
 - Progress tracking.
-- Linking project cost (via timesheets) to project billing — billed on a
+- Linking project cost (via service records) to project billing — billed on a
   **fixed price / milestone** basis, not time-and-materials (CONFIRMED,
   BILL-004).
 
@@ -335,15 +335,15 @@ Core / Administration; Customer Management; Sales (originating sales
 order, where applicable).
 
 **Depended on by**
-Timesheets (time logged against project tasks); Billing (milestone-based
+Service Records (time logged against project tasks); Billing (milestone-based
 project billing, CONFIRMED BILL-004); Reporting.
 
 ---
 
-## 8. Timesheets
+## 8. Service Records
 
 **Purpose**
-Capture how staff time is spent against helpdesk tickets, projects, or
+Capture how staff time is spent against job orders, projects, or
 contracts, as the basis for cost tracking, contract hour deduction, and
 billing.
 
@@ -352,7 +352,7 @@ Any billable staff (engineers, consultants, support staff), with approval
 by managers.
 
 **Key functions**
-- Time entry (by employee, date, task/ticket/project), required within
+- Time entry (by employee, date, task/job order/project), required within
   **3 business days** of the work being performed (CONFIRMED, SRV-015);
   later entries are flagged as missing.
 - Approval workflow for submitted time.
@@ -364,16 +364,16 @@ by managers.
   Excess Usage.
 - Feeding approved time into contract consumption, project cost, and
   billing.
-- Surfacing missing/overdue timesheets (per the SRV-015 3-business-day
+- Surfacing missing/overdue service records (per the SRV-015 3-business-day
   window), which feed the SRV-006/SRV-014 pre-expiry "Unaccounted Service
   Activity" check.
 
 **Information managed**
-Timesheet entries, approval status/history, time categorization
+Service Records, approval status/history, time categorization
 (billable/non-billable/contract).
 
 **Depends on**
-Core / Administration (employees); Helpdesk / Service Operations (tickets
+Core / Administration (employees); Helpdesk / Service Operations (job orders
 time is logged against); Projects (tasks time is logged against); Service
 Contracts (to know whether time is covered by contract hours).
 
@@ -426,7 +426,7 @@ per contract/customer (where applicable).
 
 **Depends on**
 Core / Administration; Customer Management; Sales; Service Contracts;
-Helpdesk / Service Operations; Projects; Timesheets; Hardware Management;
+Helpdesk / Service Operations; Projects; Service Records; Hardware Management;
 Finance / Accounting (tax/GST treatment).
 
 **Depended on by**
@@ -590,7 +590,7 @@ Field engineers, warehouse/hardware team, service operations.
 - **Customer sign-off/acceptance is required** before an installation is
   considered complete and billable (CONFIRMED, HW-001) — the installing
   engineer's own confirmation is not sufficient on its own.
-- Linking installed assets to helpdesk tickets and, where relevant, to
+- Linking installed assets to job orders and, where relevant, to
   service contract coverage.
 - Warranty tracking (terms not yet decided) and RMA/replacement handling
   for hardware failures (process not yet decided).
@@ -605,13 +605,17 @@ a sales order); Customer Management (installation site/customer);
 Purchasing (asset originates from a purchase).
 
 **Depended on by**
-Helpdesk / Service Operations (tickets linked to a specific asset);
+Helpdesk / Service Operations (job orders linked to a specific asset);
 Service Contracts (contracts may cover specific assets); Billing
 (hardware sale/installation billing); Reporting.
 
 ---
 
 ## 15. Commission Management
+
+Status: **DEFERRED** (2026-09-10, at Dennis's request) — not being
+worked on for now; revisit once Service Operations (and related areas)
+are finalized. Listed in the Module Control catalog as not yet built.
 
 **Purpose**
 Calculate, approve, and track commission owed to sales staff based on
@@ -687,7 +691,7 @@ management decision-making, without owning transactional data itself.
 Management, department heads, finance.
 
 **Key functions**
-- Operational dashboards (e.g. open tickets, project status, sales
+- Operational dashboards (e.g. open job orders, project status, sales
   pipeline).
 - Financial reporting (drawing from Finance / Accounting, AR, AP).
 - Management KPIs across business areas.
@@ -699,8 +703,8 @@ Management, department heads, finance.
   30 days before expiry — CONFIRMED, SRV-014), contracted hours, used
   hours, remaining usable hours, expired hours, excess hours, excess
   hours awaiting review by Nico or Cherish (CONFIRMED backup, SRV-011),
-  missing timesheets (per the SRV-015 3-business-day submission window),
-  open tickets, service activities requiring accounting/billing action,
+  missing service records (per the SRV-015 3-business-day submission window),
+  open job orders, service activities requiring accounting/billing action,
   and renewals required.
 
 **Information managed**
@@ -711,7 +715,7 @@ stores is an architecture decision, not a business one.
 **Depends on**
 All other business modules, as a read-only consumer: Core / Administration,
 CRM, Sales, Customer Management, Service Contracts, Helpdesk / Service
-Operations, Projects, Timesheets, Billing, Accounts Receivable, Accounts
+Operations, Projects, Service Records, Billing, Accounts Receivable, Accounts
 Payable, Purchasing, Inventory, Hardware Management, Commission
 Management, Finance / Accounting.
 
@@ -722,6 +726,11 @@ AI Assistant may use it as a data source.
 ---
 
 ## 18. Integrations
+
+Status: Odoo migration planning within this module is **DEFERRED**
+(2026-09-10, at Dennis's request); revisit once Service Operations (and
+related areas) are finalized. Listed in the Module Control catalog as
+not yet built.
 
 **Purpose**
 Manage the system's connections to external systems: Odoo (during the
@@ -771,7 +780,7 @@ insights).
 
 **Key functions**
 Not yet defined in detail. Candidate functions (not decided) include
-natural-language reporting queries, ticket/opportunity summarization, and
+natural-language reporting queries, job order/opportunity summarization, and
 proactive suggestions (e.g. renewal reminders). Any capability that reads
 or acts on business data must respect RBAC and PDPA.
 

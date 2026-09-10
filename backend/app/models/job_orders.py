@@ -1,4 +1,4 @@
-"""Helpdesk / Service Operations models (minimal slice for this build).
+"""Job Orders (formerly "Helpdesk Tickets") -- Service Operations models.
 
 SLA targets are explicitly deferred (SRV-009) -- priority is tracked but
 no response/resolution time targets are enforced.
@@ -14,22 +14,22 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-class TicketStatus(str, enum.Enum):
+class JobOrderStatus(str, enum.Enum):
     OPEN = "open"
     ASSIGNED = "assigned"
     RESOLVED = "resolved"
     CLOSED = "closed"
 
 
-class TicketPriority(str, enum.Enum):
+class JobOrderPriority(str, enum.Enum):
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
     CRITICAL = "critical"
 
 
-class HelpdeskTicket(Base):
-    __tablename__ = "helpdesk_tickets"
+class JobOrder(Base):
+    __tablename__ = "job_orders"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -39,11 +39,11 @@ class HelpdeskTicket(Base):
         ForeignKey("contracts.id"), nullable=True
     )
     subject: Mapped[str] = mapped_column(String(255), nullable=False)
-    priority: Mapped[TicketPriority] = mapped_column(
-        Enum(TicketPriority, name="ticket_priority"), default=TicketPriority.NORMAL
+    priority: Mapped[JobOrderPriority] = mapped_column(
+        Enum(JobOrderPriority, name="job_order_priority"), default=JobOrderPriority.NORMAL
     )
-    status: Mapped[TicketStatus] = mapped_column(
-        Enum(TicketStatus, name="ticket_status"), default=TicketStatus.OPEN
+    status: Mapped[JobOrderStatus] = mapped_column(
+        Enum(JobOrderStatus, name="job_order_status"), default=JobOrderStatus.OPEN
     )
     assigned_to_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id"), nullable=True

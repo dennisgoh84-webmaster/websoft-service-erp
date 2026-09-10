@@ -5,11 +5,13 @@ import { AuthProvider, useAuth } from './lib/AuthContext'
 import ContractDetailPage from './pages/ContractDetailPage'
 import ContractsPage from './pages/ContractsPage'
 import CustomersPage from './pages/CustomersPage'
+import DashboardPage from './pages/DashboardPage'
 import ExcessReviewPage from './pages/ExcessReviewPage'
 import InvoicesPage from './pages/InvoicesPage'
+import JobOrderDetailPage from './pages/JobOrderDetailPage'
+import JobOrdersPage from './pages/JobOrdersPage'
 import Login from './pages/Login'
-import TicketDetailPage from './pages/TicketDetailPage'
-import TicketsPage from './pages/TicketsPage'
+import ModulesPage from './pages/ModulesPage'
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth()
@@ -29,13 +31,15 @@ function AppRoutes() {
           </RequireAuth>
         }
       >
-        <Route path="/" element={<CustomersPage />} />
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/customers" element={<CustomersPage />} />
         <Route path="/contracts" element={<ContractsPage />} />
         <Route path="/contracts/:id" element={<ContractDetailPage />} />
-        <Route path="/tickets" element={<TicketsPage />} />
-        <Route path="/tickets/:id" element={<TicketDetailPage />} />
+        <Route path="/job-orders" element={<JobOrdersPage />} />
+        <Route path="/job-orders/:id" element={<JobOrderDetailPage />} />
         <Route path="/excess-review" element={<ExcessReviewPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
+        <Route path="/modules" element={<ModulesPage />} />
       </Route>
     </Routes>
   )

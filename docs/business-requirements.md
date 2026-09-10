@@ -5,7 +5,7 @@ Placeholder document.
 This file will contain the detailed business requirements for Websoft Service ERP Solution,
 covering the business areas listed in the root [CLAUDE.md](../CLAUDE.md)
 (CRM, Sales, Customer Management, Service Contracts, Helpdesk, Service
-Operations, Projects, Timesheets, Billing, Accounts Receivable, Accounts
+Operations, Projects, Service Records, Billing, Accounts Receivable, Accounts
 Payable, Purchasing, Inventory, Hardware Management, Commission Management,
 Management Reporting, AI Assistant).
 
@@ -70,7 +70,7 @@ handling procedures) are still to be gathered.
 Status: **CONFIRMED / DECIDED** — first round 2026-09-04 (SRV-001–006),
 second round 2026-09-06 (SRV-007–015). Unlike most of this document, the
 following rules are finalized and are authoritative for Service
-Contracts, Helpdesk / Service Operations, Timesheets, and Billing. They
+Contracts, Helpdesk / Service Operations, Service Records, and Billing. They
 supersede the corresponding open items in
 [open-business-decisions.md](open-business-decisions.md), which has been
 updated to reflect that — see that document for what remains open.
@@ -149,7 +149,7 @@ updated to reflect that — see that document for what remains open.
 - The system monitors for **"Unaccounted Service Activity"** rather than
   treating unbilled hours as an acceptable permanent state.
 - Before a service contract expires, the system should identify: open
-  support tickets, missing timesheets, unapproved excess hours, billable
+  job orders, missing service records, unapproved excess hours, billable
   excess hours not yet invoiced, and other service activities requiring
   review.
 - The objective at contract expiry is: **all service activities
@@ -164,7 +164,7 @@ resolves the remaining Service Operations items from that document: 1.1,
 
 ### SRV-007 — Hour Rounding — CONFIRMED
 
-- Each timesheet entry logged against a contract is **rounded up to the
+- Each service record logged against a contract is **rounded up to the
   nearest 15 minutes** before it is deducted from the contract's usable
   balance (e.g. 23 minutes logged deducts 30 minutes; 5 minutes logged
   deducts 15 minutes).
@@ -183,10 +183,10 @@ resolves the remaining Service Operations items from that document: 1.1,
 
 ### SRV-009 — SLA Targets Deferred — CONFIRMED (deferred)
 
-- Formal SLA response/resolution time targets by ticket priority are
+- Formal SLA response/resolution time targets by job order priority are
   **not defined at this time** — this is an explicit decision to defer,
   not an oversight.
-- The system still tracks ticket priority and relevant timestamps (e.g.
+- The system still tracks job order priority and relevant timestamps (e.g.
   logged, assigned, resolved) so that formal targets can be layered on
   later without a data-model change.
 - No breach-handling behaviour is defined, since no targets exist to
@@ -237,16 +237,16 @@ resolves the remaining Service Operations items from that document: 1.1,
 
 ### SRV-014 — Pre-Expiry Review Lead Time — CONFIRMED
 
-- The SRV-006 pre-expiry accounting check (open tickets, missing
-  timesheets, unapproved/unbilled excess) begins **30 days before** a
+- The SRV-006 pre-expiry accounting check (open job orders, missing
+  service records, unapproved/unbilled excess) begins **30 days before** a
   contract's expiry date.
 
-### SRV-015 — Timesheet Submission Timeframe — CONFIRMED
+### SRV-015 — Service Record Submission Timeframe — CONFIRMED
 
-- Staff must submit timesheets for work performed **within 3 business
+- Staff must submit service records for work performed **within 3 business
   days** of doing the work.
-- A timesheet not submitted within that window is flagged as a
-  **missing timesheet** — feeding both the SRV-014 pre-expiry check and
+- A service record not submitted within that window is flagged as a
+  **missing service record** — feeding both the SRV-014 pre-expiry check and
   the Service Operations dashboard.
 
 ### SRV-016 — Maximum Renewal Backdating Window — CONFIRMED
@@ -284,10 +284,10 @@ The end-to-end service workflow these rules govern is:
 
 ```
 Customer
-  → Support Ticket
+  → Job Order
   → Assignment
   → Service Work
-  → Timesheet
+  → Service Record
   → Contract Hour Validation
   → Contract Deduction OR Excess Review (Nico)
   → Billing Decision
@@ -311,8 +311,8 @@ The Service Operations dashboard should eventually be able to identify:
 - Expired hours
 - Excess hours
 - Excess hours awaiting Nico's review
-- Missing timesheets
-- Open tickets
+- Missing service records
+- Open job orders
 - Service activities requiring accounting/billing action
 - Renewals required
 
@@ -488,11 +488,11 @@ are gathered per module.
   or carrying Nico's treatment decision and reason (SRV-004).
 - Expired Hours Record — the record of unused contracted hours forfeited
   at contract expiry (SRV-005), retained for reporting/audit.
-- Helpdesk Ticket — a logged customer issue or service request.
+- Job Order — a logged customer issue or service request.
 - Project — a scoped body of work delivered to a Customer.
 - Project Task — a unit of work within a Project.
-- Timesheet (Entry) — a record of time an Employee spent against a
-  Ticket, Project Task, or Contract.
+- Service Record — a record of time an Employee spent against a
+  Job Order, Project Task, or Contract.
 
 **Commerce & Finance**
 - Product / Service (item master) — something Webmaster sells (a
@@ -550,13 +550,13 @@ are gathered per module.
   belongs to one Customer, and its lifecycle status governs whether
   further consumption is checked, flagged as Exceeded, or blocked because
   it has Expired or been Renewed.
-- A **Helpdesk Ticket** belongs to a Customer, optionally references a
+- A **Job Order** belongs to a Customer, optionally references a
   **Hardware Asset**, and is checked against the Customer's active
   **Contract** for entitlement/SLA.
 - A **Project** belongs to a Customer (and optionally a Sales Order), and
   is broken into **Project Tasks**.
-- A **Timesheet Entry** belongs to an Employee and references exactly one
-  of: a Helpdesk Ticket, a Project Task, or (indirectly, via either of
+- A **Service Record** belongs to an Employee and references exactly one
+  of: a Job Order, a Project Task, or (indirectly, via either of
   those) a Contract. An approved entry against a Contract is validated
   against the Contract's remaining balance: if hours remain, it reduces
   the **Contract Hour Consumption Record**; if the contract is already at
@@ -567,7 +567,7 @@ are gathered per module.
   consumable further.
 - An **Invoice** belongs to a Customer and has one or more **Invoice
   Lines**, each of which may originate from a Sales Order Line, a
-  Contract Line (recurring billing), a Timesheet Entry (billable time),
+  Contract Line (recurring billing), a Service Record (billable time),
   or a Hardware Asset (hardware sale). A **Credit Note** references an
   Invoice it corrects.
 - A **Payment (Customer)** is allocated against one or more Invoices
@@ -581,7 +581,7 @@ are gathered per module.
   it is matched against, and a **Payment (Supplier)** is made against it.
 - A **Hardware Asset** originates from a Goods Receipt, is optionally
   allocated to a Sales Order, and is optionally linked to a Customer, a
-  Site, a Contract (for coverage), and Helpdesk Tickets raised against it.
+  Site, a Contract (for coverage), and Job Orders raised against it.
 - A **Commission** record references a Sales Order (and/or the Invoice/
   Payment that triggers it, per the decision still to be made) and the
   salesperson(s) it is paid to.

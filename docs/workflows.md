@@ -131,9 +131,9 @@ mechanics. Contract value may also be used for forecasting/reporting.
 
 ---
 
-## C. Customer → Support Ticket → Assignment → Service Work → Timesheet → Contract Hour Validation → Contract Deduction OR Excess Review → Billing Decision → Invoice (if billable) → Complete / Auditable Record
+## C. Customer → Job Order → Assignment → Service Work → Service Record → Contract Hour Validation → Contract Deduction OR Excess Review → Billing Decision → Invoice (if billable) → Complete / Auditable Record
 
-Status: steps 5–8 (timesheet deadline, hour validation, excess handling,
+Status: steps 5–8 (service record deadline, hour validation, excess handling,
 and the "no permanently unbilled" requirement) are **CONFIRMED** per
 SRV-001 through SRV-015 in
 [business-requirements.md](business-requirements.md#service-operations-business-rules-confirmed).
@@ -144,15 +144,15 @@ rest of this document.
 A customer reports an issue or service request.
 
 **Steps**
-1. **Support Ticket** is logged in Helpdesk / Service Operations, linked
+1. **Job Order** is logged in Helpdesk / Service Operations, linked
    to the customer (and asset, if applicable via Hardware Management).
-2. Ticket is categorized/prioritized; SLA timers start based on the
+2. Job Order is categorized/prioritized; SLA timers start based on the
    customer's Service Contract.
-3. **Assignment** — ticket is assigned to a staff member (or escalated).
+3. **Assignment** — job order is assigned to a staff member (or escalated).
 4. **Service Work** is performed by the assigned staff member.
-5. **Timesheet** — staff logs time against the ticket via Timesheets,
+5. **Service Record** — staff logs time against the job order via Service Records,
    within **3 business days** of doing the work (CONFIRMED, SRV-015);
-   later than that, it is flagged as a missing timesheet. Timesheet
+   later than that, it is flagged as a missing service record. Service Record
    approval is required before the entry affects contract hours or
    billing (approver/threshold not yet decided — see
    [open-business-decisions.md](open-business-decisions.md), item 9.1).
@@ -185,23 +185,23 @@ A customer reports an issue or service request.
    approved treatment. Nothing is left as indefinitely "unbilled."
 9. **Invoice (if billable)** — billable excess time flows to Billing as
    a billable line and is invoiced.
-10. Ticket is resolved and closed; the full chain from ticket to
+10. Job Order is resolved and closed; the full chain from job order to
     (non-)invoice is a **Complete / Auditable Record**.
 
 **Responsible user/department**
-Service/support staff (ticket handling, time logging); service operations
+Service/support staff (job order handling, time logging); service operations
 management (assignment/escalation, SLA oversight); **Nico** (Service &
 Support — excess usage review and treatment decision, per SRV-004), with
 **Cherish** (Sales Manager) as the confirmed backup reviewer when Nico is
 unavailable (SRV-011); finance/billing team (billing/invoicing step).
 
 **Data created**
-Helpdesk ticket, assignment/escalation history, timesheet entries,
+Job Order, assignment/escalation history, service records,
 Contract Hour Consumption Records, Excess Usage Records (with Nico's
 decision and reason), (conditionally) billable line items and invoices.
 
 **Approval points**
-- Timesheet approval before it affects contract hours or billing (manager
+- Service Record approval before it affects contract hours or billing (manager
   approval expected, but the approver and threshold are not yet decided —
   [open-business-decisions.md](open-business-decisions.md), item 9.1).
 - Excess usage treatment decision by Nico, or Cherish as backup (CONFIRMED,
@@ -214,16 +214,16 @@ Billing. Approved non-billable excess has no direct financial posting but
 must be recorded with its reason for audit and reporting.
 
 **Possible exceptions**
-- Ticket exceeds an SLA target — not applicable for now: no formal SLA
+- Job Order exceeds an SLA target — not applicable for now: no formal SLA
   targets are defined (CONFIRMED deferral, SRV-009); priority and
   timestamps are still tracked so this can be layered on later.
-- Contract hours are exhausted mid-ticket — CONFIRMED handling: no grace
+- Contract hours are exhausted partway through a job order — CONFIRMED handling: no grace
   period, excess usage routed to Nico's (or Cherish's) review rather than
   auto-billed or auto-absorbed (SRV-003/SRV-004).
-- Ticket reassigned multiple times.
+- Job Order reassigned multiple times.
 - Work performed is later disputed by the customer.
-- Timesheet not submitted within 3 business days (CONFIRMED, SRV-015) —
-  flagged as a missing timesheet, feeding the SRV-014 pre-expiry review
+- Service Record not submitted within 3 business days (CONFIRMED, SRV-015) —
+  flagged as a missing service record, feeding the SRV-014 pre-expiry review
   (see Workflow I) and the Service Operations dashboard.
 
 **Automation opportunities**
@@ -231,14 +231,14 @@ must be recorded with its reason for audit and reporting.
 - SLA breach alerts (deferred — no targets defined yet, per SRV-009;
   revisit once/if formal targets are set).
 - Automatic contract-hour rounding (SRV-007), validation, and deduction
-  from approved timesheets (CONFIRMED as required behaviour; automation
+  from approved service records (CONFIRMED as required behaviour; automation
   of the underlying check, not just the rule, is a future implementation
   detail).
-- Automatic flagging of tickets nearing contract hour exhaustion, and
+- Automatic flagging of job orders nearing contract hour exhaustion, and
   automatic creation of an Excess Usage Record (routed to Nico, or
   Cherish as backup) once exhausted, instead of a person having to
   notice manually.
-- Automatic flagging of a timesheet not submitted within 3 business days
+- Automatic flagging of a service record not submitted within 3 business days
   (SRV-015) as missing.
 - Periodic scan for "Unaccounted Service Activity" per SRV-006 (see
   Workflow I and the Service Operations dashboard requirements in
@@ -246,7 +246,7 @@ must be recorded with its reason for audit and reporting.
 
 ---
 
-## D. Project → Tasks → Timesheet → Cost → Revenue → Billing
+## D. Project → Tasks → Service Record → Cost → Revenue → Billing
 
 **Trigger**
 A Sales Order for project-based work is confirmed, or a project is set up
@@ -255,7 +255,7 @@ directly for an existing engagement.
 **Steps**
 1. Project is created in Projects, with scope, budget, and timeline.
 2. Project is broken into tasks/milestones and assigned to staff.
-3. Staff log time against project tasks via Timesheets.
+3. Staff log time against project tasks via Service Records.
 4. Logged (approved) time contributes to project cost tracking (labour
    cost) — cost rate source (e.g. standard cost per role) is not yet
    decided.
@@ -269,11 +269,11 @@ Project managers (setup, task assignment, progress tracking); project
 staff (time logging); finance/billing team (billing step).
 
 **Data created**
-Project record, tasks/milestones, timesheet entries, project cost
+Project record, tasks/milestones, service records, project cost
 accumulation, billing events/lines.
 
 **Approval points**
-- Timesheet approval (as in Workflow C).
+- Service Record approval (as in Workflow C).
 - Milestone completion sign-off (for milestone billing) — approver not
   yet decided.
 - Project budget overrun approval — **whether/when a project needs
@@ -290,7 +290,7 @@ revenue feed Finance / Accounting and project profitability reporting.
 - Scope change requiring a contract/quotation amendment.
 
 **Automation opportunities**
-- Budget-vs-actual alerts as timesheets are logged.
+- Budget-vs-actual alerts as service records are logged.
 - Automatic draft invoice generation on milestone completion (CONFIRMED
   billing method, BILL-004).
 - Project status dashboards (Reporting).
@@ -543,7 +543,7 @@ begins **30 days before expiry** (CONFIRMED, SRV-014).
 **Steps**
 0. **Pre-expiry accounting check (CONFIRMED requirement, SRV-006/SRV-014)**
    — starting 30 days before a contract expires, the system identifies:
-   open support tickets, missing timesheets, unapproved excess hours,
+   open job orders, missing service records, unapproved excess hours,
    billable excess hours not yet invoiced, and other service activities
    requiring review. The goal is that at expiry, all service activities
    are accounted for (billable items processed; remaining hours expired).
@@ -583,7 +583,7 @@ backup (pre-expiry accounting check per SRV-006/SRV-011); Customer
 Management (account status).
 
 **Data created**
-Pre-expiry review findings (open tickets, missing timesheets, unapproved/
+Pre-expiry review findings (open job orders, missing service records, unapproved/
 unbilled excess), Renewal Opportunity, renewal Quotation, new Contract
 record with its own allocation, Expired Hours Record for the prior
 contract.
@@ -607,7 +607,7 @@ beyond that, it is not backdated and handling is not yet decided.
 
 **Possible exceptions**
 - Customer does not renew (churn) — contract lapses; unused hours still
-  expire per SRV-005, but **what happens to open tickets with no
+  expire per SRV-005, but **what happens to open job orders with no
   successor contract is not yet decided.**
 - Renewal negotiated with materially different terms.
 - Renewal delayed past the expiry date but within the **2-week**
@@ -621,7 +621,7 @@ beyond that, it is not backdated and handling is not yet decided.
 
 **Automation opportunities**
 - Automated renewal reminders starting 30 days before expiry (SRV-014).
-- Automated pre-expiry scan for open tickets, missing timesheets, and
+- Automated pre-expiry scan for open job orders, missing service records, and
   unapproved/unbilled excess hours (SRV-006), surfaced on the Service
   Operations dashboard.
 - Auto-drafting a renewal quotation from the expiring contract's terms.

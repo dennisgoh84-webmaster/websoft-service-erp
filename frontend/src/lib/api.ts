@@ -36,6 +36,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>
 }
 
+function qs(params: Record<string, string | undefined>): string {
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+  if (entries.length === 0) return ''
+  return '?' + new URLSearchParams(entries as [string, string][]).toString()
+}
+
 export async function login(email: string, password: string): Promise<string> {
   const body = new URLSearchParams({ username: email, password })
   const res = await fetch('/api/auth/login', {
@@ -80,32 +86,32 @@ export interface Contract {
   renewed_from_contract_id: string | null
 }
 
-export type TicketPriority = 'low' | 'normal' | 'high' | 'critical'
-export type TicketStatus = 'open' | 'assigned' | 'resolved' | 'closed'
+export type JobOrderPriority = 'low' | 'normal' | 'high' | 'critical'
+export type JobOrderStatus = 'open' | 'assigned' | 'resolved' | 'closed'
 
-export interface Ticket {
+export interface JobOrder {
   id: string
   customer_id: string
   contract_id: string | null
   subject: string
-  priority: TicketPriority
-  status: TicketStatus
+  priority: JobOrderPriority
+  status: JobOrderStatus
   assigned_to_user_id: string | null
   created_at: string
 }
 
-export type TimesheetStatus = 'submitted' | 'approved'
-export type TimesheetOutcome = 'pending' | 'contract_deduction' | 'excess_usage'
+export type ServiceRecordStatus = 'submitted' | 'approved'
+export type ServiceRecordOutcome = 'pending' | 'contract_deduction' | 'excess_usage'
 
-export interface TimesheetEntry {
+export interface ServiceRecord {
   id: string
-  ticket_id: string
+  job_order_id: string
   employee_user_id: string
   work_date: string
   raw_minutes: number
   rounded_minutes: number
-  status: TimesheetStatus
-  outcome: TimesheetOutcome
+  status: ServiceRecordStatus
+  outcome: ServiceRecordOutcome
   is_late: boolean
 }
 
@@ -119,7 +125,7 @@ export type ExcessTreatment =
 export interface ExcessUsageRecord {
   id: string
   contract_id: string
-  timesheet_entry_id: string
+  service_record_id: string
   excess_hours: number
   treatment: ExcessTreatment | null
   reason: string | null
@@ -137,15 +143,46 @@ export interface Invoice {
   issued_at: string
 }
 
+export type LicenseType = 'included' | 'add_on' | 'trial'
+
+export interface ModuleInfo {
+  key: string
+  name: string
+  description: string | null
+  is_built: boolean
+  enabled: boolean
+  license_type: LicenseType
+}
+
+export interface DashboardSummary {
+  active_contracts: number
+  contracts_expiring_soon: number
+  total_contracted_hours: number
+  total_consumed_hours: number
+  total_remaining_hours: number
+  excess_awaiting_review: number
+  open_job_orders: number
+  missing_service_records: number
+  invoices_total_sgd: number
+  invoices_count: number
+}
+
 export const api = {
   me: () => request<CurrentUser>('/auth/me'),
   listUsers: () => request<CurrentUser[]>('/users'),
+
+  dashboardSummary: () => request<DashboardSummary>('/dashboard/summary'),
+
+  listModules: () => request<ModuleInfo[]>('/modules'),
+  toggleModule: (key: string, enabled: boolean) =>
+    request<ModuleInfo>(`/modules/${key}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
 
   listCustomers: () => request<Customer[]>('/customers'),
   createCustomer: (name: string, billing_email?: string) =>
     request<Customer>('/customers', { method: 'POST', body: JSON.stringify({ name, billing_email }) }),
 
-  listContracts: () => request<Contract[]>('/contracts'),
+  listContracts: (filters: { status?: string; customer_id?: string } = {}) =>
+    request<Contract[]>(`/contracts${qs(filters)}`),
   getContract: (id: string) => request<Contract>(`/contracts/${id}`),
   createContract: (payload: {
     customer_id: string
@@ -161,18 +198,28 @@ export const api = {
   listContractExcessUsage: (id: string) =>
     request<ExcessUsageRecord[]>(`/contracts/${id}/excess-usage`),
 
-  listTickets: () => request<Ticket[]>('/tickets'),
-  getTicket: (id: string) => request<Ticket>(`/tickets/${id}`),
-  createTicket: (payload: { customer_id: string; contract_id: string; subject: string; priority?: TicketPriority }) =>
-    request<Ticket>('/tickets', { method: 'POST', body: JSON.stringify(payload) }),
-  assignTicket: (id: string, assigned_to_user_id: string) =>
-    request<Ticket>(`/tickets/${id}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to_user_id }) }),
+  listJobOrders: (
+    filters: { status?: string; priority?: string; customer_id?: string; contract_id?: string } = {},
+  ) => request<JobOrder[]>(`/job-orders${qs(filters)}`),
+  getJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}`),
+  createJobOrder: (payload: {
+    customer_id: string
+    contract_id: string
+    subject: string
+    priority?: JobOrderPriority
+  }) => request<JobOrder>('/job-orders', { method: 'POST', body: JSON.stringify(payload) }),
+  assignJobOrder: (id: string, assigned_to_user_id: string) =>
+    request<JobOrder>(`/job-orders/${id}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to_user_id }) }),
 
-  listTimesheets: (ticket_id?: string) =>
-    request<TimesheetEntry[]>(`/timesheets${ticket_id ? `?ticket_id=${ticket_id}` : ''}`),
-  submitTimesheet: (payload: { ticket_id: string; employee_user_id: string; work_date: string; raw_minutes: number }) =>
-    request<TimesheetEntry>('/timesheets', { method: 'POST', body: JSON.stringify(payload) }),
-  approveTimesheet: (id: string) => request<TimesheetEntry>(`/timesheets/${id}/approve`, { method: 'POST' }),
+  listServiceRecords: (filters: { job_order_id?: string; employee_user_id?: string; status?: string } = {}) =>
+    request<ServiceRecord[]>(`/service-records${qs(filters)}`),
+  submitServiceRecord: (payload: {
+    job_order_id: string
+    employee_user_id: string
+    work_date: string
+    raw_minutes: number
+  }) => request<ServiceRecord>('/service-records', { method: 'POST', body: JSON.stringify(payload) }),
+  approveServiceRecord: (id: string) => request<ServiceRecord>(`/service-records/${id}/approve`, { method: 'POST' }),
 
   listExcessUsage: (pendingOnly = false) =>
     request<ExcessUsageRecord[]>(`/excess-usage${pendingOnly ? '?pending_only=true' : ''}`),
@@ -182,6 +229,6 @@ export const api = {
       body: JSON.stringify({ treatment, reason }),
     }),
 
-  listInvoices: (contract_id?: string) =>
-    request<Invoice[]>(`/invoices${contract_id ? `?contract_id=${contract_id}` : ''}`),
+  listInvoices: (filters: { customer_id?: string; contract_id?: string } = {}) =>
+    request<Invoice[]>(`/invoices${qs(filters)}`),
 }

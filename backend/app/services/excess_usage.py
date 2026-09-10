@@ -14,7 +14,7 @@ from app.models.contracts import Contract, ExcessTreatment, ExcessUsageRecord
 from app.models.core import User
 from app.services import audit, billing
 from app.services.contracts import ContractRuleViolation
-from app.services.timesheets import EXCESS_REVIEWER_ROLES
+from app.services.service_records import EXCESS_REVIEWER_ROLES
 
 
 def decide_excess_usage(

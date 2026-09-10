@@ -10,9 +10,10 @@ from app.models.contracts import (  # noqa: F401
 )
 from app.models.core import AuditLogEntry, Company, User, UserRole  # noqa: F401
 from app.models.customers import Contact, Customer  # noqa: F401
-from app.models.tickets import HelpdeskTicket, TicketPriority, TicketStatus  # noqa: F401
-from app.models.timesheets import (  # noqa: F401
-    TimesheetEntry,
-    TimesheetOutcome,
-    TimesheetStatus,
+from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus  # noqa: F401
+from app.models.service_records import (  # noqa: F401
+    ServiceRecord,
+    ServiceRecordOutcome,
+    ServiceRecordStatus,
 )
+from app.models.licensing import CompanyModule, LicenseType, Module  # noqa: F401

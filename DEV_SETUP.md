@@ -1,10 +1,14 @@
 # Local Development Setup
 
 Status: first working slice -- the **Service Operations core** (Customer,
-Service Contract, Helpdesk Ticket, Timesheet, Excess Usage Review,
-Billing/Invoice), implementing the confirmed SRV-001..018 and BILL-001/
+Service Contract, Job Order, Service Record, Excess Usage Review,
+Billing/Invoice), plus Module Control / multi-company licensing and a
+summary dashboard, implementing the confirmed SRV-001..018 and BILL-001/
 002/004/005/006 rules from [docs/business-requirements.md](docs/business-requirements.md).
-No other business area has application code yet.
+No other business area has application code yet. Commission Management,
+further Service Record business-rule decisions, and Odoo migration
+planning are deferred for now (see
+[docs/open-business-decisions.md](docs/open-business-decisions.md)).
 
 ## Prerequisites
 
@@ -51,7 +55,7 @@ Demo logins (all password `demo1234`, after running `seed_demo.py`):
 
 | Email | Role |
 |---|---|
-| dennis@websoft.local | owner |
+| dennis@websoft.local | owner (also manages Module Control) |
 | nico@websoft.local | service_lead (Nico -- SRV-004 excess-usage reviewer) |
 | cherish@websoft.local | sales_manager (Cherish -- SRV-011 backup reviewer) |
 | weiling@websoft.local | support_engineer |
@@ -60,18 +64,21 @@ Demo logins (all password `demo1234`, after running `seed_demo.py`):
 
 `frontend/record_demo.cjs` uses Playwright to script and record a
 walkthrough of the confirmed workflow (login -> contract hours ->
-approve a timesheet that exhausts the contract -> Nico's excess-usage
-review -> resulting invoice). Run `node record_demo.cjs` from `frontend/`
-with both servers running; re-run `seed_demo.py` first for a clean,
-repeatable recording.
+approve a Service Record that exhausts the contract -> Nico's
+excess-usage review -> resulting invoice). Run `node record_demo.cjs`
+from `frontend/` with both servers running; re-run `seed_demo.py` first
+for a clean, repeatable recording. The video sent previously predates
+the Job Order/Service Record renaming and the dashboard/Module Control
+additions -- re-run this script for an up-to-date recording.
 
 ## Scope and open decisions
 
 This build intentionally does not cover every module in
 [docs/module-map.md](docs/module-map.md) -- only the Service Operations
-core slice. Several pragmatic implementation defaults were made where a
-business decision is still open in
+core slice, plus Module Control and the dashboard. Several pragmatic
+implementation defaults were made where a business decision is still
+open or deferred in
 [docs/open-business-decisions.md](docs/open-business-decisions.md) (e.g.
-item 9.1, who approves timesheets); these are called out in code
-comments (see `app/services/timesheets.py`) rather than silently assumed,
-and should be revisited once decided.
+item 9.1, who approves Service Records -- deferred); these are called out
+in code comments (see `app/services/service_records.py`) rather than
+silently assumed, and should be revisited once decided.
