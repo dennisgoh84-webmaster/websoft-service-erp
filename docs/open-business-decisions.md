@@ -460,21 +460,21 @@ areas) are finalized.
 
 11.1. **How should a Sales Quotation's mixed-unit line items map onto a
    Service Contract's required hours**, when the quotation is accepted?
-   **Interim rule in place:** only lines whose unit of measure is
-   "Hours"/"Hour" count toward `contracted_hours`; the quotation's net
-   total becomes `contract_value_sgd`. Since the contract's 10-hour
-   minimum (SRV-002/012) has no override, a quotation with no (or too
-   few) hourly lines -- e.g. a pure subscription quote for the API
-   Hosting Fee / DNS / Annual Maintenance items in the catalog -- is
-   accepted but does **not** auto-convert to a contract. This has not
-   been confirmed as the intended real rule (most catalog items are
-   monthly/yearly subscriptions, not hour blocks), just a safe default
-   that never produces an invalid contract. Revisit once real quotation
-   usage clarifies what "accepted" should actually create for a
-   non-hourly quote (an invoice directly? a different document type?).
+   **Status: DECIDED (2026-09-10).** There are two kinds of Contract
+   (`ContractKind`): SERVICE_SUPPORT (hours-based, SRV-002/012's
+   10-hour minimum applies) and ANNUAL (a term-only contract, e.g. an
+   annual software warranty/maintenance contract -- a value and a
+   12-month duration, no hours at all). A quotation's lines split by
+   unit of measure: "Hours"/"Hour" lines become one SERVICE_SUPPORT
+   contract (summed hours + their value); every other line becomes one
+   ANNUAL contract (summed value). A mixed quotation converts to BOTH,
+   never blending the two. Job Orders/Service Records can be logged
+   against an ANNUAL contract same as any other -- there is just
+   nothing to deduct or exceed (`ServiceRecordOutcome.NOT_HOUR_METERED`).
    *Arises in:* Sales, Service Contracts, Billing.
-   *Where implemented:* `app/models/quotations.py`,
-   `app/services/quotations.py`.
+   *Where implemented:* `app/models/contracts.py` (ContractKind),
+   `app/models/quotations.py`, `app/services/quotations.py`,
+   `app/services/service_records.py`.
 
 11.2. **Should an accepted quotation ever auto-create an Invoice**
    directly (as an alternative or in addition to the Contract
