@@ -28,12 +28,12 @@ export default function Layout() {
 
         <div className="nav-section">
           <div className="nav-section-label">Operations</div>
+          <NavLink to="/support-monitoring">Support Monitoring</NavLink>
           <NavLink to="/customers">Customers</NavLink>
           <NavLink to="/contracts">Contracts</NavLink>
           <NavLink to="/job-orders">Job Orders</NavLink>
           <NavLink to="/service-records">Service Records</NavLink>
           <NavLink to="/excess-review">Excess Review</NavLink>
-          <NavLink to="/support-monitoring">Support Monitoring</NavLink>
           <NavLink to="/software-tasks">Software Tasks</NavLink>
         </div>
 

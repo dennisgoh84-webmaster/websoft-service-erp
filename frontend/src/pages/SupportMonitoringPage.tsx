@@ -5,57 +5,49 @@ import { api, type StaffMonitoring, type SupportMonitoring } from '../lib/api'
 function StaffCard({ row }: { row: StaffMonitoring }) {
   const overloaded = row.overdue_job_orders > 0
   return (
-    <div className="card" style={{ borderColor: overloaded ? 'var(--danger, #b33)' : undefined }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <strong>{row.full_name}</strong>
+    <div className="card monitor-card" style={{ borderColor: overloaded ? '#b33' : undefined }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <strong className="monitor-name">{row.full_name}</strong>
         {overloaded && <span className="badge exceeded">overloaded</span>}
       </div>
-      <table style={{ marginTop: 8 }}>
-        <tbody>
-          <tr>
-            <td className="muted">Open Job Orders</td>
-            <td style={{ textAlign: 'right' }}>{row.open_job_orders}</td>
-          </tr>
-          <tr>
-            <td className="muted">Overdue</td>
-            <td style={{ textAlign: 'right' }}>
-              <strong style={{ color: row.overdue_job_orders > 0 ? '#b33' : undefined }}>
-                {row.overdue_job_orders}
-              </strong>
-            </td>
-          </tr>
-          <tr>
-            <td className="muted">Due soon</td>
-            <td style={{ textAlign: 'right' }}>{row.due_soon_job_orders}</td>
-          </tr>
-          <tr>
-            <td className="muted">Pending Service Records</td>
-            <td style={{ textAlign: 'right' }}>{row.pending_service_records}</td>
-          </tr>
-          <tr>
-            <td className="muted">Un-Tested Software Tasks</td>
-            <td style={{ textAlign: 'right' }}>{row.untested_software_tasks}</td>
-          </tr>
-          <tr>
-            <td className="muted">CM Svc. Records (month / today)</td>
-            <td style={{ textAlign: 'right' }}>
-              {row.cm_svc_records_month} / {row.cm_svc_records_today}
-            </td>
-          </tr>
-          <tr>
-            <td className="muted">CM Svc. Hrs (month / today)</td>
-            <td style={{ textAlign: 'right' }}>
-              {row.cm_svc_hours_month.toFixed(2)} / {row.cm_svc_hours_today.toFixed(2)}
-            </td>
-          </tr>
-          <tr>
-            <td className="muted">Avg. Daily Contract Hrs</td>
-            <td style={{ textAlign: 'right' }}>
-              <strong>{row.avg_daily_contract_hours.toFixed(2)}</strong>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="monitor-row">
+        <span className="muted">Open Job Orders</span>
+        <span className="monitor-value">{row.open_job_orders}</span>
+      </div>
+      <div className="monitor-row">
+        <span className="muted">Overdue</span>
+        <span className="monitor-value" style={{ color: row.overdue_job_orders > 0 ? '#b33' : undefined }}>
+          {row.overdue_job_orders}
+        </span>
+      </div>
+      <div className="monitor-row">
+        <span className="muted">Due soon</span>
+        <span className="monitor-value">{row.due_soon_job_orders}</span>
+      </div>
+      <div className="monitor-row">
+        <span className="muted">Pending Svc. Records</span>
+        <span className="monitor-value">{row.pending_service_records}</span>
+      </div>
+      <div className="monitor-row">
+        <span className="muted">Un-Tested S/T</span>
+        <span className="monitor-value">{row.untested_software_tasks}</span>
+      </div>
+      <div className="monitor-row">
+        <span className="muted">CM Svc. Rcc. (mth/today)</span>
+        <span className="monitor-value">
+          {row.cm_svc_records_month}/{row.cm_svc_records_today}
+        </span>
+      </div>
+      <div className="monitor-row">
+        <span className="muted">CM Svc. Hrs (mth/today)</span>
+        <span className="monitor-value">
+          {row.cm_svc_hours_month.toFixed(1)}/{row.cm_svc_hours_today.toFixed(1)}
+        </span>
+      </div>
+      <div className="monitor-row">
+        <span className="muted">Avg. Daily Cont. Hrs</span>
+        <span className="monitor-value">{row.avg_daily_contract_hours.toFixed(2)}</span>
+      </div>
     </div>
   )
 }
@@ -116,12 +108,17 @@ export default function SupportMonitoringPage() {
       )}
 
       {data && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-          {data.unassigned.open_job_orders > 0 && <StaffCard row={data.unassigned} />}
-          {data.staff.map((row) => (
-            <StaffCard key={row.user_id} row={row} />
-          ))}
-        </div>
+        <>
+          <p className="muted" style={{ marginTop: 4 }}>
+            {data.staff.length + (data.unassigned.open_job_orders > 0 ? 1 : 0)} staff shown
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+            {data.unassigned.open_job_orders > 0 && <StaffCard row={data.unassigned} />}
+            {data.staff.map((row) => (
+              <StaffCard key={row.user_id} row={row} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

@@ -133,11 +133,13 @@ a {
 
 .sidebar a {
   display: block;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border-radius: 6px;
   color: var(--text);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 .sidebar a:hover {
   background: var(--bg);
@@ -360,6 +362,31 @@ button:disabled {
 }
 .filter-bar select {
   min-width: 160px;
+}
+
+/* Support Monitoring: compact per-staff cards -- dense enough that at
+   least 8 fit on one screen at typical desktop widths, instead of the
+   normal roomy .card + <table> combo. */
+.monitor-card {
+  padding: 10px 12px;
+  margin-bottom: 0;
+}
+.monitor-card .monitor-name {
+  font-size: 13.5px;
+}
+.monitor-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.monitor-row:last-child {
+  border-bottom: none;
+}
+.monitor-row .monitor-value {
+  font-weight: 600;
 }
 
 .stat-grid {
