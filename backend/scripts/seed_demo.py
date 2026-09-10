@@ -44,7 +44,7 @@ from sqlalchemy import text
 
 from app.core.database import Base, SessionLocal, engine
 from app.models.core import Company, User, UserCompanyAccess, UserRole
-from app.models.customers import Customer
+from app.models.customers import Contact, Customer, CustomerType
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
@@ -432,20 +432,39 @@ def main():
 
         customer = Customer(
             company_id=company.id, name="Acme Manufacturing Pte Ltd",
+            customer_type=CustomerType.company,
+            legacy_customer_code="100CASE01",  # carried over from Odoo
+            contact_person="Mr Tan Wei Ming",
+            uen="201012345A",
+            gst_registration_no="M2-1234567-8",
             billing_email="accounts@acme-mfg.test",
-            billing_address="10 Factory Road, Singapore 100010",
+            phone="6555 1010", mobile="9123 4567",
+            address_line1="10 Factory Road", address_city="Singapore",
+            address_postal_code="100010", address_country="Singapore",
             payment_terms_days=30,  # terms vary per customer (confirmed)
         )
         # Company 2's own customer -- switching companies swaps the whole
         # dataset, so this is what Dennis sees under Websoft Digital.
         customer2 = Customer(
             company_id=company2.id, name="Northwind Retail Pte Ltd",
+            customer_type=CustomerType.company,
+            contact_person="Ms Lim Hui Fen",
             billing_email="ap@northwind-retail.test",
-            billing_address="20 Orchard Lane, Singapore 200020",
+            phone="6555 2020",
+            address_line1="20 Orchard Lane", address_city="Singapore",
+            address_postal_code="200020", address_country="Singapore",
             payment_terms_days=14,  # a different customer, different terms
         )
         db.add_all([customer, customer2])
         db.flush()
+
+        db.add_all(
+            [
+                Contact(customer_id=customer.id, name="Mr Tan Wei Ming", email="wm.tan@acme-mfg.test", phone="9123 4567"),
+                Contact(customer_id=customer.id, name="Ms Farah Aziz", email="farah.aziz@acme-mfg.test", phone="9876 5432"),
+                Contact(customer_id=customer2.id, name="Ms Lim Hui Fen", email="hf.lim@northwind-retail.test", phone="9234 5678"),
+            ]
+        )
 
         contract = contract_svc.create_contract(
             db, company_id=company.id, customer_id=customer.id,

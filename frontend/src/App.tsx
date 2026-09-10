@@ -10,6 +10,7 @@ import GeneralLedgerPage from './pages/GeneralLedgerPage'
 import CompanySetupPage from './pages/CompanySetupPage'
 import ContractDetailPage from './pages/ContractDetailPage'
 import ContractsPage from './pages/ContractsPage'
+import CustomerDetailPage from './pages/CustomerDetailPage'
 import CustomersPage from './pages/CustomersPage'
 import DashboardPage from './pages/DashboardPage'
 import EventLogsPage from './pages/EventLogsPage'
@@ -43,6 +44,7 @@ function AppRoutes() {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/customers" element={<CustomersPage />} />
+        <Route path="/customers/:id" element={<CustomerDetailPage />} />
         <Route path="/contracts" element={<ContractsPage />} />
         <Route path="/contracts/:id" element={<ContractDetailPage />} />
         <Route path="/job-orders" element={<JobOrdersPage />} />

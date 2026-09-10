@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.accounting import AccountType, JournalStatus, VoucherType
 from app.models.payables import BillMatchStatus, BillStatus, PurchaseOrderStatus
 from app.models.contracts import ContractStatus, ExcessTreatment
+from app.models.customers import CustomerType
 from app.models.core import UserRole
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrderPriority, JobOrderStatus
@@ -200,9 +201,25 @@ class GroupAuthoritiesUpdateRequest(BaseModel):
 
 # ---- Customers ----
 class CustomerCreate(BaseModel):
+    customer_type: CustomerType = CustomerType.company
     name: str
+    legacy_customer_code: str | None = None
+    contact_person: str | None = None
+    uen: str | None = None
+    gst_registration_no: str | None = None
     billing_email: str | None = None
-    billing_address: str | None = None
+    phone: str | None = None
+    mobile: str | None = None
+    website: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    address_city: str | None = None
+    address_state: str | None = None
+    address_postal_code: str | None = None
+    address_country: str | None = None
+    tags: str | None = None
+    exclude_auto_sent: bool = False
+    terms_and_conditions: str | None = None
     # Days from invoice date. Terms vary per customer (confirmed
     # 2026-09-10); null means not yet agreed, and invoices carry no due
     # date until they are.
@@ -210,19 +227,74 @@ class CustomerCreate(BaseModel):
 
 
 class CustomerUpdate(BaseModel):
+    customer_type: CustomerType | None = None
     name: str | None = None
+    legacy_customer_code: str | None = None
+    contact_person: str | None = None
+    uen: str | None = None
+    gst_registration_no: str | None = None
     billing_email: str | None = None
-    billing_address: str | None = None
+    phone: str | None = None
+    mobile: str | None = None
+    website: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    address_city: str | None = None
+    address_state: str | None = None
+    address_postal_code: str | None = None
+    address_country: str | None = None
+    tags: str | None = None
+    exclude_auto_sent: bool | None = None
+    terms_and_conditions: str | None = None
     payment_terms_days: int | None = Field(default=None, ge=0)
 
 
 class CustomerOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    customer_type: CustomerType
     name: str
+    legacy_customer_code: str | None
+    contact_person: str | None
+    uen: str | None
+    gst_registration_no: str | None
     billing_email: str | None
-    billing_address: str | None
+    phone: str | None
+    mobile: str | None
+    website: str | None
+    address_line1: str | None
+    address_line2: str | None
+    address_city: str | None
+    address_state: str | None
+    address_postal_code: str | None
+    address_country: str | None
+    tags: str | None
+    exclude_auto_sent: bool
+    terms_and_conditions: str | None
     payment_terms_days: int | None
+    is_active: bool
+    created_at: datetime
+
+
+class ContactCreate(BaseModel):
+    name: str
+    email: str | None = None
+    phone: str | None = None
+
+
+class ContactUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+
+
+class ContactOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    name: str
+    email: str | None
+    phone: str | None
     is_active: bool
 
 

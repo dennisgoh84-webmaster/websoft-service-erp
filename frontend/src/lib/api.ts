@@ -151,15 +151,69 @@ export interface Group {
   member_count: number
 }
 
+export type CustomerType = 'individual' | 'company'
+
 export interface Customer {
   id: string
+  customer_type: CustomerType
   name: string
+  /** The customer's code from the Odoo system being replaced -- manual,
+   * for matching during the eventual historical-data migration. */
+  legacy_customer_code: string | null
+  contact_person: string | null
+  uen: string | null
+  gst_registration_no: string | null
   billing_email: string | null
-  billing_address: string | null
+  phone: string | null
+  mobile: string | null
+  website: string | null
+  address_line1: string | null
+  address_line2: string | null
+  address_city: string | null
+  address_state: string | null
+  address_postal_code: string | null
+  address_country: string | null
+  tags: string | null
+  /** Reserved -- nothing reads this yet, no automated emailing exists. */
+  exclude_auto_sent: boolean
+  terms_and_conditions: string | null
   /** Days from invoice date. Terms vary per customer; null = not agreed yet. */
   payment_terms_days: number | null
   is_active: boolean
+  created_at: string
 }
+
+export interface Contact {
+  id: string
+  customer_id: string
+  name: string
+  email: string | null
+  phone: string | null
+  is_active: boolean
+}
+
+export type CustomerFields = Partial<{
+  customer_type: CustomerType
+  name: string
+  legacy_customer_code: string | null
+  contact_person: string | null
+  uen: string | null
+  gst_registration_no: string | null
+  billing_email: string | null
+  phone: string | null
+  mobile: string | null
+  website: string | null
+  address_line1: string | null
+  address_line2: string | null
+  address_city: string | null
+  address_state: string | null
+  address_postal_code: string | null
+  address_country: string | null
+  tags: string | null
+  exclude_auto_sent: boolean
+  terms_and_conditions: string | null
+  payment_terms_days: number | null
+}>
 
 export type ContractStatus = 'draft' | 'active' | 'exceeded' | 'expired' | 'renewed'
 
@@ -565,21 +619,32 @@ export const api = {
     request<ModuleInfo>(`/modules/${key}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
 
   listCustomers: () => request<Customer[]>('/customers'),
-  createCustomer: (payload: {
-    name: string
-    billing_email?: string
-    billing_address?: string
-    payment_terms_days?: number | null
-  }) => request<Customer>('/customers', { method: 'POST', body: JSON.stringify(payload) }),
-  updateCustomer: (
-    id: string,
-    payload: {
-      name?: string
-      billing_email?: string | null
-      billing_address?: string | null
-      payment_terms_days?: number | null
-    },
-  ) => request<Customer>(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  getCustomer: (id: string) => request<Customer>(`/customers/${id}`),
+  createCustomer: (payload: CustomerFields & { name: string }) =>
+    request<Customer>('/customers', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCustomer: (id: string, payload: CustomerFields) =>
+    request<Customer>(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deactivateCustomer: (id: string) => request<Customer>(`/customers/${id}/deactivate`, { method: 'POST' }),
+  reactivateCustomer: (id: string) => request<Customer>(`/customers/${id}/reactivate`, { method: 'POST' }),
+  getCustomerAuditLog: (id: string) => request<AuditLogEntry[]>(`/customers/${id}/audit-log`),
+
+  listContacts: (customerId: string, includeInactive = false) =>
+    request<Contact[]>(`/customers/${customerId}/contacts${includeInactive ? '?include_inactive=true' : ''}`),
+  createContact: (customerId: string, payload: { name: string; email?: string; phone?: string }) =>
+    request<Contact>(`/customers/${customerId}/contacts`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateContact: (
+    customerId: string,
+    contactId: string,
+    payload: { name?: string; email?: string | null; phone?: string | null },
+  ) =>
+    request<Contact>(`/customers/${customerId}/contacts/${contactId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  deactivateContact: (customerId: string, contactId: string) =>
+    request<Contact>(`/customers/${customerId}/contacts/${contactId}/deactivate`, { method: 'POST' }),
+  reactivateContact: (customerId: string, contactId: string) =>
+    request<Contact>(`/customers/${customerId}/contacts/${contactId}/reactivate`, { method: 'POST' }),
 
   listContracts: (filters: { status?: string; customer_id?: string } = {}) =>
     request<Contract[]>(`/contracts${qs(filters)}`),
