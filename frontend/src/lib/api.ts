@@ -326,6 +326,135 @@ export interface Account {
   is_active: boolean
 }
 
+// ---- General Ledger / vouchers ----
+export type VoucherType = 'journal' | 'receipt' | 'payment' | 'sales_invoice' | 'purchase_invoice'
+export type JournalStatus = 'draft' | 'posted' | 'reversed'
+
+export interface JournalLine {
+  id: string
+  account_id: string
+  account_code: string | null
+  account_name: string | null
+  debit_sgd: number
+  credit_sgd: number
+  description: string | null
+}
+
+export interface JournalEntry {
+  id: string
+  voucher_number: string
+  voucher_type: VoucherType
+  entry_date: string
+  narration: string
+  status: JournalStatus
+  total_debit: number
+  total_credit: number
+  is_balanced: boolean
+  reverses_entry_id: string | null
+  lines: JournalLine[]
+}
+
+export interface TrialBalanceRow {
+  account_id: string
+  code: string
+  name: string
+  account_type: AccountType
+  debit_sgd: number
+  credit_sgd: number
+  balance_sgd: number
+}
+
+export interface TrialBalance {
+  as_at: string | null
+  rows: TrialBalanceRow[]
+  total_debit: number
+  total_credit: number
+  is_balanced: boolean
+}
+
+// ---- Accounts Payable ----
+export type PurchaseOrderStatus = 'draft' | 'pending_approval' | 'approved' | 'cancelled'
+export type BillMatchStatus = 'not_matched' | 'matched' | 'exception'
+export type BillStatus = 'awaiting_match' | 'exception' | 'approved' | 'partially_paid' | 'paid'
+
+export interface Supplier {
+  id: string
+  name: string
+  email: string | null
+  address: string | null
+  gst_registration_no: string | null
+  payment_terms_days: number | null
+  is_active: boolean
+}
+
+export interface PurchaseOrder {
+  id: string
+  po_number: string
+  supplier_id: string
+  order_date: string
+  description: string
+  amount_sgd: number
+  gst_amount_sgd: number
+  total_amount_sgd: number
+  status: PurchaseOrderStatus
+}
+
+export interface SupplierInvoice {
+  id: string
+  bill_number: string
+  supplier_invoice_no: string | null
+  supplier_id: string
+  purchase_order_id: string | null
+  invoice_date: string
+  due_date: string | null
+  description: string
+  amount_sgd: number
+  gst_amount_sgd: number
+  total_amount_sgd: number
+  amount_paid_sgd: number
+  outstanding_sgd: number
+  match_status: BillMatchStatus
+  match_note: string | null
+  status: BillStatus
+}
+
+export interface SupplierPaymentAllocation {
+  id: string
+  supplier_invoice_id: string
+  bill_number: string | null
+  amount_sgd: number
+}
+
+export interface SupplierPayment {
+  id: string
+  voucher_number: string
+  supplier_id: string
+  payment_date: string
+  amount_sgd: number
+  allocated_sgd: number
+  unallocated_sgd: number
+  method: string
+  reference: string | null
+  allocations: SupplierPaymentAllocation[]
+}
+
+export interface APAgingRow {
+  supplier_id: string
+  supplier_name: string
+  current: number
+  days_1_30: number
+  days_31_60: number
+  days_61_90: number
+  over_90: number
+  total: number
+}
+
+export interface APAgingReport {
+  as_at: string
+  rows: APAgingRow[]
+  total: number
+}
+
 export type LicenseType = 'included' | 'add_on' | 'trial'
 
 export interface ModuleInfo {
@@ -529,6 +658,87 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ allocations }),
     }),
+  // General Ledger
+  listVouchers: (filters: { voucher_type?: string; status?: string } = {}) =>
+    request<JournalEntry[]>(`/ledger/vouchers${qs(filters)}`),
+  getVoucher: (id: string) => request<JournalEntry>(`/ledger/vouchers/${id}`),
+  createJournalVoucher: (payload: {
+    entry_date: string
+    narration: string
+    post?: boolean
+    lines: { account_id: string; debit_sgd?: number; credit_sgd?: number; description?: string }[]
+  }) => request<JournalEntry>('/ledger/vouchers', { method: 'POST', body: JSON.stringify(payload) }),
+  postVoucher: (id: string) => request<JournalEntry>(`/ledger/vouchers/${id}/post`, { method: 'POST' }),
+  reverseVoucher: (id: string, reason: string) =>
+    request<JournalEntry>(`/ledger/vouchers/${id}/reverse`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  trialBalance: (as_at?: string) => request<TrialBalance>(`/ledger/trial-balance${qs({ as_at })}`),
+
+  // Accounts Payable
+  listSuppliers: (includeInactive = false) =>
+    request<Supplier[]>(`/accounts-payable/suppliers${qs({ include_inactive: includeInactive ? 'true' : undefined })}`),
+  createSupplier: (payload: {
+    name: string
+    email?: string
+    address?: string
+    gst_registration_no?: string
+    payment_terms_days?: number | null
+  }) => request<Supplier>('/accounts-payable/suppliers', { method: 'POST', body: JSON.stringify(payload) }),
+  updateSupplier: (
+    id: string,
+    payload: Partial<{
+      name: string
+      email: string | null
+      address: string | null
+      gst_registration_no: string | null
+      payment_terms_days: number | null
+      is_active: boolean
+    }>,
+  ) => request<Supplier>(`/accounts-payable/suppliers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  listPurchaseOrders: (filters: { supplier_id?: string; status?: string } = {}) =>
+    request<PurchaseOrder[]>(`/accounts-payable/purchase-orders${qs(filters)}`),
+  createPurchaseOrder: (payload: {
+    supplier_id: string
+    order_date: string
+    description: string
+    amount_sgd: number
+  }) => request<PurchaseOrder>('/accounts-payable/purchase-orders', { method: 'POST', body: JSON.stringify(payload) }),
+  approvePurchaseOrder: (id: string) =>
+    request<PurchaseOrder>(`/accounts-payable/purchase-orders/${id}/approve`, { method: 'POST' }),
+
+  listBills: (filters: { supplier_id?: string; status?: string } = {}) =>
+    request<SupplierInvoice[]>(`/accounts-payable/bills${qs(filters)}`),
+  createBill: (payload: {
+    supplier_id: string
+    purchase_order_id?: string | null
+    supplier_invoice_no?: string
+    invoice_date: string
+    description: string
+    amount_sgd: number
+    gst_amount_sgd?: number
+  }) => request<SupplierInvoice>('/accounts-payable/bills', { method: 'POST', body: JSON.stringify(payload) }),
+
+  listSupplierPayments: (supplierId?: string) =>
+    request<SupplierPayment[]>(`/accounts-payable/payments${qs({ supplier_id: supplierId })}`),
+  recordSupplierPayment: (payload: {
+    supplier_id: string
+    payment_date: string
+    amount_sgd: number
+    method?: string
+    reference?: string
+    notes?: string
+    allocations?: { supplier_invoice_id: string; amount_sgd: number }[]
+  }) => request<SupplierPayment>('/accounts-payable/payments', { method: 'POST', body: JSON.stringify(payload) }),
+  allocateSupplierPayment: (id: string, allocations: { supplier_invoice_id: string; amount_sgd: number }[]) =>
+    request<SupplierPayment>(`/accounts-payable/payments/${id}/allocate`, {
+      method: 'POST',
+      body: JSON.stringify({ allocations }),
+    }),
+  apAging: () => request<APAgingReport>('/accounts-payable/aging'),
+
   listAccounts: (filters: { include_inactive?: boolean; account_type?: string } = {}) =>
     request<Account[]>(
       `/accounts${qs({

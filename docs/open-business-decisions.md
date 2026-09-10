@@ -246,6 +246,12 @@ sub-detail is called out explicitly).
 
 4.5. **How are PO/invoice matching mismatches handled** under the PUR-002
    2-way match (e.g. price or quantity discrepancy)?
+   **Status: STILL OPEN, not blocking.** A mismatch (different supplier,
+   amount, or an unapproved PO) is recorded as an **exception** with the
+   specific discrepancy spelled out, and a bill in that state cannot be
+   paid. What happens next — who resolves it, whether it needs a revised
+   PO or a credit note — is not decided, so nothing beyond flagging it is
+   automated.
    *Arises in:* Accounts Payable, Purchasing; Workflow F.
 
 ## 4b. Accounting & Finance (raised 2026-09-10 while building AR)
@@ -255,11 +261,12 @@ sub-detail is called out explicitly).
    *Arises in:* Finance / Accounting, Reporting.
 
 4b.2. **Which account does each transaction post to?** The chart of
-   accounts now exists (seeded from a conventional Singapore SME chart
-   for Dennis to adjust), but the posting rules — e.g. which revenue
-   account a service contract invoice credits, how GST output tax is
-   posted, how a bad-debt write-off is treated — are **not decided** and
-   nothing posts to the ledger yet.
+   accounts exists, and the General Ledger + Journal Voucher (JV) are
+   now built — but which account a *sales invoice*, a *receipt*, or a
+   *bad-debt write-off* posts to automatically is **still not decided**,
+   so nothing posts on its own yet. Today the JV is manual: whoever
+   raises it picks the accounts. Automatic posting from AR/AP/Billing
+   is future work once this is confirmed.
    *Arises in:* Finance / Accounting, Billing, Accounts Receivable.
 
 4b.3. **Is annual-upfront contract revenue deferred and released monthly,

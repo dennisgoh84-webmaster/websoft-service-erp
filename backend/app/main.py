@@ -15,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.routers import (
     accounts,
+    payables,
+    ledger,
     accounts_receivable,
     auth,
     billing,
@@ -73,6 +75,8 @@ app.include_router(excess_usage.router)
 app.include_router(billing.router)
 app.include_router(accounts_receivable.router)
 app.include_router(accounts.router)
+app.include_router(ledger.router)
+app.include_router(payables.router)
 app.include_router(dashboard.router)
 
 

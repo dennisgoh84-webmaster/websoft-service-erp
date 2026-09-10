@@ -9,7 +9,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.accounting import AccountType
+from app.models.accounting import AccountType, JournalStatus, VoucherType
+from app.models.payables import BillMatchStatus, BillStatus, PurchaseOrderStatus
 from app.models.contracts import ContractStatus, ExcessTreatment
 from app.models.core import UserRole
 from app.models.groups import AccessLevel
@@ -381,6 +382,7 @@ class PaymentAllocationOut(BaseModel):
 class PaymentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    voucher_number: str
     customer_id: uuid.UUID
     payment_date: date
     amount_sgd: float
@@ -396,6 +398,7 @@ class PaymentOut(BaseModel):
         numbers = invoice_numbers or {}
         return cls(
             id=payment.id,
+            voucher_number=payment.voucher_number,
             customer_id=payment.customer_id,
             payment_date=payment.payment_date,
             amount_sgd=float(payment.amount_sgd),
@@ -517,6 +520,258 @@ class AccountUpdate(BaseModel):
     account_type: AccountType | None = None
     description: str | None = None
     is_active: bool | None = None
+
+
+# ---- General Ledger / vouchers ----
+class JournalLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    account_id: uuid.UUID
+    account_code: str | None = None
+    account_name: str | None = None
+    debit_sgd: float
+    credit_sgd: float
+    description: str | None
+
+
+class JournalEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    voucher_number: str
+    voucher_type: VoucherType
+    entry_date: date
+    narration: str
+    status: JournalStatus
+    total_debit: float
+    total_credit: float
+    is_balanced: bool
+    reverses_entry_id: uuid.UUID | None
+    lines: list[JournalLineOut] = []
+
+    @classmethod
+    def from_model(cls, entry) -> "JournalEntryOut":
+        return cls(
+            id=entry.id,
+            voucher_number=entry.voucher_number,
+            voucher_type=entry.voucher_type,
+            entry_date=entry.entry_date,
+            narration=entry.narration,
+            status=entry.status,
+            total_debit=float(entry.total_debit),
+            total_credit=float(entry.total_credit),
+            is_balanced=entry.is_balanced,
+            reverses_entry_id=entry.reverses_entry_id,
+            lines=[
+                JournalLineOut(
+                    id=l.id,
+                    account_id=l.account_id,
+                    account_code=l.account.code if l.account else None,
+                    account_name=l.account.name if l.account else None,
+                    debit_sgd=float(l.debit_sgd),
+                    credit_sgd=float(l.credit_sgd),
+                    description=l.description,
+                )
+                for l in entry.lines
+            ],
+        )
+
+
+class JournalLineCreate(BaseModel):
+    account_id: uuid.UUID
+    debit_sgd: float = Field(default=0, ge=0)
+    credit_sgd: float = Field(default=0, ge=0)
+    description: str | None = None
+
+
+class JournalEntryCreate(BaseModel):
+    entry_date: date
+    narration: str = Field(min_length=1)
+    lines: list[JournalLineCreate]
+    # Post immediately rather than leaving it as a draft.
+    post: bool = False
+
+
+class ReverseRequest(BaseModel):
+    reason: str = Field(min_length=1)
+
+
+class TrialBalanceRow(BaseModel):
+    account_id: uuid.UUID
+    code: str
+    name: str
+    account_type: AccountType
+    debit_sgd: float
+    credit_sgd: float
+    balance_sgd: float
+
+
+class TrialBalance(BaseModel):
+    as_at: date | None
+    rows: list[TrialBalanceRow]
+    total_debit: float
+    total_credit: float
+    is_balanced: bool
+
+
+# ---- Accounts Payable ----
+class SupplierOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    email: str | None
+    address: str | None
+    gst_registration_no: str | None
+    payment_terms_days: int | None
+    is_active: bool
+
+
+class SupplierCreate(BaseModel):
+    name: str = Field(min_length=1)
+    email: str | None = None
+    address: str | None = None
+    gst_registration_no: str | None = None
+    payment_terms_days: int | None = Field(default=None, ge=0)
+
+
+class SupplierUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    address: str | None = None
+    gst_registration_no: str | None = None
+    payment_terms_days: int | None = Field(default=None, ge=0)
+    is_active: bool | None = None
+
+
+class PurchaseOrderOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    po_number: str
+    supplier_id: uuid.UUID
+    order_date: date
+    description: str
+    amount_sgd: float
+    gst_amount_sgd: float
+    total_amount_sgd: float
+    status: PurchaseOrderStatus
+
+
+class PurchaseOrderCreate(BaseModel):
+    supplier_id: uuid.UUID
+    order_date: date
+    description: str = Field(min_length=1)
+    amount_sgd: float = Field(gt=0)
+
+
+class SupplierInvoiceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    bill_number: str
+    supplier_invoice_no: str | None
+    supplier_id: uuid.UUID
+    purchase_order_id: uuid.UUID | None
+    invoice_date: date
+    due_date: date | None
+    description: str
+    amount_sgd: float
+    gst_amount_sgd: float
+    total_amount_sgd: float
+    amount_paid_sgd: float
+    outstanding_sgd: float
+    match_status: BillMatchStatus
+    match_note: str | None
+    status: BillStatus
+
+
+class SupplierInvoiceCreate(BaseModel):
+    supplier_id: uuid.UUID
+    purchase_order_id: uuid.UUID | None = None
+    supplier_invoice_no: str | None = None
+    invoice_date: date
+    description: str = Field(min_length=1)
+    amount_sgd: float = Field(gt=0)
+    gst_amount_sgd: float = Field(default=0, ge=0)
+
+
+class SupplierPaymentAllocationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    supplier_invoice_id: uuid.UUID
+    bill_number: str | None = None
+    amount_sgd: float
+
+
+class SupplierPaymentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    voucher_number: str
+    supplier_id: uuid.UUID
+    payment_date: date
+    amount_sgd: float
+    allocated_sgd: float
+    unallocated_sgd: float
+    method: str
+    reference: str | None
+    allocations: list[SupplierPaymentAllocationOut] = []
+
+    @classmethod
+    def from_model(cls, payment, bill_numbers: dict | None = None) -> "SupplierPaymentOut":
+        numbers = bill_numbers or {}
+        return cls(
+            id=payment.id,
+            voucher_number=payment.voucher_number,
+            supplier_id=payment.supplier_id,
+            payment_date=payment.payment_date,
+            amount_sgd=float(payment.amount_sgd),
+            allocated_sgd=float(payment.allocated_sgd),
+            unallocated_sgd=float(payment.unallocated_sgd),
+            method=payment.method,
+            reference=payment.reference,
+            allocations=[
+                SupplierPaymentAllocationOut(
+                    id=a.id,
+                    supplier_invoice_id=a.supplier_invoice_id,
+                    bill_number=numbers.get(a.supplier_invoice_id),
+                    amount_sgd=float(a.amount_sgd),
+                )
+                for a in payment.allocations
+            ],
+        )
+
+
+class SupplierPaymentAllocationEntry(BaseModel):
+    supplier_invoice_id: uuid.UUID
+    amount_sgd: float = Field(gt=0)
+
+
+class SupplierPaymentCreate(BaseModel):
+    supplier_id: uuid.UUID
+    payment_date: date
+    amount_sgd: float = Field(gt=0)
+    method: str = "bank_transfer"
+    reference: str | None = None
+    notes: str | None = None
+    allocations: list[SupplierPaymentAllocationEntry] = []
+
+
+class SupplierAllocateRequest(BaseModel):
+    allocations: list[SupplierPaymentAllocationEntry]
+
+
+class APAgingRow(BaseModel):
+    supplier_id: uuid.UUID
+    supplier_name: str
+    current: float
+    days_1_30: float
+    days_31_60: float
+    days_61_90: float
+    over_90: float
+    total: float
+
+
+class APAgingReport(BaseModel):
+    as_at: date
+    rows: list[APAgingRow]
+    total: float
 
 
 # ---- Module Control / licensing ----

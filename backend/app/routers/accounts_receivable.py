@@ -32,6 +32,7 @@ from app.schemas.schemas import (
 from app.services import accounts_receivable as ar_svc
 from app.services import audit
 from app.services.authority import require_module_access
+from app.services.numbering import next_document_number
 
 router = APIRouter(prefix="/api/accounts-receivable", tags=["accounts-receivable"])
 MODULE = "accounts_receivable"
@@ -87,6 +88,9 @@ def record_payment(
     payment = Payment(
         company_id=current_user.company_id,
         customer_id=payload.customer_id,
+        voucher_number=next_document_number(
+            db, company_id=current_user.company_id, doc_kind="receipt"
+        ),
         payment_date=payload.payment_date,
         amount_sgd=Decimal(str(payload.amount_sgd)),
         method=method,
@@ -111,7 +115,7 @@ def record_payment(
         action="recorded",
         actor_user_id=current_user.id,
         details=(
-            f"SGD {payload.amount_sgd} from {customer.name} "
+            f"{payment.voucher_number}: SGD {payload.amount_sgd} from {customer.name} "
             f"({method.value}, ref={payload.reference or '-'})"
         ),
         new_value={

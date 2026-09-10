@@ -44,6 +44,9 @@ class Payment(Base):
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
     customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
 
+    # Receipt Voucher number (RV-YYYY-nnnn) -- the document reference
+    # Finance and the customer both quote.
+    voucher_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     payment_date: Mapped[date] = mapped_column(Date, nullable=False)
     amount_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     method: Mapped[PaymentMethod] = mapped_column(

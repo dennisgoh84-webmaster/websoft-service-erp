@@ -49,11 +49,21 @@ from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
 from app.models.accounting import Account, AccountType
+from app.models.payables import (
+    PurchaseOrder,
+    PurchaseOrderStatus,
+    Supplier,
+    SupplierInvoice,
+    SupplierPayment,
+)
 from app.models.tax import TaxCode
+from app.services import payables as ap_svc
 from app.services import billing as billing_svc
 from app.services import contracts as contract_svc
 from app.services import service_records as sr_svc
 from app.services.auth import hash_password
+from app.services.numbering import next_document_number
+from app.services.tax import apply_gst
 
 DEMO_PASSWORD = "demo1234"
 
@@ -78,8 +88,8 @@ MODULE_CATALOG = [
     ("service_records", "Service Records", True, True),
     ("billing", "Billing", True, True),
     ("accounts_receivable", "Accounts Receivable", True, True),
-    ("accounts_payable", "Accounts Payable", False, False),
-    ("purchasing", "Purchasing", False, False),
+    ("accounts_payable", "Accounts Payable", True, True),
+    ("purchasing", "Purchasing", True, True),
     ("inventory", "Inventory", False, False),
     ("hardware_management", "Hardware Management", False, False),
     ("commission_management", "Commission Management", False, False),  # deferred
@@ -107,6 +117,9 @@ GROUP_CATALOG = {
                 "event_logs",
                 "customer_management",
                 "accounts_receivable",
+                "accounts_payable",
+                "purchasing",
+                "finance_accounting",
                 "service_contracts",
                 "service_operations",
                 "service_records",
@@ -142,11 +155,15 @@ GROUP_CATALOG = {
         },
     ),
     "Finance Team": (
-        "Billing, invoicing and Accounts Receivable -- records customer "
-        "payments, allocates them (AR-001) and manages collections.",
+        "Billing, invoicing, Accounts Receivable, Accounts Payable and the "
+        "general ledger -- records customer payments and allocates them "
+        "(AR-001), pays suppliers, raises purchase orders, and posts "
+        "Journal Vouchers.",
         {
             "billing": FULL,
             "accounts_receivable": FULL,
+            "accounts_payable": FULL,
+            "purchasing": FULL,
             "finance_accounting": FULL,
             "service_contracts": VIEW,
             "customer_management": VIEW,
@@ -467,6 +484,57 @@ def main():
             db, job_order_id=job_order.id, employee_user_id=engineer.id,
             work_date=date.today(), raw_minutes=80,
         )
+        db.commit()
+
+        # --- Accounts Payable demo: a supplier, a PO, a matched bill,
+        # and a payment voucher settling it -- proves the 2-way match
+        # (PUR-002) auto-approves for payment (PUR-003) end to end.
+        supplier = Supplier(
+            company_id=company.id, name="CloudHost Infrastructure Pte Ltd",
+            email="billing@cloudhost.test", payment_terms_days=30,
+        )
+        db.add(supplier)
+        db.flush()
+
+        po_net = Decimal("1200.00")
+        _code, _rate, po_gst, po_total = apply_gst(db, company_id=company.id, net_amount=po_net)
+        po = PurchaseOrder(
+            company_id=company.id, supplier_id=supplier.id,
+            po_number=next_document_number(db, company_id=company.id, doc_kind="purchase_order"),
+            order_date=date.today() - timedelta(days=14),
+            description="Annual cloud hosting renewal",
+            amount_sgd=po_net, gst_amount_sgd=po_gst, total_amount_sgd=po_total,
+            # No threshold is set yet (open item 4.4), so PUR-001 sends
+            # every PO to the owner -- shown here rather than skipped.
+            status=PurchaseOrderStatus.PENDING_APPROVAL,
+        )
+        db.add(po)
+        db.flush()
+        ap_svc.approve_purchase_order(db, po, actor=dennis)
+
+        bill = SupplierInvoice(
+            company_id=company.id, supplier_id=supplier.id, purchase_order_id=po.id,
+            bill_number=next_document_number(db, company_id=company.id, doc_kind="supplier_invoice"),
+            supplier_invoice_no="CH-2026-4471",
+            invoice_date=date.today() - timedelta(days=2),
+            due_date=ap_svc.due_date_for_bill(db, supplier.id, date.today() - timedelta(days=2)),
+            description="Annual cloud hosting renewal",
+            amount_sgd=po_net, gst_amount_sgd=po_gst, total_amount_sgd=po_total,
+        )
+        db.add(bill)
+        db.flush()
+        ap_svc.match_bill_to_po(db, bill)  # PUR-002 match -> PUR-003 auto-approves
+
+        payment_voucher = SupplierPayment(
+            company_id=company.id, supplier_id=supplier.id,
+            voucher_number=next_document_number(db, company_id=company.id, doc_kind="payment"),
+            payment_date=date.today(), amount_sgd=po_total,
+            method="bank_transfer", reference="DBS-TT-55231",
+            paid_by_user_id=dennis.id,
+        )
+        db.add(payment_voucher)
+        db.flush()
+        ap_svc.allocate_supplier_payment(db, payment_voucher, bill, po_total)
         db.commit()
 
         print("\n=== Demo dataset ready ===")

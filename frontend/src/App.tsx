@@ -4,7 +4,9 @@ import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { ThemeProvider } from './lib/ThemeContext'
 import AccountsReceivablePage from './pages/AccountsReceivablePage'
+import AccountsPayablePage from './pages/AccountsPayablePage'
 import ChartOfAccountsPage from './pages/ChartOfAccountsPage'
+import GeneralLedgerPage from './pages/GeneralLedgerPage'
 import CompanySetupPage from './pages/CompanySetupPage'
 import ContractDetailPage from './pages/ContractDetailPage'
 import ContractsPage from './pages/ContractsPage'
@@ -49,6 +51,8 @@ function AppRoutes() {
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/accounts-receivable" element={<AccountsReceivablePage />} />
         <Route path="/chart-of-accounts" element={<ChartOfAccountsPage />} />
+        <Route path="/accounts-payable" element={<AccountsPayablePage />} />
+        <Route path="/general-ledger" element={<GeneralLedgerPage />} />
         <Route path="/company-setup" element={<CompanySetupPage />} />
         <Route path="/modules" element={<ModulesPage />} />
         <Route path="/staff" element={<StaffMasterPage />} />

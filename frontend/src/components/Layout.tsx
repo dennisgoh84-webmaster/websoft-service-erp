@@ -32,6 +32,8 @@ export default function Layout() {
         <NavLink to="/invoices">Invoices</NavLink>
         <NavLink to="/accounts-receivable">Accounts Receivable</NavLink>
         <NavLink to="/chart-of-accounts">Chart of Accounts</NavLink>
+        <NavLink to="/accounts-payable">Accounts Payable</NavLink>
+        <NavLink to="/general-ledger">General Ledger</NavLink>
         {user?.role === 'owner' && <NavLink to="/company-setup">Company Setup</NavLink>}
         {user?.role === 'owner' && <NavLink to="/modules">Module Control</NavLink>}
         {user?.role === 'owner' && <NavLink to="/staff">Staff Master</NavLink>}

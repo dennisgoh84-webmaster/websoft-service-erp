@@ -37,7 +37,14 @@ class DocumentSequence(Base):
     last_number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
-PREFIXES = {"invoice": "INV", "payment": "RCP"}
+PREFIXES = {
+    "invoice": "INV",       # sales tax invoice
+    "receipt": "RV",        # receipt voucher -- money in
+    "payment": "PV",        # payment voucher -- money out
+    "journal": "JV",        # journal voucher -- manual adjustment
+    "purchase_order": "PO",
+    "supplier_invoice": "BILL",
+}
 
 
 def next_document_number(

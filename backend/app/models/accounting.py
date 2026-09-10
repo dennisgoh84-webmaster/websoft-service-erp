@@ -14,11 +14,23 @@ about which account each transaction hits.
 """
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -55,3 +67,105 @@ class Account(Base):
     # must remain for the history to stay readable.
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class VoucherType(str, enum.Enum):
+    """What kind of document a ledger entry came from. Vouchers are the
+    unit of entry: money in (RV), money out (PV), and manual adjustments
+    (JV)."""
+
+    JOURNAL = "journal"  # JV -- manual double entry
+    RECEIPT = "receipt"  # RV -- money received from a customer
+    PAYMENT = "payment"  # PV -- money paid to a supplier
+    SALES_INVOICE = "sales_invoice"
+    PURCHASE_INVOICE = "purchase_invoice"
+
+
+class JournalStatus(str, enum.Enum):
+    DRAFT = "draft"
+    POSTED = "posted"
+    REVERSED = "reversed"
+
+
+class JournalEntry(Base):
+    """One voucher in the general ledger.
+
+    Double entry is enforced: an entry cannot be posted unless its debits
+    equal its credits. A posted entry is immutable -- corrections are
+    made by REVERSING it (which writes an equal and opposite entry),
+    never by editing or deleting, so the ledger keeps a complete history
+    per CLAUDE.md's never-delete-financial-records rule.
+    """
+
+    __tablename__ = "journal_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    voucher_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    voucher_type: Mapped[VoucherType] = mapped_column(
+        Enum(VoucherType, name="voucher_type"), default=VoucherType.JOURNAL
+    )
+    entry_date: Mapped[date] = mapped_column(Date, nullable=False)
+    narration: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[JournalStatus] = mapped_column(
+        Enum(JournalStatus, name="journal_status"), default=JournalStatus.DRAFT
+    )
+
+    # Where this entry came from, when it wasn't keyed by hand (e.g. the
+    # receipt voucher that generated it).
+    source_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # Set on the reversal entry, pointing at what it reverses.
+    reverses_entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("journal_entries.id"), nullable=True
+    )
+
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    posted_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    lines: Mapped[list["JournalLine"]] = relationship(
+        back_populates="entry", cascade="all, delete-orphan"
+    )
+
+    @property
+    def total_debit(self) -> Decimal:
+        return sum((Decimal(l.debit_sgd) for l in self.lines), start=Decimal("0.00"))
+
+    @property
+    def total_credit(self) -> Decimal:
+        return sum((Decimal(l.credit_sgd) for l in self.lines), start=Decimal("0.00"))
+
+    @property
+    def is_balanced(self) -> bool:
+        return self.total_debit == self.total_credit and self.total_debit > Decimal("0.00")
+
+
+class JournalLine(Base):
+    """One side of a voucher: an account, and either a debit or a credit.
+
+    A line carries one or the other, never both -- keeping them separate
+    columns (rather than one signed amount) is how accountants read a
+    ledger, and makes the balance check obvious.
+    """
+
+    __tablename__ = "journal_lines"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    entry_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("journal_entries.id"), nullable=False)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    debit_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    credit_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    entry: Mapped["JournalEntry"] = relationship(back_populates="lines")
+    account: Mapped["Account"] = relationship()
