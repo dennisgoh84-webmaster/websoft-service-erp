@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, type Contract, type Customer, type JobOrder, type JobOrderPriority } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Contract, type Customer, type JobOrder, type JobOrderPriority } from '../lib/api'
 
 export default function JobOrdersPage() {
   const [jobOrders, setJobOrders] = useState<JobOrder[]>([])
@@ -64,6 +65,21 @@ export default function JobOrdersPage() {
     setFilterPriority('')
     setFilterCustomer('')
     setFilterContract('')
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    const filters = {
+      status: filterStatus || undefined,
+      priority: filterPriority || undefined,
+      customer_id: filterCustomer || undefined,
+      contract_id: filterContract || undefined,
+    }
+    if (format === 'csv') {
+      downloadBlob(await api.exportJobOrdersCsv(filters), 'job-orders.csv')
+    } else {
+      downloadBlob(await api.exportJobOrdersExcel(filters), 'job-orders.xlsx')
+    }
   }
 
   return (
@@ -174,6 +190,14 @@ export default function JobOrdersPage() {
           <button type="button" className="secondary" onClick={resetFilters}>
             Reset filters
           </button>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         <h2>Job orders ({jobOrders.length})</h2>

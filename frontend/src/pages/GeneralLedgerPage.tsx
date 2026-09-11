@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api, type Account, type JournalEntry, type TrialBalance } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Account, type JournalEntry, type TrialBalance } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -90,6 +91,24 @@ export default function GeneralLedgerPage() {
     }
   }
 
+  async function onExportTrialBalance(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportTrialBalanceCsv(), 'trial-balance.csv')
+    } else {
+      downloadBlob(await api.exportTrialBalanceExcel(), 'trial-balance.xlsx')
+    }
+  }
+
+  async function onExportVouchers(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportVouchersCsv(), 'vouchers.csv')
+    } else {
+      downloadBlob(await api.exportVouchersExcel(), 'vouchers.xlsx')
+    }
+  }
+
   async function onReverse(voucher: JournalEntry) {
     const reason = window.prompt(`Reverse ${voucher.voucher_number}? Give a reason:`)
     if (!reason) return
@@ -121,12 +140,22 @@ export default function GeneralLedgerPage() {
 
       {trialBalance && (
         <div className="card">
-          <h2>
-            Trial balance{' '}
-            <span className={`badge ${trialBalance.is_balanced ? 'active' : 'exceeded'}`}>
-              {trialBalance.is_balanced ? 'balanced' : 'OUT OF BALANCE'}
-            </span>
-          </h2>
+          <div className="filter-bar">
+            <h2 style={{ margin: 0 }}>
+              Trial balance{' '}
+              <span className={`badge ${trialBalance.is_balanced ? 'active' : 'exceeded'}`}>
+                {trialBalance.is_balanced ? 'balanced' : 'OUT OF BALANCE'}
+              </span>
+            </h2>
+            <ExportControl
+              formats={[
+                { value: 'csv', label: 'CSV' },
+                { value: 'excel', label: 'Excel' },
+              ]}
+              onExport={onExportTrialBalance}
+              onError={setError}
+            />
+          </div>
           <table>
             <thead>
               <tr>
@@ -300,7 +329,17 @@ export default function GeneralLedgerPage() {
       </div>
 
       <div className="card">
-        <h2>Vouchers ({vouchers.length})</h2>
+        <div className="filter-bar">
+          <h2 style={{ margin: 0 }}>Vouchers ({vouchers.length})</h2>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExportVouchers}
+            onError={setError}
+          />
+        </div>
         <div style={{ overflowX: 'auto' }}>
           <table>
             <thead>

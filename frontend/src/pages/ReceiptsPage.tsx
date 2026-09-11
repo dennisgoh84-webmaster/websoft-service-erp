@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api, type Customer, type Invoice, type Payment } from '../lib/api'
+import { Link } from 'react-router-dom'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Customer, type Invoice, type Payment } from '../lib/api'
 
 const METHODS = [
   { value: 'bank_transfer', label: 'Bank transfer' },
@@ -62,6 +64,15 @@ export default function ReceiptsPage() {
       setError(err instanceof Error ? err.message : 'Failed to record payment')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportPaymentsCsv(), 'receipts.csv')
+    } else {
+      downloadBlob(await api.exportPaymentsExcel(), 'receipts.xlsx')
     }
   }
 
@@ -155,16 +166,28 @@ export default function ReceiptsPage() {
       </div>
 
       <div className="card">
-        <h2>Receipts ({payments.length})</h2>
+        <div className="filter-bar">
+          <h2 style={{ margin: 0 }}>Receipts ({payments.length})</h2>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
+        </div>
         <table>
           <thead>
             <tr>
+              <th>Voucher</th>
               <th>Date</th>
               <th>Customer</th>
               <th>Amount</th>
               <th>Unallocated</th>
               <th>Reference</th>
               <th>Allocate to invoice</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -173,6 +196,7 @@ export default function ReceiptsPage() {
               const customerInvoices = openInvoices.filter((i) => i.customer_id === p.customer_id)
               return (
                 <tr key={p.id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{p.voucher_number}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{p.payment_date}</td>
                   <td>{customerName(p.customer_id)}</td>
                   <td>{money(p.amount_sgd)}</td>
@@ -228,12 +252,17 @@ export default function ReceiptsPage() {
                       <span className="muted">-</span>
                     )}
                   </td>
+                  <td>
+                    <Link to={`/receipts/${p.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
+                      Print
+                    </Link>
+                  </td>
                 </tr>
               )
             })}
             {payments.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={8} className="muted">
                   No receipts recorded yet.
                 </td>
               </tr>

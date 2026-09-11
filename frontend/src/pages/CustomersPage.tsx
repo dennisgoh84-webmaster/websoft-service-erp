@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type Customer, type CustomerGroup, type CustomerType } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Customer, type CustomerGroup, type CustomerType } from '../lib/api'
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -39,6 +40,16 @@ export default function CustomersPage() {
     setQ('')
     setFilterGroup('')
     setShowInactive(false)
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    const filters = { q: q || undefined, customer_group_id: filterGroup || undefined, include_inactive: showInactive }
+    if (format === 'csv') {
+      downloadBlob(await api.exportCustomersCsv(filters), 'customers.csv')
+    } else {
+      downloadBlob(await api.exportCustomersExcel(filters), 'customers.xlsx')
+    }
   }
 
   async function onCreate(e: FormEvent) {
@@ -137,6 +148,14 @@ export default function CustomersPage() {
           <button type="button" className="secondary" onClick={resetFilters}>
             Reset filters
           </button>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         <h2>Customers ({customers.length})</h2>

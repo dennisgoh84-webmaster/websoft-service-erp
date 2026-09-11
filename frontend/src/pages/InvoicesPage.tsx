@@ -50,6 +50,15 @@ export default function InvoicesPage() {
     }
   }
 
+  async function onExportAging(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportArAgingCsv(), 'ar-aging.csv')
+    } else {
+      downloadBlob(await api.exportArAgingExcel(), 'ar-aging.xlsx')
+    }
+  }
+
   async function onWriteOff(invoice: Invoice) {
     const reason = window.prompt(
       `Write off SGD ${money(invoice.outstanding_sgd)} on ${invoice.invoice_number}?\n\n` +
@@ -103,7 +112,17 @@ export default function InvoicesPage() {
 
       {aging && (
         <div className="card">
-          <h2>Aging as at {aging.as_at}</h2>
+          <div className="filter-bar">
+            <h2 style={{ margin: 0 }}>Aging as at {aging.as_at}</h2>
+            <ExportControl
+              formats={[
+                { value: 'csv', label: 'CSV' },
+                { value: 'excel', label: 'Excel' },
+              ]}
+              onExport={onExportAging}
+              onError={setError}
+            />
+          </div>
           <div className="stat-grid">
             <div className="card stat-tile">
               <div className="stat-value">{money(aging.current)}</div>

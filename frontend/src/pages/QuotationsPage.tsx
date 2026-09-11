@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type Customer, type Product, type Quotation, type QuotationStatus } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Customer, type Product, type Quotation, type QuotationStatus } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -117,6 +118,16 @@ export default function QuotationsPage() {
       setError(err instanceof Error ? err.message : 'Failed to create quotation')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    const filters = { status: filterStatus || undefined, customer_id: filterCustomer || undefined }
+    if (format === 'csv') {
+      downloadBlob(await api.exportQuotationsCsv(filters), 'quotations.csv')
+    } else {
+      downloadBlob(await api.exportQuotationsExcel(filters), 'quotations.xlsx')
     }
   }
 
@@ -321,6 +332,14 @@ export default function QuotationsPage() {
           >
             Reset filters
           </button>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         <h2>Quotations ({quotations.length})</h2>
@@ -364,6 +383,9 @@ export default function QuotationsPage() {
                     )}
                   </td>
                   <td style={{ display: 'flex', gap: 6 }}>
+                    <Link to={`/quotations/${q.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
+                      Print
+                    </Link>
                     {q.status === 'draft' && (
                       <button className="secondary" onClick={() => onSend(q)}>
                         Send

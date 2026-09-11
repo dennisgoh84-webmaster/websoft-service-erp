@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api, type Supplier, type SupplierInvoice, type SupplierPayment } from '../lib/api'
+import { Link } from 'react-router-dom'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Supplier, type SupplierInvoice, type SupplierPayment } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -47,6 +49,15 @@ export default function PaymentVoucherPage() {
     }
   }
 
+  async function onExport(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportSupplierPaymentsCsv(), 'payment-vouchers.csv')
+    } else {
+      downloadBlob(await api.exportSupplierPaymentsExcel(), 'payment-vouchers.xlsx')
+    }
+  }
+
   async function onAllocate(payment: SupplierPayment) {
     const choice = allocFor[payment.id]
     if (!choice?.billId || !choice.amount) {
@@ -80,7 +91,17 @@ export default function PaymentVoucherPage() {
       )}
 
       <div className="card">
-        <h2>Payment vouchers ({payments.length})</h2>
+        <div className="filter-bar">
+          <h2 style={{ margin: 0 }}>Payment vouchers ({payments.length})</h2>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
+        </div>
         <table>
           <thead>
             <tr>
@@ -89,6 +110,7 @@ export default function PaymentVoucherPage() {
               <th>Amount</th>
               <th>Unallocated</th>
               <th>Allocate to bill</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -145,12 +167,17 @@ export default function PaymentVoucherPage() {
                       <span className="muted">-</span>
                     )}
                   </td>
+                  <td>
+                    <Link to={`/payment-voucher/${p.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
+                      Print
+                    </Link>
+                  </td>
                 </tr>
               )
             })}
             {payments.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={6} className="muted">
                   No payment vouchers recorded yet.
                 </td>
               </tr>

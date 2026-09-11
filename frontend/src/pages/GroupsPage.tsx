@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api, type AccessLevel, type Group, type ModuleInfo } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type AccessLevel, type Group, type ModuleInfo } from '../lib/api'
 
 const ACCESS_LEVELS: AccessLevel[] = ['none', 'view', 'edit', 'full']
 
@@ -40,6 +41,15 @@ export default function GroupsPage() {
       setSelectedId(g.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create group')
+    }
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportGroupsCsv(), 'groups.csv')
+    } else {
+      downloadBlob(await api.exportGroupsExcel(), 'groups.xlsx')
     }
   }
 
@@ -89,7 +99,17 @@ export default function GroupsPage() {
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
         <div style={{ width: 320, flexShrink: 0 }}>
           <div className="card">
-            <h2>Groups</h2>
+            <div className="filter-bar">
+              <h2 style={{ margin: 0 }}>Groups</h2>
+              <ExportControl
+                formats={[
+                  { value: 'csv', label: 'CSV' },
+                  { value: 'excel', label: 'Excel' },
+                ]}
+                onExport={onExport}
+                onError={setError}
+              />
+            </div>
             <table>
               <tbody>
                 {groups.map((g) => (

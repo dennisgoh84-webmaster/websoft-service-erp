@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api, type AuditLogEntry, type EventLogFilters, type StaffUser } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type AuditLogEntry, type EventLogFilters, type StaffUser } from '../lib/api'
 import { isoToMonth, monthEndISO, monthStartISO } from '../lib/period'
 
 const ENTITY_TYPES = [
@@ -31,7 +32,6 @@ export default function EventLogsPage() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([])
   const [staff, setStaff] = useState<StaffUser[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [exporting, setExporting] = useState(false)
 
   const [entityType, setEntityType] = useState('')
   const [action, setAction] = useState('')
@@ -72,25 +72,14 @@ export default function EventLogsPage() {
     setQ('')
   }
 
-  async function onExport() {
+  async function onExport(format: string) {
     setError(null)
-    setExporting(true)
-    try {
-      const blob = await api.exportEventLogsCsv(currentFilters())
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'event-log-export.csv'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      refresh() // the export itself is now a new "report_generated" entry
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export event logs')
-    } finally {
-      setExporting(false)
+    if (format === 'csv') {
+      downloadBlob(await api.exportEventLogsCsv(currentFilters()), 'event-log-export.csv')
+    } else {
+      downloadBlob(await api.exportEventLogsExcel(currentFilters()), 'event-log-export.xlsx')
     }
+    refresh() // the export itself is now a new "report_generated" entry
   }
 
   return (
@@ -164,9 +153,14 @@ export default function EventLogsPage() {
           <button type="button" className="secondary" onClick={resetFilters}>
             Reset filters
           </button>
-          <button type="button" onClick={onExport} disabled={exporting}>
-            {exporting ? 'Exporting...' : 'Export CSV'}
-          </button>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         <h2>Events ({entries.length})</h2>
