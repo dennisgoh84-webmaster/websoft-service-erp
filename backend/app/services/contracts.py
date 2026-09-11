@@ -15,6 +15,7 @@ from datetime import date, datetime, timedelta, timezone
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
+from app.models.catalog import Product
 from app.models.contracts import (
     MINIMUM_CONTRACTED_HOURS,
     PRE_EXPIRY_CHECK_LEAD_DAYS,
@@ -22,6 +23,7 @@ from app.models.contracts import (
     STANDARD_CONTRACT_MONTHS,
     Contract,
     ContractKind,
+    ContractProduct,
     ContractStatus,
     ExpiredHoursRecord,
 )
@@ -44,6 +46,9 @@ def create_contract(
     contract_kind: ContractKind = ContractKind.SERVICE_SUPPORT,
     term_months: int = STANDARD_CONTRACT_MONTHS,
     renewed_from_contract_id: uuid.UUID | None = None,
+    hourly_rate_sgd: float | None = None,
+    sales_staff_id: uuid.UUID | None = None,
+    product_ids: list[uuid.UUID] | None = None,
 ) -> Contract:
     if contract_kind == ContractKind.SERVICE_SUPPORT:
         # SRV-002 / SRV-012: 10-hour hard minimum, no override mechanism.
@@ -53,11 +58,22 @@ def create_contract(
                 "(SRV-002). There is no override mechanism (SRV-012)."
             )
     else:
-        # ANNUAL (term-only): no hours at all, confirmed 2026-09-10 --
-        # any contracted_hours passed in is ignored rather than silently
-        # accepted, so a caller can't end up with a half-hourly annual
-        # contract by mistake.
+        # ANNUAL (term-only) and AD_HOC: no hours at all, confirmed
+        # 2026-09-10/2026-09-11 -- any contracted_hours passed in is
+        # ignored rather than silently accepted, so a caller can't end
+        # up with a half-hourly annual/ad-hoc contract by mistake.
         contracted_hours = 0
+
+    if contract_kind == ContractKind.AD_HOC:
+        # AD_HOC (confirmed 2026-09-11): no upfront value -- work is
+        # billed as it happens, off the reference rate below.
+        contract_value_sgd = 0
+        if hourly_rate_sgd is None or hourly_rate_sgd <= 0:
+            raise ContractRuleViolation(
+                "An Ad Hoc Rate contract needs a reference hourly rate greater than zero."
+            )
+    else:
+        hourly_rate_sgd = None
 
     # SRV-001: standard duration is 12 months by default, tracked
     # start/end date. `term_months` lets an ANNUAL contract's term
@@ -72,12 +88,22 @@ def create_contract(
         contracted_minutes=int(contracted_hours * 60),
         consumed_minutes=0,
         contract_value_sgd=contract_value_sgd,
+        hourly_rate_sgd=hourly_rate_sgd,
+        sales_staff_id=sales_staff_id,
         start_date=start_date,
         end_date=end_date,
         renewed_from_contract_id=renewed_from_contract_id,
     )
     db.add(contract)
     db.flush()
+
+    for product_id in product_ids or []:
+        product = db.get(Product, product_id)
+        if product is None or product.company_id != company_id:
+            raise ContractRuleViolation("Unknown product in product coverage.")
+        db.add(ContractProduct(contract_id=contract.id, product_id=product_id))
+    if product_ids:
+        db.flush()
 
     audit.record(
         db,
@@ -199,6 +225,7 @@ def renew_contract(
     actor_user_id: uuid.UUID,
     renewal_date: date | None = None,
     force_start_date: date | None = None,
+    hourly_rate_sgd: float | None = None,
 ) -> Contract:
     """SRV-010: renewal creates a NEW contract record referencing the
     prior one, with its own fresh hour allocation (it never inherits the
@@ -226,6 +253,9 @@ def renew_contract(
     if prior_contract.status not in (ContractStatus.EXPIRED, ContractStatus.EXCEEDED, ContractStatus.ACTIVE):
         raise ContractRuleViolation("Prior contract must be Active, Exceeded, or Expired to renew.")
 
+    # Product coverage and the sales staff owner carry forward from the
+    # prior contract by default -- a renewal is the same commercial
+    # relationship continuing, not a fresh setup.
     new_contract = create_contract(
         db,
         company_id=prior_contract.company_id,
@@ -236,6 +266,9 @@ def renew_contract(
         start_date=start_date,
         actor_user_id=actor_user_id,
         renewed_from_contract_id=prior_contract.id,
+        hourly_rate_sgd=hourly_rate_sgd if hourly_rate_sgd is not None else prior_contract.hourly_rate_sgd,
+        sales_staff_id=prior_contract.sales_staff_id,
+        product_ids=[cp.product_id for cp in prior_contract.products],
     )
 
     if prior_contract.status != ContractStatus.EXPIRED:

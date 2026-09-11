@@ -280,21 +280,32 @@ export type CustomerFields = Partial<{
 
 export type ContractStatus = 'draft' | 'active' | 'exceeded' | 'expired' | 'renewed'
 
-export type ContractKind = 'service_support' | 'annual'
+/** The contract type decides its "offset method": service_support
+ * deducts hours, annual is time-coverage only (no hours), ad_hoc has
+ * neither -- work is billed off the contract's reference hourly_rate_sgd. */
+export type ContractKind = 'service_support' | 'annual' | 'ad_hoc'
+
+export interface ContractProductCoverage {
+  product_id: string
+  product_name: string
+}
 
 export interface Contract {
   id: string
   customer_id: string
   status: ContractStatus
-  /** service_support: hours-based, 10-hr minimum. annual: term-only, no hours. */
   contract_kind: ContractKind
   contracted_hours: number
   consumed_hours: number
   remaining_hours: number
   contract_value_sgd: number
+  /** Reference rate for ad_hoc contracts only; null otherwise. */
+  hourly_rate_sgd: number | null
+  sales_staff_id: string | null
   start_date: string
   end_date: string
   renewed_from_contract_id: string | null
+  products: ContractProductCoverage[]
 }
 
 export type JobOrderPriority = 'low' | 'normal' | 'high' | 'critical'
@@ -1012,8 +1023,21 @@ export const api = {
   reactivateBranch: (customerId: string, branchId: string) =>
     request<Branch>(`/customers/${customerId}/branches/${branchId}/reactivate`, { method: 'POST' }),
 
-  listContracts: (filters: { status?: string; customer_id?: string } = {}) =>
-    request<Contract[]>(`/contracts${qs(filters)}`),
+  listContracts: (
+    filters: {
+      status?: string
+      customer_id?: string
+      contract_kind?: ContractKind
+      sales_staff_id?: string
+      product_id?: string
+      coverage_start?: string
+      coverage_end?: string
+    } = {},
+  ) => request<Contract[]>(`/contracts${qs(filters)}`),
+  exportContractsCsv: (filters: Record<string, string | undefined> = {}) =>
+    requestBlob(`/contracts/export.csv${qs(filters)}`),
+  exportContractsExcel: (filters: Record<string, string | undefined> = {}) =>
+    requestBlob(`/contracts/export.xlsx${qs(filters)}`),
   getContract: (id: string) => request<Contract>(`/contracts/${id}`),
   createContract: (payload: {
     customer_id: string
@@ -1021,11 +1045,21 @@ export const api = {
     contracted_hours: number
     contract_value_sgd: number
     start_date: string
+    hourly_rate_sgd?: number | null
+    sales_staff_id?: string | null
+    product_ids?: string[]
   }) => request<Contract>('/contracts', { method: 'POST', body: JSON.stringify(payload) }),
+  updateContract: (id: string, payload: { sales_staff_id?: string | null; product_ids?: string[] }) =>
+    request<Contract>(`/contracts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   activateContract: (id: string) => request<Contract>(`/contracts/${id}/activate`, { method: 'POST' }),
   renewContract: (
     id: string,
-    payload: { contracted_hours: number; contract_value_sgd: number; force_start_date?: string },
+    payload: {
+      contracted_hours: number
+      contract_value_sgd: number
+      force_start_date?: string
+      hourly_rate_sgd?: number | null
+    },
   ) => request<Contract>(`/contracts/${id}/renew`, { method: 'POST', body: JSON.stringify(payload) }),
   listContractExcessUsage: (id: string) =>
     request<ExcessUsageRecord[]>(`/contracts/${id}/excess-usage`),

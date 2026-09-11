@@ -720,9 +720,63 @@ def main():
             contracted_hours=10, contract_value_sgd=3000,
             start_date=date.today() - timedelta(days=60),
             actor_user_id=dennis.id,
+            sales_staff_id=cherish.id,
+            product_ids=[catalog["Service / Support Contract"].id],
         )
         contract_svc.activate_contract(db, contract, actor_user_id=dennis.id)
         billing_svc.issue_contract_annual_invoice(db, contract, actor_user_id=dennis.id)
+
+        # A handful more contracts across the other customers so the
+        # Contracts list has enough rows to demo filtering/paging on
+        # screen (confirmed 2026-09-11: "viewing of at least 5
+        # contracts") -- one of each remaining Contract Type, each with
+        # its own sales staff and product coverage.
+        annual_contract = contract_svc.create_contract(
+            db, company_id=company.id, customer_id=acme_logistics.id,
+            contract_kind=contract_svc.ContractKind.ANNUAL,
+            contracted_hours=0, contract_value_sgd=1400,
+            start_date=date.today() - timedelta(days=20),
+            actor_user_id=dennis.id,
+            sales_staff_id=cherish.id,
+            product_ids=[catalog["Annual Software Maintenance Contract"].id],
+        )
+        contract_svc.activate_contract(db, annual_contract, actor_user_id=dennis.id)
+        billing_svc.issue_contract_annual_invoice(db, annual_contract, actor_user_id=dennis.id)
+
+        adhoc_contract = contract_svc.create_contract(
+            db, company_id=company.id, customer_id=beacon.id,
+            contract_kind=contract_svc.ContractKind.AD_HOC,
+            contracted_hours=0, contract_value_sgd=0,
+            hourly_rate_sgd=Decimal("160.00"),
+            start_date=date.today() - timedelta(days=10),
+            actor_user_id=dennis.id,
+            sales_staff_id=cherish.id,
+            product_ids=[catalog["API Monthly Hosting Fee"].id],
+        )
+        contract_svc.activate_contract(db, adhoc_contract, actor_user_id=dennis.id)
+
+        crestview_contract = contract_svc.create_contract(
+            db, company_id=company.id, customer_id=crestview.id,
+            contracted_hours=15, contract_value_sgd=3600,
+            start_date=date.today() - timedelta(days=200),
+            actor_user_id=dennis.id,
+            sales_staff_id=cherish.id,
+            product_ids=[catalog["Service / Support Contract"].id],
+        )
+        contract_svc.activate_contract(db, crestview_contract, actor_user_id=dennis.id)
+        billing_svc.issue_contract_annual_invoice(db, crestview_contract, actor_user_id=dennis.id)
+
+        tan_contract = contract_svc.create_contract(
+            db, company_id=company.id, customer_id=tan_ah_kow.id,
+            contract_kind=contract_svc.ContractKind.AD_HOC,
+            contracted_hours=0, contract_value_sgd=0,
+            hourly_rate_sgd=Decimal("120.00"),
+            start_date=date.today() - timedelta(days=5),
+            actor_user_id=dennis.id,
+            product_ids=[catalog["Domain / DNS Hosting & Subscription"].id],
+        )
+        # Left in Draft on purpose -- not every contract shown in the
+        # demo should already be active.
 
         # A demo quotation for Acme, left "sent" (not yet accepted) so
         # the Accept -> auto-convert-to-Contract behaviour can be shown

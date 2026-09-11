@@ -545,6 +545,56 @@ records, contract hours) plus several features/terms not yet built.
    and "Projects / OD" (Projects is itself a deferred module -- section
    7). Revisit if/when Dennis wants any of these.
 
+## 13. Contract Type, Product Coverage, Sales Staff (raised 2026-09-11)
+
+13.1. **Third Contract Type -- Ad Hoc Rate.** **Status: DECIDED
+   2026-09-11.** `ContractKind` now has three values, each with its own
+   offset method: SERVICE_SUPPORT deducts hours from a pool, ANNUAL is
+   time coverage only (a term and a value, no hours), and AD_HOC has
+   neither -- it stores only a reference hourly rate (no upfront
+   value, `contract_value_sgd` forced to 0). Confirmed: nothing is
+   auto-deducted or auto-invoiced off an Ad Hoc contract's rate --
+   Job Orders/Service Records can still be logged against it for
+   history (same "logged but not deducted" pattern already used for
+   ANNUAL), and billing off the reference rate is entirely manual.
+   *Where implemented:* `app/models/contracts.py` (`ContractKind.AD_HOC`,
+   `Contract.hourly_rate_sgd`), `app/services/contracts.py`
+   (`create_contract`), `app/services/service_records.py`.
+   *Arises in:* Service Contracts, Billing.
+
+13.2. **Product Coverage and Sales Staff on a Contract.** **Status:
+   DECIDED 2026-09-11.** A Contract can be linked to zero or more
+   catalog Products (`ContractProduct`, many-to-many) and optionally
+   to one Sales Staff user (`Contract.sales_staff_id`, any user, not
+   restricted to the sales_manager role). Both are editable after
+   creation via `PATCH /api/contracts/{id}`, audited like any other
+   contract change. Renewal carries both forward from the prior
+   contract by default.
+   *Where implemented:* `app/models/contracts.py` (`ContractProduct`),
+   `app/routers/contracts.py` (`update_contract`).
+   *Arises in:* Service Contracts, Sales, Commission Management
+   (deferred -- a Sales Staff field on Contract is a likely input to a
+   future commission calculation, but no commission rule has been
+   confirmed yet).
+
+13.3. **Coverage-date filtering -- judgment call, not explicitly
+   confirmed.** "Coverage date" on the main Contracts screen was built
+   as an overlap filter against the contract's existing
+   `start_date`/`end_date` (same semantics as the Operations Reports
+   Contracts report), rather than a new field. Flagging in case a
+   different meaning was intended (e.g. filtering by original contract
+   *start* date only).
+   *Arises in:* Service Contracts.
+
+13.4. **Contract serial/document number -- raised but not requested.**
+   Every other document type (Invoice, Bill, JV, Receipt, Payment
+   Voucher...) gets a sequential number via `DocumentSequence`
+   (`app/services/numbering.py`); Contract does not yet. Raised as an
+   observation 2026-09-11 ("let's go through from contract") but not
+   picked up in the follow-up request, so **not built** -- revisit if
+   Dennis wants Contracts numbered the same way.
+   *Arises in:* Service Contracts, Document Control.
+
 ---
 
 ## How to use this document

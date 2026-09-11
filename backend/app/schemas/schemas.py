@@ -387,10 +387,20 @@ class ContractCreate(BaseModel):
     customer_id: uuid.UUID
     contract_kind: ContractKind = ContractKind.SERVICE_SUPPORT
     # Must be >= 10 per SRV-002/SRV-012 for a SERVICE_SUPPORT contract;
-    # ignored (forced to 0) for an ANNUAL contract, which has no hours.
+    # ignored (forced to 0) for ANNUAL/AD_HOC, which have no hours.
     contracted_hours: float = Field(default=0, ge=0)
-    contract_value_sgd: float = Field(gt=0)
+    # Ignored (forced to 0) for AD_HOC, which has no upfront value.
+    contract_value_sgd: float = Field(default=0, ge=0)
     start_date: date
+    # Required (> 0) when contract_kind is AD_HOC; ignored otherwise.
+    hourly_rate_sgd: float | None = Field(default=None, gt=0)
+    sales_staff_id: uuid.UUID | None = None
+    product_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class ContractProductOut(BaseModel):
+    product_id: uuid.UUID
+    product_name: str
 
 
 class ContractOut(BaseModel):
@@ -403,9 +413,12 @@ class ContractOut(BaseModel):
     consumed_hours: float
     remaining_hours: float
     contract_value_sgd: float
+    hourly_rate_sgd: float | None
+    sales_staff_id: uuid.UUID | None
     start_date: date
     end_date: date
     renewed_from_contract_id: uuid.UUID | None
+    products: list[ContractProductOut] = Field(default_factory=list)
 
     @classmethod
     def from_model(cls, contract) -> "ContractOut":
@@ -418,16 +431,31 @@ class ContractOut(BaseModel):
             consumed_hours=contract.consumed_minutes / 60,
             remaining_hours=contract.remaining_minutes / 60,
             contract_value_sgd=float(contract.contract_value_sgd),
+            hourly_rate_sgd=float(contract.hourly_rate_sgd) if contract.hourly_rate_sgd is not None else None,
+            sales_staff_id=contract.sales_staff_id,
             start_date=contract.start_date,
             end_date=contract.end_date,
             renewed_from_contract_id=contract.renewed_from_contract_id,
+            products=[
+                ContractProductOut(product_id=cp.product_id, product_name=cp.product.name)
+                for cp in contract.products
+            ],
         )
 
 
 class ContractRenewRequest(BaseModel):
     contracted_hours: float = Field(ge=0)
-    contract_value_sgd: float = Field(gt=0)
+    contract_value_sgd: float = Field(ge=0)
     force_start_date: date | None = None
+    hourly_rate_sgd: float | None = Field(default=None, gt=0)
+
+
+class ContractUpdate(BaseModel):
+    """Admin fields adjustable after creation without a renewal --
+    who owns the contract commercially and what it covers."""
+
+    sales_staff_id: uuid.UUID | None = None
+    product_ids: list[uuid.UUID] | None = None
 
 
 # ---- Job Orders (formerly "Tickets") ----
