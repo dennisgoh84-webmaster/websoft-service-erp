@@ -576,6 +576,21 @@ button:disabled {
   font-size: 40px;
   color: var(--accent);
 }
+/* Same size as the default .stat-value -- just coloured to match each
+   status's own pill colour (confirmed 2026-09-11), so Not
+   started/In progress/Blocked/Done are distinguishable at a glance. */
+.stat-value-not-started {
+  color: var(--warn-text);
+}
+.stat-value-in-progress {
+  color: var(--info-text);
+}
+.stat-value-blocked {
+  color: var(--danger);
+}
+.stat-value-done {
+  color: var(--ok-text);
+}
 .stat-label {
   font-size: 13px;
   color: var(--text-muted);
