@@ -20,6 +20,7 @@ import {
   type TaxCode,
   type TrialBalance,
 } from '../lib/api'
+import { isoToMonth, monthEndISO, monthStartISO } from '../lib/period'
 
 type ReportType =
   | 'ar-aging'
@@ -144,12 +145,20 @@ export default function AccountingReportsPage() {
           {usesDateRange ? (
             <>
               <div className="form-row" style={{ margin: 0 }}>
-                <label>From</label>
-                <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+                <label>Period from</label>
+                <input
+                  type="month"
+                  value={isoToMonth(periodStart)}
+                  onChange={(e) => setPeriodStart(monthStartISO(e.target.value))}
+                />
               </div>
               <div className="form-row" style={{ margin: 0 }}>
-                <label>To</label>
-                <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
+                <label>Period to</label>
+                <input
+                  type="month"
+                  value={isoToMonth(periodEnd)}
+                  onChange={(e) => setPeriodEnd(monthEndISO(e.target.value))}
+                />
               </div>
             </>
           ) : (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type AuditLogEntry, type EventLogFilters, type StaffUser } from '../lib/api'
+import { isoToMonth, monthEndISO, monthStartISO } from '../lib/period'
 
 const ENTITY_TYPES = [
   'user',
@@ -136,12 +137,20 @@ export default function EventLogsPage() {
             </select>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <label>From</label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <label>Period from</label>
+            <input
+              type="month"
+              value={isoToMonth(dateFrom)}
+              onChange={(e) => setDateFrom(monthStartISO(e.target.value))}
+            />
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <label>To</label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <label>Period to</label>
+            <input
+              type="month"
+              value={isoToMonth(dateTo)}
+              onChange={(e) => setDateTo(monthEndISO(e.target.value))}
+            />
           </div>
           <div className="form-row" style={{ margin: 0 }}>
             <label>Search</label>

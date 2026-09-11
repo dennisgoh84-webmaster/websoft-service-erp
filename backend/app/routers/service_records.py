@@ -18,8 +18,8 @@ router = APIRouter(prefix="/api/service-records", tags=["service-records"])
 MODULE = "service_records"
 
 SERVICE_RECORD_EXPORT_FIELDS = [
-    "job_order_subject", "employee_name", "work_date", "raw_minutes", "rounded_minutes",
-    "status", "outcome", "is_late",
+    "service_record_number", "job_order_subject", "employee_name", "work_date", "raw_minutes",
+    "rounded_minutes", "status", "outcome", "is_late",
 ]
 
 
@@ -71,6 +71,7 @@ def list_service_records(
 
 def _service_record_row(r: ServiceRecord, job_order_subject: str, employee_name: str) -> dict:
     return {
+        "service_record_number": r.service_record_number,
         "job_order_subject": job_order_subject,
         "employee_name": employee_name,
         "work_date": r.work_date.isoformat(),

@@ -10,6 +10,7 @@ import {
   type Product,
   type StaffUser,
 } from '../lib/api'
+import { isoToMonth, monthEndISO, monthStartISO } from '../lib/period'
 
 const KIND_LABELS: Record<ContractKind, string> = {
   service_support: 'Service Support (deduct hrs)',
@@ -263,12 +264,20 @@ export default function ContractsPage() {
             </select>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <label>Coverage from</label>
-            <input type="date" value={filterCoverageStart} onChange={(e) => setFilterCoverageStart(e.target.value)} />
+            <label>Period from</label>
+            <input
+              type="month"
+              value={isoToMonth(filterCoverageStart)}
+              onChange={(e) => setFilterCoverageStart(monthStartISO(e.target.value))}
+            />
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <label>Coverage to</label>
-            <input type="date" value={filterCoverageEnd} onChange={(e) => setFilterCoverageEnd(e.target.value)} />
+            <label>Period to</label>
+            <input
+              type="month"
+              value={isoToMonth(filterCoverageEnd)}
+              onChange={(e) => setFilterCoverageEnd(monthEndISO(e.target.value))}
+            />
           </div>
           <button type="button" className="secondary" onClick={resetFilters}>
             Reset filters
@@ -288,6 +297,7 @@ export default function ContractsPage() {
           <table>
             <thead>
               <tr>
+                <th>Number</th>
                 <th>Customer</th>
                 <th>Type</th>
                 <th>Status</th>
@@ -301,6 +311,7 @@ export default function ContractsPage() {
             <tbody>
               {contracts.map((c) => (
                 <tr key={c.id}>
+                  <td className="muted">{c.contract_number}</td>
                   <td>{customerName(c.customer_id)}</td>
                   <td className="muted">{KIND_LABELS[c.contract_kind]}</td>
                   <td>
@@ -329,7 +340,7 @@ export default function ContractsPage() {
               ))}
               {contracts.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="muted">
+                  <td colSpan={9} className="muted">
                     No contracts match these filters.
                   </td>
                 </tr>

@@ -12,12 +12,14 @@ from app.models.job_orders import JobOrder, JobOrderStatus
 from app.schemas.schemas import JobOrderAssign, JobOrderCreate, JobOrderOut, JobOrderSetDueDate
 from app.services import audit, exports
 from app.services.authority import require_module_access
+from app.services.numbering import next_document_number
 
 router = APIRouter(prefix="/api/job-orders", tags=["job-orders"])
 MODULE = "service_operations"
 
 JOB_ORDER_EXPORT_FIELDS = [
-    "subject", "customer_name", "priority", "status", "assigned_to", "due_date", "created_at",
+    "job_order_number", "subject", "customer_name", "priority", "status", "assigned_to", "due_date",
+    "created_at",
 ]
 
 
@@ -31,6 +33,9 @@ def create_job_order(
         company_id=current_user.company_id,
         customer_id=payload.customer_id,
         contract_id=payload.contract_id,
+        job_order_number=next_document_number(
+            db, company_id=current_user.company_id, doc_kind="job_order"
+        ),
         subject=payload.subject,
         priority=payload.priority,
         due_date=payload.due_date,
@@ -75,6 +80,7 @@ def list_job_orders(
 
 def _job_order_row(jo: JobOrder, customer_name: str, assigned_name: str) -> dict:
     return {
+        "job_order_number": jo.job_order_number,
         "subject": jo.subject,
         "customer_name": customer_name,
         "priority": jo.priority.value,

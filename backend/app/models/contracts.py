@@ -101,6 +101,12 @@ class Contract(Base):
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
     customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
 
+    # System-generated running number (confirmed 2026-09-11: "all main
+    # documents need to have a system generated running number to be
+    # controlled") -- allocated by app/services/numbering.py, same
+    # CON-<year>-<seq> pattern as every other document type.
+    contract_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+
     status: Mapped[ContractStatus] = mapped_column(
         Enum(ContractStatus, name="contract_status"), default=ContractStatus.DRAFT
     )

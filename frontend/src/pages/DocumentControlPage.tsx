@@ -1,6 +1,9 @@
 // Document Control -- view the document numbering counters behind
 // every serially-numbered document (invoices, receipts, payment
-// vouchers, JVs, POs, bills, quotations) and, carefully, adjust one.
+// vouchers, JVs, POs, bills, quotations, contracts, job orders,
+// service records) and, carefully, adjust one. The list itself is
+// generic (driven by whatever doc_kind rows exist), so a future
+// document type shows up here automatically once it's numbered.
 // Editing last_number is the one genuinely dangerous action here: set
 // it too low and the next document raised collides with one already
 // issued -- so it's a deliberate, reasoned action, not a quick edit.

@@ -292,6 +292,7 @@ export interface ContractProductCoverage {
 
 export interface Contract {
   id: string
+  contract_number: string
   customer_id: string
   status: ContractStatus
   contract_kind: ContractKind
@@ -313,6 +314,7 @@ export type JobOrderStatus = 'open' | 'assigned' | 'resolved' | 'closed'
 
 export interface JobOrder {
   id: string
+  job_order_number: string
   customer_id: string
   contract_id: string | null
   subject: string
@@ -404,6 +406,7 @@ export type ServiceRecordOutcome = 'pending' | 'contract_deduction' | 'excess_us
 
 export interface ServiceRecord {
   id: string
+  service_record_number: string
   job_order_id: string
   employee_user_id: string
   work_date: string

@@ -19,6 +19,7 @@ import {
   type ServiceRecordStatus,
   type StaffUser,
 } from '../lib/api'
+import { isoToMonth, monthEndISO, monthStartISO } from '../lib/period'
 
 type ReportType = 'contracts' | 'job-orders' | 'service-records'
 
@@ -297,12 +298,20 @@ export default function OperationsReportsPage() {
           )}
 
           <div className="form-row" style={{ margin: 0 }}>
-            <label>From</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <label>Period from</label>
+            <input
+              type="month"
+              value={isoToMonth(startDate)}
+              onChange={(e) => setStartDate(monthStartISO(e.target.value))}
+            />
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <label>To</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            <label>Period to</label>
+            <input
+              type="month"
+              value={isoToMonth(endDate)}
+              onChange={(e) => setEndDate(monthEndISO(e.target.value))}
+            />
           </div>
 
           <button type="button" className="secondary" onClick={resetFilters}>

@@ -816,6 +816,7 @@ def main():
 
         job_order = JobOrder(
             company_id=company.id, customer_id=customer.id, contract_id=contract.id,
+            job_order_number=next_document_number(db, company_id=company.id, doc_kind="job_order"),
             subject="Intermittent VPN connectivity for remote staff",
             priority=JobOrderPriority.HIGH, status=JobOrderStatus.ASSIGNED,
             assigned_to_user_id=engineer.id,
@@ -823,6 +824,7 @@ def main():
         )
         job_order2 = JobOrder(
             company_id=company.id, customer_id=customer.id, contract_id=contract.id,
+            job_order_number=next_document_number(db, company_id=company.id, doc_kind="job_order"),
             subject="Set up new staff laptop",
             priority=JobOrderPriority.NORMAL, status=JobOrderStatus.ASSIGNED,
             assigned_to_user_id=engineer.id,
@@ -830,6 +832,7 @@ def main():
         )
         job_order3 = JobOrder(
             company_id=company.id, customer_id=customer.id, contract_id=None,
+            job_order_number=next_document_number(db, company_id=company.id, doc_kind="job_order"),
             subject="Investigate slow email delivery",
             priority=JobOrderPriority.LOW, status=JobOrderStatus.OPEN,
         )

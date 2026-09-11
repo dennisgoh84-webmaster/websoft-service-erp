@@ -47,6 +47,11 @@ class JobOrder(Base):
     contract_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("contracts.id"), nullable=True
     )
+
+    # System-generated running number (confirmed 2026-09-11 -- "all main
+    # documents need to have a system generated running number to be
+    # controlled"), same JO-<year>-<seq> pattern as every other document.
+    job_order_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     subject: Mapped[str] = mapped_column(String(255), nullable=False)
     priority: Mapped[JobOrderPriority] = mapped_column(
         Enum(JobOrderPriority, name="job_order_priority"), default=JobOrderPriority.NORMAL

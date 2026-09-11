@@ -27,9 +27,9 @@ router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 MODULE = "service_contracts"
 
 CONTRACT_EXPORT_FIELDS = [
-    "customer_name", "contract_kind", "status", "contracted_hours", "consumed_hours",
-    "remaining_hours", "contract_value_sgd", "hourly_rate_sgd", "sales_staff", "products",
-    "start_date", "end_date",
+    "contract_number", "customer_name", "contract_kind", "status", "contracted_hours",
+    "consumed_hours", "remaining_hours", "contract_value_sgd", "hourly_rate_sgd", "sales_staff",
+    "products", "start_date", "end_date",
 ]
 
 
@@ -170,6 +170,7 @@ def update_contract(
 def _contract_row(contract: Contract, customer_name: str, staff_name: str) -> dict:
     out = ContractOut.from_model(contract)
     return {
+        "contract_number": out.contract_number,
         "customer_name": customer_name,
         "contract_kind": out.contract_kind.value,
         "status": out.status.value,

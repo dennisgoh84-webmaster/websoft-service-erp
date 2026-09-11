@@ -586,14 +586,56 @@ records, contract hours) plus several features/terms not yet built.
    *start* date only).
    *Arises in:* Service Contracts.
 
-13.4. **Contract serial/document number -- raised but not requested.**
-   Every other document type (Invoice, Bill, JV, Receipt, Payment
-   Voucher...) gets a sequential number via `DocumentSequence`
-   (`app/services/numbering.py`); Contract does not yet. Raised as an
-   observation 2026-09-11 ("let's go through from contract") but not
-   picked up in the follow-up request, so **not built** -- revisit if
-   Dennis wants Contracts numbered the same way.
+13.4. **Contract serial/document number.** **Status: DECIDED 2026-09-11**
+   (superseded the "not built" note below -- see 14.2: Dennis confirmed
+   "all main documents need to have a system generated running
+   number," which covers this).
    *Arises in:* Service Contracts, Document Control.
+
+## 14. Calendar-period filtering and universal document numbering (raised 2026-09-11)
+
+14.1. **"Period from / Period to" filter convention.** **Status:
+   DECIDED 2026-09-11.** Every FROM/TO date-RANGE filter in the app
+   (Contracts' Coverage, Operations Reports, Accounting Reports'
+   From/To, Event Logs) now uses a native month picker (`<input
+   type="month">`, e.g. "2026-08") instead of an exact-day date
+   picker -- "Period from" resolves to the 1st of that month, "Period
+   to" to its last day, before being sent to the existing date-range
+   query params (no backend filter contract changed). A single
+   point-in-time filter (Accounting Reports' Trial/AR/AP Aging "As
+   at") is NOT part of this convention and stays an exact-day picker,
+   since a period doesn't make sense for one instant -- same for every
+   ordinary form field that records one date on a document (start
+   date, due date, effective date, work date, etc.), which was left
+   untouched.
+   One trade-off flagged rather than silently exempted: Event Logs is
+   a forensic/audit tool where day-level precision has real
+   investigative value, and this change means it can now only be
+   filtered down to a month, not a specific day. Applied uniformly
+   per the "all filtering" instruction rather than guessed as an
+   exception -- easy to revert (`frontend/src/pages/EventLogsPage.tsx`)
+   if day-level filtering turns out to be needed.
+   *Where implemented:* `frontend/src/lib/period.ts` (shared
+   `monthStartISO`/`monthEndISO`/`isoToMonth` helpers), `ContractsPage`,
+   `OperationsReportsPage`, `AccountingReportsPage`, `EventLogsPage`.
+   *Arises in:* Service Contracts, Operations Reports, Accounting
+   Reports, Event Logs -- and every future list/report screen with a
+   date-range filter, which should follow the same convention.
+
+14.2. **Universal document numbering.** **Status: DECIDED 2026-09-11**
+   -- "all main documents need to have a system generated running
+   number to be controlled." Contract, Job Order and Service Record
+   (the three operational documents with none) now get one via the
+   same `DocumentSequence`/`next_document_number` mechanism as every
+   accounting document (CON-/JO-/SR-<year>-<seq>). Existing rows were
+   backfilled (oldest first per company/year) in the same migration
+   that added the columns, and Document Control (already generic)
+   picks the three new counters up automatically.
+   *Where implemented:* `app/services/numbering.py` (PREFIXES),
+   `app/models/{contracts,job_orders,service_records}.py`,
+   migration `1c0caa9bdbb3`.
+   *Arises in:* Service Contracts, Service Operations, Service
+   Records, Document Control.
 
 ---
 

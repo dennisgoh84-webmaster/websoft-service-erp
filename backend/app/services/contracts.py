@@ -28,6 +28,7 @@ from app.models.contracts import (
     ExpiredHoursRecord,
 )
 from app.services import audit
+from app.services.numbering import next_document_number
 
 
 class ContractRuleViolation(ValueError):
@@ -83,6 +84,7 @@ def create_contract(
     contract = Contract(
         company_id=company_id,
         customer_id=customer_id,
+        contract_number=next_document_number(db, company_id=company_id, doc_kind="contract"),
         status=ContractStatus.DRAFT,
         contract_kind=contract_kind,
         contracted_minutes=int(contracted_hours * 60),

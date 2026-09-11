@@ -406,6 +406,7 @@ class ContractProductOut(BaseModel):
 class ContractOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    contract_number: str
     customer_id: uuid.UUID
     status: ContractStatus
     contract_kind: ContractKind
@@ -424,6 +425,7 @@ class ContractOut(BaseModel):
     def from_model(cls, contract) -> "ContractOut":
         return cls(
             id=contract.id,
+            contract_number=contract.contract_number,
             customer_id=contract.customer_id,
             status=contract.status,
             contract_kind=contract.contract_kind,
@@ -480,6 +482,7 @@ class JobOrderSetDueDate(BaseModel):
 class JobOrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    job_order_number: str
     customer_id: uuid.UUID
     contract_id: uuid.UUID | None
     subject: str
@@ -501,6 +504,7 @@ class ServiceRecordCreate(BaseModel):
 class ServiceRecordOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    service_record_number: str
     job_order_id: uuid.UUID
     employee_user_id: uuid.UUID
     work_date: date

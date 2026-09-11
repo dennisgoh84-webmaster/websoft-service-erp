@@ -109,6 +109,7 @@ def _contract_export_rows(db: Session, current_user: User, **filters) -> list[di
     names = _customer_names(db, current_user.company_id)
     return [
         {
+            "contract_number": c.contract_number,
             "customer_name": names.get(c.customer_id, ""),
             "status": c.status.value,
             "contract_kind": c.contract_kind.value,
@@ -124,8 +125,8 @@ def _contract_export_rows(db: Session, current_user: User, **filters) -> list[di
 
 
 CONTRACT_EXPORT_FIELDS = [
-    "customer_name", "status", "contract_kind", "contracted_hours", "consumed_hours",
-    "remaining_hours", "contract_value_sgd", "start_date", "end_date",
+    "contract_number", "customer_name", "status", "contract_kind", "contracted_hours",
+    "consumed_hours", "remaining_hours", "contract_value_sgd", "start_date", "end_date",
 ]
 
 
@@ -207,6 +208,7 @@ def _job_order_export_rows(db: Session, current_user: User, **filters) -> list[d
     today = date.today()
     return [
         {
+            "job_order_number": o.job_order_number,
             "customer_name": customer_names.get(o.customer_id, ""),
             "subject": o.subject,
             "priority": o.priority.value,
@@ -221,7 +223,8 @@ def _job_order_export_rows(db: Session, current_user: User, **filters) -> list[d
 
 
 JOB_ORDER_EXPORT_FIELDS = [
-    "customer_name", "subject", "priority", "status", "assigned_to", "due_date", "overdue", "created_at",
+    "job_order_number", "customer_name", "subject", "priority", "status", "assigned_to", "due_date",
+    "overdue", "created_at",
 ]
 
 
@@ -308,6 +311,7 @@ def _service_record_export_rows(db: Session, current_user: User, **filters) -> l
     customer_names = _customer_names(db, current_user.company_id)
     return [
         {
+            "service_record_number": r.service_record_number,
             "work_date": r.work_date.isoformat(),
             "customer_name": customer_names.get(job_order_customers.get(r.job_order_id), ""),
             "employee": user_names.get(r.employee_user_id, ""),
@@ -320,7 +324,10 @@ def _service_record_export_rows(db: Session, current_user: User, **filters) -> l
     ]
 
 
-SERVICE_RECORD_EXPORT_FIELDS = ["work_date", "customer_name", "employee", "hours", "status", "outcome", "is_late"]
+SERVICE_RECORD_EXPORT_FIELDS = [
+    "service_record_number", "work_date", "customer_name", "employee", "hours", "status", "outcome",
+    "is_late",
+]
 
 
 @router.get("/operations/service-records/export.csv")

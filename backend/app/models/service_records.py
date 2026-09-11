@@ -12,7 +12,7 @@ import math
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -52,6 +52,11 @@ class ServiceRecord(Base):
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
     job_order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("job_orders.id"), nullable=False)
     employee_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+
+    # System-generated running number (confirmed 2026-09-11 -- "all main
+    # documents need to have a system generated running number to be
+    # controlled"), same SR-<year>-<seq> pattern as every other document.
+    service_record_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
 
     work_date: Mapped[date] = mapped_column(nullable=False)
     raw_minutes: Mapped[int] = mapped_column(Integer, nullable=False)

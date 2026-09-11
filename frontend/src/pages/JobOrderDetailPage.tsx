@@ -86,6 +86,7 @@ export default function JobOrderDetailPage() {
     <div>
       <h1>{jobOrder.subject}</h1>
       <p>
+        <span className="muted">{jobOrder.job_order_number}</span>{' '}
         <span className="badge active">{jobOrder.status}</span>{' '}
         <span className="muted">Priority: {jobOrder.priority} (SRV-009: no formal SLA target yet)</span>
         {jobOrder.due_date && (

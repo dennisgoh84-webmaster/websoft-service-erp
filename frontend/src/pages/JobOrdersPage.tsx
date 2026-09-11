@@ -180,6 +180,7 @@ export default function JobOrdersPage() {
         <table>
           <thead>
             <tr>
+              <th>Number</th>
               <th>Subject</th>
               <th>Customer</th>
               <th>Priority</th>
@@ -194,6 +195,7 @@ export default function JobOrdersPage() {
                 !!t.due_date && t.due_date < new Date().toISOString().slice(0, 10) && t.status !== 'resolved' && t.status !== 'closed'
               return (
                 <tr key={t.id}>
+                  <td className="muted">{t.job_order_number}</td>
                   <td>{t.subject}</td>
                   <td>{customerName(t.customer_id)}</td>
                   <td>{t.priority}</td>
@@ -217,7 +219,7 @@ export default function JobOrdersPage() {
             })}
             {jobOrders.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={7} className="muted">
                   No job orders match these filters.
                 </td>
               </tr>

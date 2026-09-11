@@ -20,6 +20,7 @@ from app.models.service_records import (
 )
 from app.services import audit
 from app.services.contracts import ContractRuleViolation, deduct_minutes
+from app.services.numbering import next_document_number
 
 # Pragmatic default pending open decision 9.1 (who approves Service
 # Records, and within what timeframe) -- deferred for now at the user's
@@ -46,6 +47,9 @@ def submit_service_record(
         # Multi-company: a service record belongs to the same company as
         # the job order the work was logged against.
         company_id=job_order.company_id,
+        service_record_number=next_document_number(
+            db, company_id=job_order.company_id, doc_kind="service_record"
+        ),
         job_order_id=job_order_id,
         employee_user_id=employee_user_id,
         work_date=work_date,

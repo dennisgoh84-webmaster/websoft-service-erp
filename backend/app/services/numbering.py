@@ -45,6 +45,12 @@ PREFIXES = {
     "purchase_order": "PO",
     "supplier_invoice": "BILL",
     "quotation": "QUO",      # sales quotation
+    # Confirmed 2026-09-11: "all main documents need to have a system
+    # generated running number to be controlled" -- these three
+    # operational documents previously had none.
+    "contract": "CON",       # service contract
+    "job_order": "JO",
+    "service_record": "SR",
 }
 
 

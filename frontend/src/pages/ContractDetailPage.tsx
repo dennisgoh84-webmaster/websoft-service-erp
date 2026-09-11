@@ -91,7 +91,7 @@ export default function ContractDetailPage() {
 
   return (
     <div>
-      <h1>Contract {contract.id.slice(0, 8)}</h1>
+      <h1>Contract {contract.contract_number}</h1>
       <p>
         <span className={`badge ${contract.status}`}>{contract.status}</span>{' '}
         <span className="muted">

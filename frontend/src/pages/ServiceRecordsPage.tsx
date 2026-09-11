@@ -79,6 +79,7 @@ export default function ServiceRecordsPage() {
         <table>
           <thead>
             <tr>
+              <th>Number</th>
               <th>Job Order</th>
               <th>Employee</th>
               <th>Date</th>
@@ -91,6 +92,7 @@ export default function ServiceRecordsPage() {
           <tbody>
             {records.map((r) => (
               <tr key={r.id}>
+                <td className="muted">{r.service_record_number}</td>
                 <td>
                   <Link to={`/job-orders/${r.job_order_id}`}>{jobOrderSubject(r.job_order_id)}</Link>
                 </td>
@@ -113,7 +115,7 @@ export default function ServiceRecordsPage() {
             ))}
             {records.length === 0 && (
               <tr>
-                <td colSpan={7} className="muted">
+                <td colSpan={8} className="muted">
                   No Service Records match these filters.
                 </td>
               </tr>
