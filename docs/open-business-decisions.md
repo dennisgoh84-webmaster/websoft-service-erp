@@ -988,6 +988,25 @@ Dashboard") in `frontend/src/components/Layout.tsx`, module key
 `ops_dashboard` in Module Control/Group Authority (all four default
 Groups get FULL). Migration: `08ceed0e5b5d`.
 
+20.6. **Dark theme re-keyed to a navy palette; new status colours,
+   confirmed 2026-09-11.** "Change the background color codes to match
+   the UI Color sample" -- read as the structural dark-theme colours
+   (`--bg`/`--surface`/`--border`/`--text`/`--text-muted`), not the
+   brand accent: `--accent` stays the company maroon confirmed earlier
+   (#20 in the completed-tasks history, "black, maroon, white"), since
+   changing the background palette to match a new sample and abandoning
+   the confirmed brand accent color are two different asks and only
+   the former was made. The Ops Dashboard's 5 statuses now each get a
+   distinct colour (amber/blue/purple/red/green, matching the sample)
+   via two new token pairs (`--info-*` for "In progress", `--watch-*`
+   for "Watch") alongside the existing warn/ok/danger tokens -- applied
+   both to the legend badges and directly to each task's status
+   `<select>`, so it reads as a colour-coded pill rather than a plain
+   dropdown. Light theme is untouched.
+   *Where implemented:* `frontend/src/index.css` (theme tokens +
+   `.badge.status-*`), `frontend/src/pages/OpsDashboardPage.tsx`
+   (`STATUS_BADGE`, `STATUS_SELECT_STYLE`).
+
 ---
 
 ## How to use this document

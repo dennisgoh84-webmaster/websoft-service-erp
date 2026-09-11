@@ -18,12 +18,25 @@ const STATUS_LABELS: Record<OpsTaskStatus, string> = {
   done: 'Done',
 }
 
+// Matches the colour sample confirmed 2026-09-11 (amber / blue /
+// purple / red / green) -- see the .badge.status-* rules in index.css.
 const STATUS_BADGE: Record<OpsTaskStatus, string> = {
-  not_started: 'draft',
-  in_progress: 'active',
-  watch: 'active',
-  blocked: 'exceeded',
+  not_started: 'status-not-started',
+  in_progress: 'status-in-progress',
+  watch: 'status-watch',
+  blocked: 'status-blocked',
   done: 'active',
+}
+
+// Same palette, applied directly to the status <select> in each task
+// row so it reads as a colour-coded pill (per the sample) rather than
+// a plain dropdown.
+const STATUS_SELECT_STYLE: Record<OpsTaskStatus, { background: string; color: string; borderColor: string }> = {
+  not_started: { background: 'var(--warn-bg)', color: 'var(--warn-text)', borderColor: 'var(--warn-border)' },
+  in_progress: { background: 'var(--info-bg)', color: 'var(--info-text)', borderColor: 'var(--info-border)' },
+  watch: { background: 'var(--watch-bg)', color: 'var(--watch-text)', borderColor: 'var(--watch-border)' },
+  blocked: { background: 'var(--danger-bg)', color: 'var(--danger)', borderColor: 'var(--danger-border)' },
+  done: { background: 'var(--ok-bg)', color: 'var(--ok-text)', borderColor: 'var(--ok-border)' },
 }
 
 const STATUS_LEGEND: { status: OpsTaskStatus; text: string }[] = [
@@ -291,6 +304,7 @@ export default function OpsDashboardPage() {
                         <select
                           value={t.status}
                           onChange={(e) => patchTask(t.id, { status: e.target.value as OpsTaskStatus })}
+                          style={{ ...STATUS_SELECT_STYLE[t.status], fontWeight: 600, borderRadius: 999 }}
                         >
                           {(Object.keys(STATUS_LABELS) as OpsTaskStatus[]).map((s) => (
                             <option key={s} value={s}>

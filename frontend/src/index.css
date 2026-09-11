@@ -27,28 +27,47 @@
   --neutral-text: #555555;
   --danger-bg: #fdecea;
   --danger-border: #f5c6c2;
+  /* "In progress" / "Watch" status colours (confirmed 2026-09-11, Ops
+     Dashboard sample) -- blue and purple, alongside the existing
+     warn(amber)/ok(green)/danger(red) tokens above. */
+  --info-bg: #e7edfd;
+  --info-border: #a9bdf5;
+  --info-text: #2d4fc7;
+  --watch-bg: #f1e9fd;
+  --watch-border: #c9a9f5;
+  --watch-text: #6b21c7;
 }
 
 :root[data-theme='dark'] {
-  --text: #f3eeee;
-  --text-muted: #b8adaf;
-  --bg: #121011;
-  --surface: #1c1718;
-  --border: #362a2c;
+  /* Dark theme background re-keyed 2026-09-11 to match the Ops
+     Dashboard colour sample (a navy/indigo dark UI) -- structural
+     colours (bg/surface/border/text) only; --accent stays the company
+     maroon confirmed earlier, unchanged. */
+  --text: #eef1fa;
+  --text-muted: #8b93ab;
+  --bg: #0b0e1a;
+  --surface: #141a2e;
+  --border: #232c48;
   --accent: #c14a63;
   --accent-hover: #d66a80;
   --accent-contrast: #ffffff;
-  --danger: #e2574c;
+  --danger: #f0576a;
   --warn-bg: #3a2c14;
   --warn-border: #7a5a24;
   --warn-text: #f0c078;
-  --ok-bg: #163420;
-  --ok-border: #2f6a37;
-  --ok-text: #7fd28a;
-  --neutral-bg: #2a2325;
-  --neutral-text: #b8adaf;
-  --danger-bg: #3a1c1a;
-  --danger-border: #6b2c27;
+  --ok-bg: #123322;
+  --ok-border: #1f6b3f;
+  --ok-text: #4fd88a;
+  --neutral-bg: #1c2338;
+  --neutral-text: #8b93ab;
+  --danger-bg: #341522;
+  --danger-border: #7a2740;
+  --info-bg: #16213f;
+  --info-border: #35519c;
+  --info-text: #8ba4ff;
+  --watch-bg: #241a3d;
+  --watch-border: #5b3b8a;
+  --watch-text: #c19bff;
 }
 
 :root {
@@ -408,6 +427,31 @@ button:disabled {
 .badge.renewed {
   background: var(--neutral-bg);
   color: var(--neutral-text);
+}
+
+/* Ops Dashboard status colours (confirmed 2026-09-11, matching the
+   sample: amber / blue / purple / red / green for the 5 statuses --
+   "Done" reuses .badge.active (already green/ok) rather than adding a
+   sixth near-identical class. */
+.badge.status-not-started {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  color: var(--warn-text);
+}
+.badge.status-in-progress {
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  color: var(--info-text);
+}
+.badge.status-watch {
+  background: var(--watch-bg);
+  border: 1px solid var(--watch-border);
+  color: var(--watch-text);
+}
+.badge.status-blocked {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger);
 }
 
 .error-banner {
