@@ -1,11 +1,17 @@
-import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import CompanySwitcher from './CompanySwitcher'
 import NavSection, { type NavItem } from './NavSection'
 import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../lib/AuthContext'
 
 const NAV_COLLAPSE_KEY = 'websoft_nav_collapsed'
+
+// The two full-width dashboards (2026-09-11: "for the first 2 dashboard,
+// when we go in ... hide the menu bar, so we can display more wider on the
+// screen"). Auto-hiding is route-driven, not a sticky preference -- see the
+// sidebarPeek effect below.
+const WIDE_DASHBOARD_PATHS = new Set(['/', '/ops-dashboard'])
 
 function loadCollapsed(): Record<string, boolean> {
   try {
@@ -42,8 +48,21 @@ function loadCollapsed(): Record<string, boolean> {
     reveals or hides anything. */
 export default function Layout() {
   const { user, logout, activeCompany, moduleAccess } = useAuth()
+  const location = useLocation()
   const can = (moduleKey: string) => moduleAccess[moduleKey] === true
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed)
+  const [sidebarPeek, setSidebarPeek] = useState(false)
+
+  const isWideDashboard = WIDE_DASHBOARD_PATHS.has(location.pathname)
+  const sidebarHidden = isWideDashboard && !sidebarPeek
+
+  // Re-hides the menu every time you land on one of the wide dashboards --
+  // "peek" is a per-visit override (so you can still reach the rest of the
+  // nav from there) rather than a remembered preference, so leaving and
+  // coming back always re-hides it.
+  useEffect(() => {
+    setSidebarPeek(false)
+  }, [location.pathname])
 
   function toggleSection(key: string) {
     setCollapsed((prev) => {
@@ -121,7 +140,7 @@ export default function Layout() {
   ]
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${sidebarHidden ? ' sidebar-hidden' : ''}`}>
       <nav className="sidebar">
         {/* Company logo sits above the product name -- it does not
             replace it. Set it in Company Setup. */}
@@ -185,8 +204,21 @@ export default function Layout() {
       </nav>
       <main className="main">
         <div className="main-topbar">
-          <CompanySwitcher />
-          <ThemeToggle />
+          <div className="main-topbar-left">
+            {isWideDashboard && (
+              <button
+                type="button"
+                className="secondary sidebar-peek-toggle"
+                onClick={() => setSidebarPeek((v) => !v)}
+              >
+                {sidebarPeek ? '✕ Hide menu' : '☰ Menu'}
+              </button>
+            )}
+          </div>
+          <div className="main-topbar-right">
+            <CompanySwitcher />
+            <ThemeToggle />
+          </div>
         </div>
         <Outlet />
       </main>

@@ -1009,6 +1009,31 @@ Groups get FULL). Migration: `08ceed0e5b5d`.
 
 ---
 
+## 21. Auto-hide sidebar on the two dashboards (raised 2026-09-11)
+
+Requested as "for the first 2 dashboard, when we go in can you adjust to
+hide the menu bar, so we can display more wider on the screen." Applies
+to Company Dashboard (`/`) and My Ops Dashboard (`/ops-dashboard`) --
+both are stat-tile/table-heavy pages that benefit from the extra width;
+no other page was asked for.
+
+21.1. **Route-driven, not a sticky preference, DECIDED by implementation.**
+   The sidebar auto-hides on landing on either of those two routes and
+   `.main` drops its 1000px cap so content uses the full window width. A
+   "☰ Menu" button (top-left of the topbar, only shown on these two
+   routes) lets you peek the sidebar back open to navigate elsewhere,
+   without leaving the page; it relabels to "✕ Hide menu" while open.
+   Leaving and coming back to either dashboard always re-hides it -- the
+   peek is a per-visit override, not a remembered setting, since the
+   request was to default to the wide layout on these pages, not to let
+   the sidebar disappear everywhere once toggled. Every other page is
+   unaffected: sidebar always visible, no toggle button rendered.
+   *Where implemented:* `frontend/src/components/Layout.tsx`
+   (`WIDE_DASHBOARD_PATHS`, `sidebarPeek` state reset on route change),
+   `frontend/src/index.css` (`.app-shell.sidebar-hidden`, `.main-topbar-left/-right`).
+
+---
+
 ## How to use this document
 
 - Do not start detailed schema or workflow design for an area until the
