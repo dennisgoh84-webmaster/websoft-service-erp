@@ -922,7 +922,10 @@ records, contract hours) plus several features/terms not yet built.
    pass per Dennis's instruction ("settle company/individual first
    then new incident module later"). Confirmed so far: converting an
    Incident should auto-create the real linked record (not just route/
-   assign) -- to be designed in full when that pass starts.
+   assign) -- to be designed in full when that pass starts. Logged
+   alongside the Support Staff Mobile App (see
+   [docs/planned-work.md](docs/planned-work.md)) as confirmed-but-not-
+   yet-built work.
 
 ---
 
