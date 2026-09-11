@@ -258,6 +258,13 @@ sub-detail is called out explicitly).
 
 4b.1. **What is Webmaster's financial year end?** Needed before any
    period close, financial statements, or year-based reporting.
+   **Status: mechanism built, date still open.** Accounting Periods
+   (`app/models/periods.py`) are plain date ranges an owner/Finance
+   defines per company, with no calendar-year assumption baked into the
+   backend — so whatever FY end Dennis eventually confirms just becomes
+   a period row, not a code change. Confirmed 2026-09-11: until that's
+   decided, a date with no period defined at all is unrestricted
+   (periods are opt-in protection, not a retroactive block).
    *Arises in:* Finance / Accounting, Reporting.
 
 4b.2. **Which account does each transaction post to?** The chart of
@@ -280,7 +287,29 @@ sub-detail is called out explicitly).
 4b.4. **How are GST returns (F5) prepared and filed**, and over what
    accounting periods? Output tax is captured per invoice, but the return
    itself is not built.
+   **Status: partially addressed 2026-09-11.** Accounting Reports →
+   Analysis → GST Return now totals output tax (sales, by tax code) vs
+   input tax (purchases) for a chosen date range, tax point = invoice
+   date. It is read-only: it does not file anything with IRAS, does not
+   post to the GL, and does not attempt bad-debt relief on written-off
+   invoices (a separate IRAS scheme). The actual filing workflow is
+   still open.
    *Arises in:* Finance / Accounting, Integrations.
+
+4b.7. **Year-End Closing mechanics** (raised implicitly by 4b.1;
+   confirmed 2026-09-11 in response to an explicit scope question, since
+   "what does closing a year actually do" is exactly the kind of thing
+   never to assume): Year-End Closing posts one balanced journal entry
+   moving every Revenue/Expense account's *movement for the fiscal
+   year* (not its all-time balance) into an Equity account the owner
+   picks at the time — there is no hardcoded "Retained Earnings"
+   account name; the Chart of Accounts' `3100 Retained earnings` is
+   simply the obvious seeded choice. Owner-only. Requires every
+   Accounting Period tagged with that fiscal year to already be closed.
+   Reversible the same way any posted voucher is corrected (General
+   Ledger → Reverse) — there is deliberately no separate "unclose"
+   mechanism. See `app/services/periods.py` close_fiscal_year.
+   *Arises in:* Finance / Accounting.
 
 4b.5. **Does Webmaster ever invoice in a currency other than SGD?**
    Everything is SGD today; multi-currency has not been requested and is
@@ -515,6 +544,56 @@ records, contract hours) plus several features/terms not yet built.
    "Incident Enquiry", "Phone Call Back" (a customer callback queue),
    and "Projects / OD" (Projects is itself a deferred module -- section
    7). Revisit if/when Dennis wants any of these.
+
+## 13. Contract Type, Product Coverage, Sales Staff (raised 2026-09-11)
+
+13.1. **Third Contract Type -- Ad Hoc Rate.** **Status: DECIDED
+   2026-09-11.** `ContractKind` now has three values, each with its own
+   offset method: SERVICE_SUPPORT deducts hours from a pool, ANNUAL is
+   time coverage only (a term and a value, no hours), and AD_HOC has
+   neither -- it stores only a reference hourly rate (no upfront
+   value, `contract_value_sgd` forced to 0). Confirmed: nothing is
+   auto-deducted or auto-invoiced off an Ad Hoc contract's rate --
+   Job Orders/Service Records can still be logged against it for
+   history (same "logged but not deducted" pattern already used for
+   ANNUAL), and billing off the reference rate is entirely manual.
+   *Where implemented:* `app/models/contracts.py` (`ContractKind.AD_HOC`,
+   `Contract.hourly_rate_sgd`), `app/services/contracts.py`
+   (`create_contract`), `app/services/service_records.py`.
+   *Arises in:* Service Contracts, Billing.
+
+13.2. **Product Coverage and Sales Staff on a Contract.** **Status:
+   DECIDED 2026-09-11.** A Contract can be linked to zero or more
+   catalog Products (`ContractProduct`, many-to-many) and optionally
+   to one Sales Staff user (`Contract.sales_staff_id`, any user, not
+   restricted to the sales_manager role). Both are editable after
+   creation via `PATCH /api/contracts/{id}`, audited like any other
+   contract change. Renewal carries both forward from the prior
+   contract by default.
+   *Where implemented:* `app/models/contracts.py` (`ContractProduct`),
+   `app/routers/contracts.py` (`update_contract`).
+   *Arises in:* Service Contracts, Sales, Commission Management
+   (deferred -- a Sales Staff field on Contract is a likely input to a
+   future commission calculation, but no commission rule has been
+   confirmed yet).
+
+13.3. **Coverage-date filtering -- judgment call, not explicitly
+   confirmed.** "Coverage date" on the main Contracts screen was built
+   as an overlap filter against the contract's existing
+   `start_date`/`end_date` (same semantics as the Operations Reports
+   Contracts report), rather than a new field. Flagging in case a
+   different meaning was intended (e.g. filtering by original contract
+   *start* date only).
+   *Arises in:* Service Contracts.
+
+13.4. **Contract serial/document number -- raised but not requested.**
+   Every other document type (Invoice, Bill, JV, Receipt, Payment
+   Voucher...) gets a sequential number via `DocumentSequence`
+   (`app/services/numbering.py`); Contract does not yet. Raised as an
+   observation 2026-09-11 ("let's go through from contract") but not
+   picked up in the follow-up request, so **not built** -- revisit if
+   Dennis wants Contracts numbered the same way.
+   *Arises in:* Service Contracts, Document Control.
 
 ---
 

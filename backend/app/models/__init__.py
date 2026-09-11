@@ -29,6 +29,7 @@ from app.services.numbering import DocumentSequence  # noqa: F401
 from app.models.contracts import (  # noqa: F401
     Contract,
     ContractKind,
+    ContractProduct,
     ContractStatus,
     ExcessTreatment,
     ExcessUsageRecord,
@@ -58,3 +59,7 @@ from app.models.service_records import (  # noqa: F401
 )
 from app.models.licensing import CompanyModule, LicenseType, Module  # noqa: F401
 from app.models.software_tasks import SoftwareTask  # noqa: F401
+from app.models.accounting import GLType  # noqa: F401
+from app.models.setup import SetupListItem, SetupListType  # noqa: F401
+from app.models.treasury import BankAccount, CurrencyRate  # noqa: F401
+from app.models.periods import AccountingPeriod, FiscalYearClosure, PeriodStatus  # noqa: F401

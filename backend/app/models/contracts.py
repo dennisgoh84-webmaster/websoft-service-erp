@@ -23,6 +23,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -47,19 +48,30 @@ class ContractStatus(str, enum.Enum):
 
 
 class ContractKind(str, enum.Enum):
-    """Confirmed 2026-09-10: there is more than one kind of Service
-    Contract. SERVICE_SUPPORT is the original hours-based contract --
-    SRV-002/012's 10-hour minimum applies, and hours deduct as Service
-    Records are approved. ANNUAL is a term-only contract (e.g. an
-    annual software warranty/maintenance contract) with a value and a
-    duration but NO hours at all -- the minimum-hours rule does not
-    apply to it (see the conditional CheckConstraint below). Job Orders
-    and Service Records can still be logged against an ANNUAL contract
-    (confirmed 2026-09-10) -- there is just nothing to deduct or
-    exceed, since there is no hour pool to begin with."""
+    """Confirmed 2026-09-10 (SERVICE_SUPPORT/ANNUAL) and 2026-09-11
+    (AD_HOC): the Contract Type a customer is on decides its "offset
+    method" -- how work logged against it is settled:
+
+    - SERVICE_SUPPORT -> deduct hours. The original hours-based
+      contract; SRV-002/012's 10-hour minimum applies, and hours
+      deduct as Service Records are approved.
+    - ANNUAL -> time coverage. A term-only contract (e.g. an annual
+      software warranty/maintenance contract) with a value and a
+      duration but NO hours at all -- the minimum-hours rule does not
+      apply (see the conditional CheckConstraint below).
+    - AD_HOC -> ad hoc rates. No pre-paid hours and no upfront value
+      (confirmed 2026-09-11): work is billed as it happens, off the
+      contract's own reference `hourly_rate_sgd`. Nothing is
+      deducted, exceeded, or auto-invoiced -- billing stays a manual
+      step, same as ANNUAL.
+
+    Job Orders and Service Records can be logged against any kind
+    (confirmed 2026-09-10) -- for ANNUAL and AD_HOC there is just
+    nothing to deduct or exceed, since neither has an hour pool."""
 
     SERVICE_SUPPORT = "service_support"
     ANNUAL = "annual"
+    AD_HOC = "ad_hoc"
 
 
 class ExcessTreatment(str, enum.Enum):
@@ -103,7 +115,19 @@ class Contract(Base):
     consumed_minutes: Mapped[int] = mapped_column(Integer, default=0)
 
     # BILL-001 (annual upfront) / SRV-008 (blended rate = value / hours).
+    # Zero for an AD_HOC contract (confirmed 2026-09-11), which has no
+    # upfront value -- work is billed as it happens.
     contract_value_sgd: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+
+    # AD_HOC's reference rate (confirmed 2026-09-11): a rate a manual
+    # invoice can be based on. Never read by any automatic billing --
+    # see the ContractKind docstring. Null for SERVICE_SUPPORT/ANNUAL.
+    hourly_rate_sgd: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+
+    # The staff member who owns this contract commercially -- optional,
+    # any user (not restricted to the sales_manager role, since a small
+    # team may have more than one person selling).
+    sales_staff_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     start_date: Mapped[date] = mapped_column(nullable=False)
     end_date: Mapped[date] = mapped_column(nullable=False)  # SRV-001: 12 months from start_date
@@ -119,6 +143,9 @@ class Contract(Base):
     customer: Mapped["Customer"] = relationship()  # noqa: F821
     excess_usage_records: Mapped[list["ExcessUsageRecord"]] = relationship(
         back_populates="contract"
+    )
+    products: Mapped[list["ContractProduct"]] = relationship(
+        back_populates="contract", cascade="all, delete-orphan"
     )
 
     @property
@@ -175,3 +202,22 @@ class ExpiredHoursRecord(Base):
     contract_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contracts.id"), nullable=False)
     expired_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ContractProduct(Base):
+    """Product coverage (confirmed 2026-09-11): which catalog items a
+    contract actually covers, e.g. "Server maintenance" and "Network
+    support" but not other services. A plain link -- it doesn't change
+    how hours/value/rate work, it's what the contract is scoped to."""
+
+    __tablename__ = "contract_products"
+    __table_args__ = (UniqueConstraint("contract_id", "product_id", name="uq_contract_product"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    contract_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contracts.id"), nullable=False)
+    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id"), nullable=False)
+
+    contract: Mapped["Contract"] = relationship(back_populates="products")
+    product: Mapped["Product"] = relationship()  # noqa: F821

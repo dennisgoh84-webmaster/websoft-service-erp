@@ -97,10 +97,11 @@ def approve_service_record(
 
     excess_record: ExcessUsageRecord | None = None
 
-    if contract.contract_kind == ContractKind.ANNUAL:
-        # Confirmed 2026-09-10: an ANNUAL (term-only) contract has no
-        # hour pool, so there is nothing to deduct or exceed -- the
-        # work is simply covered under the contract's term.
+    if contract.contract_kind in (ContractKind.ANNUAL, ContractKind.AD_HOC):
+        # Confirmed 2026-09-10 (ANNUAL) / 2026-09-11 (AD_HOC): neither
+        # has an hour pool, so there is nothing to deduct or exceed --
+        # the work is simply covered under the contract's term (ANNUAL)
+        # or billed manually off its reference rate (AD_HOC).
         record.outcome = ServiceRecordOutcome.NOT_HOUR_METERED
         audit.record(
             db,

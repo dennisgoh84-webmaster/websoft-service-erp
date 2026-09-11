@@ -4,6 +4,7 @@ Requirements from docs/business-requirements.md, as a single aggregated
 endpoint so the frontend can render one overview screen.
 """
 from datetime import date, timedelta
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -17,6 +18,8 @@ from app.models.core import User
 from app.models.job_orders import JobOrder, JobOrderStatus
 from app.models.service_records import ServiceRecord, ServiceRecordStatus
 from app.schemas.schemas import DashboardSummary
+from app.services import ledger as ledger_svc
+from app.services import reports as reports_svc
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -75,6 +78,21 @@ def get_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
     invoices = db.query(Invoice).filter(Invoice.company_id == current_user.company_id).all()
     invoices_total = float(sum(i.amount_sgd for i in invoices))
 
+    # Financial summary -- same aging/trial-balance calculations as the
+    # Accounting Reports screen (app/services/reports.py), just totalled.
+    ar_rows = reports_svc.ar_aging_rows(db, current_user.company_id)
+    ar_outstanding = sum((r["total"] for r in ar_rows), Decimal(0))
+    ar_overdue = sum((r["total"] - r["current"] for r in ar_rows), Decimal(0))
+
+    ap_rows = reports_svc.ap_aging_rows(db, current_user.company_id)
+    ap_outstanding = sum((r["total"] for r in ap_rows), Decimal(0))
+    ap_overdue = sum((r["total"] - r["current"] for r in ap_rows), Decimal(0))
+
+    balances = ledger_svc.account_balances(db, current_user.company_id)
+    total_debit = sum((row["debit_sgd"] for row in balances), Decimal(0))
+    total_credit = sum((row["credit_sgd"] for row in balances), Decimal(0))
+    gl_is_balanced = round(float(total_debit), 2) == round(float(total_credit), 2)
+
     return DashboardSummary(
         active_contracts=active_contracts,
         contracts_expiring_soon=contracts_expiring_soon,
@@ -86,4 +104,9 @@ def get_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
         missing_service_records=missing_service_records,
         invoices_total_sgd=invoices_total,
         invoices_count=len(invoices),
+        ar_outstanding_sgd=float(ar_outstanding),
+        ar_overdue_sgd=float(ar_overdue),
+        ap_outstanding_sgd=float(ap_outstanding),
+        ap_overdue_sgd=float(ap_overdue),
+        gl_is_balanced=gl_is_balanced,
     )

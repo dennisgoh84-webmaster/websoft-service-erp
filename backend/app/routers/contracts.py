@@ -1,11 +1,12 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.contracts import Contract, ContractStatus, ExcessUsageRecord
+from app.models.contracts import Contract, ContractKind, ContractProduct, ContractStatus, ExcessUsageRecord
 from app.models.core import User
 from app.models.customers import Customer
 from app.models.groups import AccessLevel
@@ -13,8 +14,10 @@ from app.schemas.schemas import (
     ContractCreate,
     ContractOut,
     ContractRenewRequest,
+    ContractUpdate,
     ExcessUsageOut,
 )
+from app.services import audit
 from app.services import billing as billing_svc
 from app.services import contracts as contract_svc
 from app.services import exports
@@ -25,7 +28,8 @@ MODULE = "service_contracts"
 
 CONTRACT_EXPORT_FIELDS = [
     "customer_name", "contract_kind", "status", "contracted_hours", "consumed_hours",
-    "remaining_hours", "contract_value_sgd", "start_date", "end_date",
+    "remaining_hours", "contract_value_sgd", "hourly_rate_sgd", "sales_staff", "products",
+    "start_date", "end_date",
 ]
 
 
@@ -53,6 +57,9 @@ def create_contract(
             contract_value_sgd=payload.contract_value_sgd,
             start_date=payload.start_date,
             actor_user_id=current_user.id,
+            hourly_rate_sgd=payload.hourly_rate_sgd,
+            sales_staff_id=payload.sales_staff_id,
+            product_ids=payload.product_ids,
         )
     except contract_svc.ContractRuleViolation as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -62,27 +69,105 @@ def create_contract(
 
 
 def _filter_contracts(
-    db: Session, company_id: uuid.UUID, status: ContractStatus | None, customer_id: uuid.UUID | None
+    db: Session,
+    company_id: uuid.UUID,
+    status: ContractStatus | None,
+    customer_id: uuid.UUID | None,
+    contract_kind: ContractKind | None = None,
+    sales_staff_id: uuid.UUID | None = None,
+    product_id: uuid.UUID | None = None,
+    coverage_start: date | None = None,
+    coverage_end: date | None = None,
 ) -> list[Contract]:
     query = db.query(Contract).filter(Contract.company_id == company_id)
     if status:
         query = query.filter(Contract.status == status)
     if customer_id:
         query = query.filter(Contract.customer_id == customer_id)
-    return query.all()
+    if contract_kind:
+        query = query.filter(Contract.contract_kind == contract_kind)
+    if sales_staff_id:
+        query = query.filter(Contract.sales_staff_id == sales_staff_id)
+    if product_id:
+        query = query.join(ContractProduct).filter(ContractProduct.product_id == product_id)
+    # Coverage-date range: any contract whose own start/end overlaps the
+    # given window, same "overlap" semantics as Operations Reports'
+    # Contracts report (app/services/reports.py).
+    if coverage_start:
+        query = query.filter(Contract.end_date >= coverage_start)
+    if coverage_end:
+        query = query.filter(Contract.start_date <= coverage_end)
+    return query.order_by(Contract.end_date).all()
 
 
 @router.get("", response_model=list[ContractOut])
 def list_contracts(
     status: ContractStatus | None = None,
     customer_id: uuid.UUID | None = None,
+    contract_kind: ContractKind | None = None,
+    sales_staff_id: uuid.UUID | None = None,
+    product_id: uuid.UUID | None = None,
+    coverage_start: date | None = None,
+    coverage_end: date | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    return [ContractOut.from_model(c) for c in _filter_contracts(db, current_user.company_id, status, customer_id)]
+    contracts = _filter_contracts(
+        db, current_user.company_id, status, customer_id, contract_kind, sales_staff_id,
+        product_id, coverage_start, coverage_end,
+    )
+    return [ContractOut.from_model(c) for c in contracts]
 
 
-def _contract_row(contract: Contract, customer_name: str) -> dict:
+@router.patch("/{contract_id}", response_model=ContractOut)
+def update_contract(
+    contract_id: uuid.UUID,
+    payload: ContractUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Admin fields adjustable without a renewal -- sales staff owner
+    and product coverage. Everything else about a contract (kind,
+    hours, value, term) only changes via renewal (SRV-010)."""
+    contract = _get_contract_or_404(db, contract_id, current_user.company_id)
+    fields = payload.model_dump(exclude_unset=True)
+    old_value: dict[str, object] = {}
+    new_value: dict[str, object] = {}
+
+    if "sales_staff_id" in fields:
+        old_value["sales_staff_id"] = str(contract.sales_staff_id) if contract.sales_staff_id else None
+        contract.sales_staff_id = fields["sales_staff_id"]
+        new_value["sales_staff_id"] = str(contract.sales_staff_id) if contract.sales_staff_id else None
+
+    if fields.get("product_ids") is not None:
+        from app.models.catalog import Product
+
+        old_value["product_ids"] = [str(cp.product_id) for cp in contract.products]
+        for cp in list(contract.products):
+            db.delete(cp)
+        db.flush()
+        for product_id in fields["product_ids"]:
+            product = db.get(Product, product_id)
+            if product is None or product.company_id != current_user.company_id:
+                raise HTTPException(status_code=404, detail="Unknown product in product coverage")
+            db.add(ContractProduct(contract_id=contract.id, product_id=product_id))
+        new_value["product_ids"] = [str(p) for p in fields["product_ids"]]
+
+    audit.record(
+        db,
+        entity_type="contract",
+        entity_id=contract.id,
+        action="updated",
+        actor_user_id=current_user.id,
+        old_value=old_value or None,
+        new_value=new_value or None,
+    )
+    db.commit()
+    db.refresh(contract)
+    return ContractOut.from_model(contract)
+
+
+def _contract_row(contract: Contract, customer_name: str, staff_name: str) -> dict:
     out = ContractOut.from_model(contract)
     return {
         "customer_name": customer_name,
@@ -92,27 +177,53 @@ def _contract_row(contract: Contract, customer_name: str) -> dict:
         "consumed_hours": f"{out.consumed_hours:.2f}",
         "remaining_hours": f"{out.remaining_hours:.2f}",
         "contract_value_sgd": f"{out.contract_value_sgd:.2f}",
+        "hourly_rate_sgd": f"{out.hourly_rate_sgd:.2f}" if out.hourly_rate_sgd is not None else "",
+        "sales_staff": staff_name,
+        "products": ", ".join(p.product_name for p in out.products),
         "start_date": out.start_date.isoformat(),
         "end_date": out.end_date.isoformat(),
     }
 
 
 def _contracts_for_export(
-    db: Session, company_id: uuid.UUID, status: ContractStatus | None, customer_id: uuid.UUID | None
+    db: Session,
+    company_id: uuid.UUID,
+    status: ContractStatus | None,
+    customer_id: uuid.UUID | None,
+    contract_kind: ContractKind | None = None,
+    sales_staff_id: uuid.UUID | None = None,
+    product_id: uuid.UUID | None = None,
+    coverage_start: date | None = None,
+    coverage_end: date | None = None,
 ) -> list[dict]:
-    contracts = _filter_contracts(db, company_id, status, customer_id)
+    contracts = _filter_contracts(
+        db, company_id, status, customer_id, contract_kind, sales_staff_id,
+        product_id, coverage_start, coverage_end,
+    )
     customer_names = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == company_id)}
-    return [_contract_row(c, customer_names.get(c.customer_id, "")) for c in contracts]
+    staff_names = {u.id: u.full_name for u in db.query(User).all()}
+    return [
+        _contract_row(c, customer_names.get(c.customer_id, ""), staff_names.get(c.sales_staff_id, ""))
+        for c in contracts
+    ]
 
 
 @router.get("/export.csv")
 def export_contracts_csv(
     status: ContractStatus | None = None,
     customer_id: uuid.UUID | None = None,
+    contract_kind: ContractKind | None = None,
+    sales_staff_id: uuid.UUID | None = None,
+    product_id: uuid.UUID | None = None,
+    coverage_start: date | None = None,
+    coverage_end: date | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    rows = _contracts_for_export(db, current_user.company_id, status, customer_id)
+    rows = _contracts_for_export(
+        db, current_user.company_id, status, customer_id, contract_kind, sales_staff_id,
+        product_id, coverage_start, coverage_end,
+    )
     csv_text = exports.rows_to_csv(CONTRACT_EXPORT_FIELDS, rows)
     return StreamingResponse(
         iter([csv_text]),
@@ -125,10 +236,18 @@ def export_contracts_csv(
 def export_contracts_excel(
     status: ContractStatus | None = None,
     customer_id: uuid.UUID | None = None,
+    contract_kind: ContractKind | None = None,
+    sales_staff_id: uuid.UUID | None = None,
+    product_id: uuid.UUID | None = None,
+    coverage_start: date | None = None,
+    coverage_end: date | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    rows = _contracts_for_export(db, current_user.company_id, status, customer_id)
+    rows = _contracts_for_export(
+        db, current_user.company_id, status, customer_id, contract_kind, sales_staff_id,
+        product_id, coverage_start, coverage_end,
+    )
     data = exports.rows_to_excel(CONTRACT_EXPORT_FIELDS, rows, sheet_name="Contracts")
     return StreamingResponse(
         iter([data]),
@@ -155,8 +274,11 @@ def activate_contract(
     contract = _get_contract_or_404(db, contract_id, current_user.company_id)
     try:
         contract_svc.activate_contract(db, contract, actor_user_id=current_user.id)
-        # BILL-001/BILL-002/BILL-005: annual upfront invoice, issued directly, on activation.
-        billing_svc.issue_contract_annual_invoice(db, contract, actor_user_id=current_user.id)
+        # BILL-001/BILL-002/BILL-005: annual upfront invoice, issued directly,
+        # on activation -- except AD_HOC (confirmed 2026-09-11), which has no
+        # upfront value to invoice; billing happens manually as work is done.
+        if contract.contract_kind != ContractKind.AD_HOC:
+            billing_svc.issue_contract_annual_invoice(db, contract, actor_user_id=current_user.id)
     except contract_svc.ContractRuleViolation as e:
         raise HTTPException(status_code=422, detail=str(e))
     db.commit()
@@ -180,6 +302,7 @@ def renew_contract(
             contract_value_sgd=payload.contract_value_sgd,
             actor_user_id=current_user.id,
             force_start_date=payload.force_start_date,
+            hourly_rate_sgd=payload.hourly_rate_sgd,
         )
     except contract_svc.ContractRuleViolation as e:
         raise HTTPException(status_code=422, detail=str(e))

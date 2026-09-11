@@ -48,7 +48,9 @@ from app.models.customers import Branch, Contact, Customer, CustomerGroup, Custo
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
-from app.models.accounting import Account, AccountType
+from app.models.accounting import Account, AccountType, GLType
+from app.models.setup import SetupListItem, SetupListType
+from app.models.treasury import BankAccount, CurrencyRate
 from app.models.payables import (
     PurchaseOrder,
     PurchaseOrderStatus,
@@ -100,6 +102,12 @@ MODULE_CATALOG = [
     ("finance_accounting", "Finance / Accounting", True, True),
     ("reporting", "Reporting / Management Dashboard", True, True),
     ("software_development", "Software Development (Software Tasks)", True, True),
+    # Separate from "reporting" (which is Support Monitoring's dashboard)
+    # so Finance can be granted Accounting Reports without also getting
+    # Support Monitoring, and vice versa for Service/Sales -- least
+    # privilege per module, not one shared reporting bucket.
+    ("operations_reports", "Operations Reports (Contracts / Job Orders / Service Records)", True, True),
+    ("accounting_reports", "Accounting Reports (AR/AP Aging, Trial Balance)", True, True),
     ("integrations", "Integrations (incl. Odoo migration)", False, False),  # deferred
     ("ai_assistant", "AI Assistant", False, False),
 ]
@@ -132,6 +140,8 @@ GROUP_CATALOG = {
                 "sales",
                 "reporting",
                 "software_development",
+                "operations_reports",
+                "accounting_reports",
             )
         },
     ),
@@ -144,6 +154,7 @@ GROUP_CATALOG = {
             "service_contracts": FULL,  # incl. excess-usage review; SRV-004 role check still applies
             "customer_management": VIEW,
             "billing": VIEW,
+            "operations_reports": VIEW,
             "core_administration": NONE,
             "event_logs": NONE,  # system-wide audit trail -- Owner/Admin only by default
         },
@@ -159,6 +170,8 @@ GROUP_CATALOG = {
             "service_records": VIEW,
             "billing": VIEW,
             "accounts_receivable": VIEW,
+            "operations_reports": VIEW,
+            "accounting_reports": VIEW,
             "core_administration": NONE,
             "event_logs": NONE,
         },
@@ -177,6 +190,7 @@ GROUP_CATALOG = {
             "service_contracts": VIEW,
             "customer_management": VIEW,
             "sales": VIEW,
+            "accounting_reports": FULL,
             "service_operations": NONE,
             "service_records": NONE,
             "core_administration": NONE,
@@ -317,6 +331,100 @@ def seed_chart_of_accounts(db, company: Company):
     db.flush()
 
 
+# Global reference data (Setup Lists), shared by every company -- see
+# app/models/setup.py. A starting set, not an exhaustive world list;
+# more can be added from the Setup Lists screen as needed.
+SETUP_LIST_ITEMS = [
+    (SetupListType.COUNTRY, "SG", "Singapore", None),
+    (SetupListType.COUNTRY, "MY", "Malaysia", None),
+    (SetupListType.COUNTRY, "ID", "Indonesia", None),
+    (SetupListType.COUNTRY, "US", "United States", None),
+    (SetupListType.COUNTRY, "GB", "United Kingdom", None),
+    (SetupListType.COUNTRY, "AU", "Australia", None),
+    (SetupListType.COUNTRY, "CN", "China", None),
+    (SetupListType.STATE, "JHR", "Johor", "MY"),
+    (SetupListType.STATE, "SEL", "Selangor", "MY"),
+    (SetupListType.STATE, "KUL", "Kuala Lumpur", "MY"),
+    (SetupListType.NATIONALITY, "SGP", "Singaporean", None),
+    (SetupListType.NATIONALITY, "MYS", "Malaysian", None),
+    (SetupListType.NATIONALITY, "IDN", "Indonesian", None),
+    (SetupListType.NATIONALITY, "CHN", "Chinese", None),
+    (SetupListType.NATIONALITY, "IND", "Indian", None),
+    (SetupListType.AREA_CODE, "SG-CENTRAL", "Central Region", "SG"),
+    (SetupListType.AREA_CODE, "SG-EAST", "East Region", "SG"),
+    (SetupListType.AREA_CODE, "SG-WEST", "West Region", "SG"),
+    (SetupListType.AREA_CODE, "SG-NORTH", "North Region", "SG"),
+    (SetupListType.CURRENCY, "SGD", "Singapore Dollar", None),
+    (SetupListType.CURRENCY, "USD", "US Dollar", None),
+    (SetupListType.CURRENCY, "MYR", "Malaysian Ringgit", None),
+    (SetupListType.CURRENCY, "EUR", "Euro", None),
+    (SetupListType.CURRENCY, "GBP", "British Pound", None),
+    (SetupListType.CURRENCY, "CNY", "Chinese Yuan", None),
+    (SetupListType.CURRENCY, "AUD", "Australian Dollar", None),
+]
+
+
+def seed_setup_lists(db):
+    for i, (list_type, code, name, parent_code) in enumerate(SETUP_LIST_ITEMS):
+        db.add(
+            SetupListItem(
+                list_type=list_type, code=code, name=name, parent_code=parent_code, sort_order=i
+            )
+        )
+    db.flush()
+
+
+# A starting GL Type classification, matching the seeded Chart of
+# Accounts -- purely a reporting label (see app/models/accounting.py).
+GL_TYPES = [
+    ("BANK", "Bank", AccountType.ASSET),
+    ("CASH", "Cash", AccountType.ASSET),
+    ("CURR_AST", "Current Asset", AccountType.ASSET),
+    ("FIXED_AST", "Fixed Asset", AccountType.ASSET),
+    ("CURR_LIAB", "Current Liability", AccountType.LIABILITY),
+    ("EQUITY", "Equity", AccountType.EQUITY),
+    ("OP_REVENUE", "Operating Revenue", AccountType.REVENUE),
+    ("OP_EXPENSE", "Operating Expense", AccountType.EXPENSE),
+    ("PAYROLL", "Payroll Expense", AccountType.EXPENSE),
+]
+
+
+def seed_gl_types(db, company: Company) -> dict[str, GLType]:
+    gl_types = {}
+    for code, name, account_type in GL_TYPES:
+        gl_type = GLType(company_id=company.id, code=code, name=name, account_type=account_type)
+        db.add(gl_type)
+        gl_types[code] = gl_type
+    db.flush()
+    return gl_types
+
+
+def seed_treasury(db, company: Company, cash_account: Account | None):
+    """A demonstration Bank Master File entry and Currency Rate Table
+    row -- setup data only, see app/models/treasury.py."""
+    db.add(
+        BankAccount(
+            company_id=company.id,
+            bank_name="DBS Bank",
+            account_name=company.name,
+            account_number="003-9-123456",
+            branch="Raffles Place",
+            swift_code="DBSSSGSG",
+            currency_code="SGD",
+            gl_account_id=cash_account.id if cash_account else None,
+        )
+    )
+    db.add(
+        CurrencyRate(
+            company_id=company.id,
+            currency_code="USD",
+            rate_to_base=Decimal("1.35"),
+            effective_date=date.today(),
+        )
+    )
+    db.flush()
+
+
 def logo_data_uri(initials: str, bg: str = "#7a1f2e") -> str:
     """A simple placeholder logo in the company colours (maroon/white),
     stored the same way an uploaded one is: an image data URI on the
@@ -388,6 +496,13 @@ def main():
         seed_tax_codes(db, company2)
         seed_chart_of_accounts(db, company)
         seed_chart_of_accounts(db, company2)
+        seed_setup_lists(db)
+        seed_gl_types(db, company)
+        seed_gl_types(db, company2)
+        cash_account = (
+            db.query(Account).filter(Account.company_id == company.id, Account.code == "1000").first()
+        )
+        seed_treasury(db, company, cash_account)
         groups = seed_groups(db, company)
         groups2 = seed_groups(db, company2)
 
@@ -605,9 +720,63 @@ def main():
             contracted_hours=10, contract_value_sgd=3000,
             start_date=date.today() - timedelta(days=60),
             actor_user_id=dennis.id,
+            sales_staff_id=cherish.id,
+            product_ids=[catalog["Service / Support Contract"].id],
         )
         contract_svc.activate_contract(db, contract, actor_user_id=dennis.id)
         billing_svc.issue_contract_annual_invoice(db, contract, actor_user_id=dennis.id)
+
+        # A handful more contracts across the other customers so the
+        # Contracts list has enough rows to demo filtering/paging on
+        # screen (confirmed 2026-09-11: "viewing of at least 5
+        # contracts") -- one of each remaining Contract Type, each with
+        # its own sales staff and product coverage.
+        annual_contract = contract_svc.create_contract(
+            db, company_id=company.id, customer_id=acme_logistics.id,
+            contract_kind=contract_svc.ContractKind.ANNUAL,
+            contracted_hours=0, contract_value_sgd=1400,
+            start_date=date.today() - timedelta(days=20),
+            actor_user_id=dennis.id,
+            sales_staff_id=cherish.id,
+            product_ids=[catalog["Annual Software Maintenance Contract"].id],
+        )
+        contract_svc.activate_contract(db, annual_contract, actor_user_id=dennis.id)
+        billing_svc.issue_contract_annual_invoice(db, annual_contract, actor_user_id=dennis.id)
+
+        adhoc_contract = contract_svc.create_contract(
+            db, company_id=company.id, customer_id=beacon.id,
+            contract_kind=contract_svc.ContractKind.AD_HOC,
+            contracted_hours=0, contract_value_sgd=0,
+            hourly_rate_sgd=Decimal("160.00"),
+            start_date=date.today() - timedelta(days=10),
+            actor_user_id=dennis.id,
+            sales_staff_id=cherish.id,
+            product_ids=[catalog["API Monthly Hosting Fee"].id],
+        )
+        contract_svc.activate_contract(db, adhoc_contract, actor_user_id=dennis.id)
+
+        crestview_contract = contract_svc.create_contract(
+            db, company_id=company.id, customer_id=crestview.id,
+            contracted_hours=15, contract_value_sgd=3600,
+            start_date=date.today() - timedelta(days=200),
+            actor_user_id=dennis.id,
+            sales_staff_id=cherish.id,
+            product_ids=[catalog["Service / Support Contract"].id],
+        )
+        contract_svc.activate_contract(db, crestview_contract, actor_user_id=dennis.id)
+        billing_svc.issue_contract_annual_invoice(db, crestview_contract, actor_user_id=dennis.id)
+
+        tan_contract = contract_svc.create_contract(
+            db, company_id=company.id, customer_id=tan_ah_kow.id,
+            contract_kind=contract_svc.ContractKind.AD_HOC,
+            contracted_hours=0, contract_value_sgd=0,
+            hourly_rate_sgd=Decimal("120.00"),
+            start_date=date.today() - timedelta(days=5),
+            actor_user_id=dennis.id,
+            product_ids=[catalog["Domain / DNS Hosting & Subscription"].id],
+        )
+        # Left in Draft on purpose -- not every contract shown in the
+        # demo should already be active.
 
         # A demo quotation for Acme, left "sent" (not yet accepted) so
         # the Accept -> auto-convert-to-Contract behaviour can be shown

@@ -39,7 +39,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>
 }
 
-function qs(params: Record<string, string | number | undefined>): string {
+function qs(params: Record<string, string | number | boolean | undefined>): string {
   const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
   if (entries.length === 0) return ''
   return '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()
@@ -280,21 +280,32 @@ export type CustomerFields = Partial<{
 
 export type ContractStatus = 'draft' | 'active' | 'exceeded' | 'expired' | 'renewed'
 
-export type ContractKind = 'service_support' | 'annual'
+/** The contract type decides its "offset method": service_support
+ * deducts hours, annual is time-coverage only (no hours), ad_hoc has
+ * neither -- work is billed off the contract's reference hourly_rate_sgd. */
+export type ContractKind = 'service_support' | 'annual' | 'ad_hoc'
+
+export interface ContractProductCoverage {
+  product_id: string
+  product_name: string
+}
 
 export interface Contract {
   id: string
   customer_id: string
   status: ContractStatus
-  /** service_support: hours-based, 10-hr minimum. annual: term-only, no hours. */
   contract_kind: ContractKind
   contracted_hours: number
   consumed_hours: number
   remaining_hours: number
   contract_value_sgd: number
+  /** Reference rate for ad_hoc contracts only; null otherwise. */
+  hourly_rate_sgd: number | null
+  sales_staff_id: string | null
   start_date: string
   end_date: string
   renewed_from_contract_id: string | null
+  products: ContractProductCoverage[]
 }
 
 export type JobOrderPriority = 'low' | 'normal' | 'high' | 'critical'
@@ -311,6 +322,37 @@ export interface JobOrder {
   /** Manual, optional -- set by Sales/Coordinator after discussion with Support. */
   due_date: string | null
   created_at: string
+}
+
+// ---- Operations/Accounting Reports filters ----
+export interface ContractReportFilters {
+  status?: ContractStatus
+  contract_kind?: ContractKind
+  customer_id?: string
+  expiring_within_days?: number
+  start_date?: string
+  end_date?: string
+  [key: string]: string | number | boolean | undefined
+}
+
+export interface JobOrderReportFilters {
+  status?: JobOrderStatus
+  customer_id?: string
+  assigned_to_user_id?: string
+  overdue_only?: boolean
+  start_date?: string
+  end_date?: string
+  [key: string]: string | number | boolean | undefined
+}
+
+export interface ServiceRecordReportFilters {
+  status?: ServiceRecordStatus
+  outcome?: ServiceRecordOutcome
+  customer_id?: string
+  employee_user_id?: string
+  start_date?: string
+  end_date?: string
+  [key: string]: string | number | boolean | undefined
 }
 
 // ---- Support Monitoring ----
@@ -361,7 +403,7 @@ export interface SoftwareTask {
 }
 
 export type ServiceRecordStatus = 'submitted' | 'approved'
-export type ServiceRecordOutcome = 'pending' | 'contract_deduction' | 'excess_usage'
+export type ServiceRecordOutcome = 'pending' | 'contract_deduction' | 'excess_usage' | 'not_hour_metered'
 
 export interface ServiceRecord {
   id: string
@@ -495,6 +537,107 @@ export interface Account {
   account_type: AccountType
   description: string | null
   is_active: boolean
+}
+
+// ---- GL Types ----
+export interface GLType {
+  id: string
+  code: string
+  name: string
+  account_type: AccountType
+  is_active: boolean
+}
+
+// ---- Setup Lists (Nationality / Country / State / Area Code / Currency) ----
+export type SetupListType = 'nationality' | 'country' | 'state' | 'area_code' | 'currency'
+
+export interface SetupListItem {
+  id: string
+  list_type: SetupListType
+  code: string
+  name: string
+  parent_code: string | null
+  sort_order: number
+  is_active: boolean
+}
+
+// ---- Currency Rate Table ----
+export interface CurrencyRate {
+  id: string
+  currency_code: string
+  rate_to_base: number
+  effective_date: string
+  is_active: boolean
+}
+
+// ---- Bank Master File ----
+export interface BankAccount {
+  id: string
+  bank_name: string
+  account_name: string
+  account_number: string
+  branch: string | null
+  swift_code: string | null
+  currency_code: string
+  gl_account_id: string | null
+  is_active: boolean
+}
+
+// ---- Tax Type (Tax Code maintenance) ----
+export interface TaxCode {
+  id: string
+  code: string
+  name: string
+  rate_percent: number
+  is_active: boolean
+}
+
+// ---- Document Control ----
+export interface DocumentSequence {
+  id: string
+  doc_kind: string
+  prefix: string
+  year: number
+  last_number: number
+}
+
+// ---- Accounting Periods / Year-End Closing ----
+export type PeriodStatus = 'open' | 'closed'
+
+export interface AccountingPeriod {
+  id: string
+  fiscal_year: number
+  name: string
+  period_start: string
+  period_end: string
+  status: PeriodStatus
+  closed_at: string | null
+}
+
+export interface FiscalYearClosure {
+  id: string
+  fiscal_year: number
+  retained_earnings_account_id: string
+  closing_journal_entry_id: string
+  closed_at: string
+}
+
+// ---- GST Return ----
+export interface GSTReturnRow {
+  tax_code: string
+  net_sgd: number
+  tax_sgd: number
+  document_count: number
+}
+
+export interface GSTReturn {
+  period_start: string
+  period_end: string
+  output_rows: GSTReturnRow[]
+  input_rows: GSTReturnRow[]
+  total_output_tax_sgd: number
+  total_input_tax_sgd: number
+  net_gst_payable_sgd: number
 }
 
 // ---- General Ledger / vouchers ----
@@ -648,6 +791,11 @@ export interface DashboardSummary {
   missing_service_records: number
   invoices_total_sgd: number
   invoices_count: number
+  ar_outstanding_sgd: number
+  ar_overdue_sgd: number
+  ap_outstanding_sgd: number
+  ap_overdue_sgd: number
+  gl_is_balanced: boolean
 }
 
 // ---- Product / Service Catalog ----
@@ -795,6 +943,9 @@ export const api = {
   listModules: () => request<ModuleInfo[]>('/modules'),
   toggleModule: (key: string, enabled: boolean) =>
     request<ModuleInfo>(`/modules/${key}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+  /** module_key -> can the current user reach it right now (Group Authority AND
+   * Module Control both say yes)? Drives which nav links show at all. */
+  myModuleAccess: () => request<Record<string, boolean>>('/modules/my-access'),
 
   // Dynamic filter: free-text `q` matches name/email/phone/mobile/UEN/
   // legacy code/tags; customer_group_id pulls up a whole group of
@@ -900,11 +1051,20 @@ export const api = {
   reactivateBranch: (customerId: string, branchId: string) =>
     request<Branch>(`/customers/${customerId}/branches/${branchId}/reactivate`, { method: 'POST' }),
 
-  listContracts: (filters: { status?: string; customer_id?: string } = {}) =>
-    request<Contract[]>(`/contracts${qs(filters)}`),
-  exportContractsCsv: (filters: { status?: string; customer_id?: string } = {}) =>
+  listContracts: (
+    filters: {
+      status?: string
+      customer_id?: string
+      contract_kind?: ContractKind
+      sales_staff_id?: string
+      product_id?: string
+      coverage_start?: string
+      coverage_end?: string
+    } = {},
+  ) => request<Contract[]>(`/contracts${qs(filters)}`),
+  exportContractsCsv: (filters: Record<string, string | undefined> = {}) =>
     requestBlob(`/contracts/export.csv${qs(filters)}`),
-  exportContractsExcel: (filters: { status?: string; customer_id?: string } = {}) =>
+  exportContractsExcel: (filters: Record<string, string | undefined> = {}) =>
     requestBlob(`/contracts/export.xlsx${qs(filters)}`),
   getContract: (id: string) => request<Contract>(`/contracts/${id}`),
   createContract: (payload: {
@@ -913,11 +1073,21 @@ export const api = {
     contracted_hours: number
     contract_value_sgd: number
     start_date: string
+    hourly_rate_sgd?: number | null
+    sales_staff_id?: string | null
+    product_ids?: string[]
   }) => request<Contract>('/contracts', { method: 'POST', body: JSON.stringify(payload) }),
+  updateContract: (id: string, payload: { sales_staff_id?: string | null; product_ids?: string[] }) =>
+    request<Contract>(`/contracts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   activateContract: (id: string) => request<Contract>(`/contracts/${id}/activate`, { method: 'POST' }),
   renewContract: (
     id: string,
-    payload: { contracted_hours: number; contract_value_sgd: number; force_start_date?: string },
+    payload: {
+      contracted_hours: number
+      contract_value_sgd: number
+      force_start_date?: string
+      hourly_rate_sgd?: number | null
+    },
   ) => request<Contract>(`/contracts/${id}/renew`, { method: 'POST', body: JSON.stringify(payload) }),
   listContractExcessUsage: (id: string) =>
     request<ExcessUsageRecord[]>(`/contracts/${id}/excess-usage`),
@@ -1297,4 +1467,149 @@ export const api = {
   acceptQuotation: (id: string) =>
     request<{ quotation: Quotation; message: string }>(`/quotations/${id}/accept`, { method: 'POST' }),
   rejectQuotation: (id: string) => request<Quotation>(`/quotations/${id}/reject`, { method: 'POST' }),
+
+  // ---- Operations Reports ----
+  reportContracts: (filters: ContractReportFilters = {}) =>
+    request<Contract[]>(`/reports/operations/contracts${qs(filters)}`),
+  exportContractsReportCsv: (filters: ContractReportFilters = {}) =>
+    requestBlob(`/reports/operations/contracts/export.csv${qs(filters)}`),
+  exportContractsReportExcel: (filters: ContractReportFilters = {}) =>
+    requestBlob(`/reports/operations/contracts/export.xlsx${qs(filters)}`),
+
+  reportJobOrders: (filters: JobOrderReportFilters = {}) =>
+    request<JobOrder[]>(`/reports/operations/job-orders${qs(filters)}`),
+  exportJobOrdersReportCsv: (filters: JobOrderReportFilters = {}) =>
+    requestBlob(`/reports/operations/job-orders/export.csv${qs(filters)}`),
+  exportJobOrdersReportExcel: (filters: JobOrderReportFilters = {}) =>
+    requestBlob(`/reports/operations/job-orders/export.xlsx${qs(filters)}`),
+
+  reportServiceRecords: (filters: ServiceRecordReportFilters = {}) =>
+    request<ServiceRecord[]>(`/reports/operations/service-records${qs(filters)}`),
+  exportServiceRecordsReportCsv: (filters: ServiceRecordReportFilters = {}) =>
+    requestBlob(`/reports/operations/service-records/export.csv${qs(filters)}`),
+  exportServiceRecordsReportExcel: (filters: ServiceRecordReportFilters = {}) =>
+    requestBlob(`/reports/operations/service-records/export.xlsx${qs(filters)}`),
+
+  // ---- Accounting Reports ----
+  reportArAging: (as_at?: string) => request<AgingReport>(`/reports/accounting/ar-aging${qs({ as_at })}`),
+  exportArAgingReportCsv: (as_at?: string) => requestBlob(`/reports/accounting/ar-aging/export.csv${qs({ as_at })}`),
+  exportArAgingReportExcel: (as_at?: string) =>
+    requestBlob(`/reports/accounting/ar-aging/export.xlsx${qs({ as_at })}`),
+
+  reportApAging: (as_at?: string) => request<APAgingReport>(`/reports/accounting/ap-aging${qs({ as_at })}`),
+  exportApAgingReportCsv: (as_at?: string) => requestBlob(`/reports/accounting/ap-aging/export.csv${qs({ as_at })}`),
+  exportApAgingReportExcel: (as_at?: string) =>
+    requestBlob(`/reports/accounting/ap-aging/export.xlsx${qs({ as_at })}`),
+
+  reportTrialBalance: (as_at?: string) =>
+    request<TrialBalance>(`/reports/accounting/trial-balance${qs({ as_at })}`),
+  exportTrialBalanceReportCsv: (as_at?: string) =>
+    requestBlob(`/reports/accounting/trial-balance/export.csv${qs({ as_at })}`),
+  exportTrialBalanceReportExcel: (as_at?: string) =>
+    requestBlob(`/reports/accounting/trial-balance/export.xlsx${qs({ as_at })}`),
+
+  reportGstReturn: (period_start: string, period_end: string) =>
+    request<GSTReturn>(`/reports/accounting/gst-return${qs({ period_start, period_end })}`),
+  exportGstReturnCsv: (period_start: string, period_end: string) =>
+    requestBlob(`/reports/accounting/gst-return/export.csv${qs({ period_start, period_end })}`),
+  exportGstReturnExcel: (period_start: string, period_end: string) =>
+    requestBlob(`/reports/accounting/gst-return/export.xlsx${qs({ period_start, period_end })}`),
+
+  // ---- GL Types ----
+  listGLTypes: (includeInactive = false) =>
+    request<GLType[]>(`/gl-types${includeInactive ? '?include_inactive=true' : ''}`),
+  createGLType: (payload: { code: string; name: string; account_type: AccountType }) =>
+    request<GLType>('/gl-types', { method: 'POST', body: JSON.stringify(payload) }),
+  updateGLType: (id: string, payload: Partial<{ code: string; name: string; account_type: AccountType; is_active: boolean }>) =>
+    request<GLType>(`/gl-types/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  // ---- Setup Lists ----
+  listSetupItems: (filters: { list_type?: SetupListType; include_inactive?: boolean } = {}) =>
+    request<SetupListItem[]>(`/setup-lists${qs(filters)}`),
+  createSetupItem: (payload: {
+    list_type: SetupListType
+    code: string
+    name: string
+    parent_code?: string | null
+    sort_order?: number
+  }) => request<SetupListItem>('/setup-lists', { method: 'POST', body: JSON.stringify(payload) }),
+  updateSetupItem: (
+    id: string,
+    payload: Partial<{ code: string; name: string; parent_code: string | null; sort_order: number; is_active: boolean }>,
+  ) => request<SetupListItem>(`/setup-lists/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  exportSetupItemsCsv: (filters: { list_type?: SetupListType; include_inactive?: boolean } = {}) =>
+    requestBlob(`/setup-lists/export.csv${qs(filters)}`),
+  exportSetupItemsExcel: (filters: { list_type?: SetupListType; include_inactive?: boolean } = {}) =>
+    requestBlob(`/setup-lists/export.xlsx${qs(filters)}`),
+
+  // ---- Currency Rate Table ----
+  listCurrencyRates: (currency_code?: string) =>
+    request<CurrencyRate[]>(`/currency-rates${qs({ currency_code })}`),
+  createCurrencyRate: (payload: { currency_code: string; rate_to_base: number; effective_date: string }) =>
+    request<CurrencyRate>('/currency-rates', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCurrencyRate: (id: string, payload: Partial<{ rate_to_base: number; is_active: boolean }>) =>
+    request<CurrencyRate>(`/currency-rates/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  // ---- Bank Master File ----
+  listBankAccounts: (includeInactive = false) =>
+    request<BankAccount[]>(`/bank-accounts${includeInactive ? '?include_inactive=true' : ''}`),
+  createBankAccount: (payload: {
+    bank_name: string
+    account_name: string
+    account_number: string
+    branch?: string
+    swift_code?: string
+    currency_code?: string
+    gl_account_id?: string | null
+  }) => request<BankAccount>('/bank-accounts', { method: 'POST', body: JSON.stringify(payload) }),
+  updateBankAccount: (
+    id: string,
+    payload: Partial<{
+      bank_name: string
+      account_name: string
+      account_number: string
+      branch: string | null
+      swift_code: string | null
+      currency_code: string
+      gl_account_id: string | null
+      is_active: boolean
+    }>,
+  ) => request<BankAccount>(`/bank-accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  exportBankAccountsCsv: (includeInactive = false) =>
+    requestBlob(`/bank-accounts/export.csv${includeInactive ? '?include_inactive=true' : ''}`),
+  exportBankAccountsExcel: (includeInactive = false) =>
+    requestBlob(`/bank-accounts/export.xlsx${includeInactive ? '?include_inactive=true' : ''}`),
+
+  // ---- Tax Type (Tax Code maintenance) ----
+  listTaxCodes: (includeInactive = false) =>
+    request<TaxCode[]>(`/tax-codes${includeInactive ? '?include_inactive=true' : ''}`),
+  createTaxCode: (payload: { code: string; name: string; rate_percent: number }) =>
+    request<TaxCode>('/tax-codes', { method: 'POST', body: JSON.stringify(payload) }),
+  updateTaxCode: (id: string, payload: Partial<{ code: string; name: string; rate_percent: number; is_active: boolean }>) =>
+    request<TaxCode>(`/tax-codes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  exportTaxCodesCsv: (includeInactive = false) =>
+    requestBlob(`/tax-codes/export.csv${includeInactive ? '?include_inactive=true' : ''}`),
+  exportTaxCodesExcel: (includeInactive = false) =>
+    requestBlob(`/tax-codes/export.xlsx${includeInactive ? '?include_inactive=true' : ''}`),
+
+  // ---- Document Control ----
+  listDocumentSequences: () => request<DocumentSequence[]>('/document-control'),
+  updateDocumentSequence: (id: string, payload: { last_number: number; reason: string }) =>
+    request<DocumentSequence>(`/document-control/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  // ---- Accounting Periods / Year-End Closing ----
+  listAccountingPeriods: (fiscal_year?: number) =>
+    request<AccountingPeriod[]>(`/accounting-periods${qs({ fiscal_year })}`),
+  createAccountingPeriod: (payload: { fiscal_year: number; name: string; period_start: string; period_end: string }) =>
+    request<AccountingPeriod>('/accounting-periods', { method: 'POST', body: JSON.stringify(payload) }),
+  closeAccountingPeriod: (id: string) =>
+    request<AccountingPeriod>(`/accounting-periods/${id}/close`, { method: 'POST' }),
+  reopenAccountingPeriod: (id: string) =>
+    request<AccountingPeriod>(`/accounting-periods/${id}/reopen`, { method: 'POST' }),
+  listFiscalYearClosures: () => request<FiscalYearClosure[]>('/accounting-periods/closures'),
+  closeFiscalYear: (payload: { fiscal_year: number; retained_earnings_account_id: string }) =>
+    request<FiscalYearClosure>('/accounting-periods/close-fiscal-year', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 }

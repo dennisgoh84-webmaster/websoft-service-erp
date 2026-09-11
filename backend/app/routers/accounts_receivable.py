@@ -34,6 +34,7 @@ from app.services import accounts_receivable as ar_svc
 from app.services import audit, docx_forms, exports
 from app.services.authority import require_module_access
 from app.services.numbering import next_document_number
+from app.services.periods import PeriodClosedError, require_open_period
 
 router = APIRouter(prefix="/api/accounts-receivable", tags=["accounts-receivable"])
 MODULE = "accounts_receivable"
@@ -93,6 +94,11 @@ def record_payment(
         method = PaymentMethod(payload.method)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Unknown payment method '{payload.method}'")
+
+    try:
+        require_open_period(db, current_user.company_id, payload.payment_date)
+    except PeriodClosedError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
     payment = Payment(
         company_id=current_user.company_id,

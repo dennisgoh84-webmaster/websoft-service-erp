@@ -7,16 +7,47 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.core import User
+from app.core.deps import get_current_user
+from app.models.core import User, UserRole
 from app.models.groups import AccessLevel
 from app.models.licensing import CompanyModule, Module
 from app.schemas.schemas import ModuleOut, ModuleToggleRequest
 from app.services import audit
-from app.services.authority import require_module_access
+from app.services.authority import has_access, require_module_access
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api/modules", tags=["modules"])
 MODULE = "core_administration"
+
+
+@router.get("/my-access", response_model=dict[str, bool])
+def my_module_access(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Which built modules the current user can actually reach right now
+    in their active company -- Group Authority AND Module Control both
+    have to say yes (see app/services/authority.py). Used by the
+    frontend nav to hide links the user has no access to, rather than
+    showing a link that immediately 403s. Not itself gated by a module
+    check: the app shell needs this before it knows what the user can
+    see at all."""
+    modules = db.query(Module).filter(Module.is_built.is_(True)).all()
+    company_modules = {
+        cm.module_key: cm
+        for cm in db.query(CompanyModule).filter(CompanyModule.company_id == current_user.company_id)
+    }
+    result: dict[str, bool] = {}
+    for m in modules:
+        if current_user.role == UserRole.OWNER:
+            # Owner bypasses both checks (see require_module_access) --
+            # nav visibility mirrors that so a link he can actually use
+            # isn't hidden from him.
+            result[m.key] = True
+            continue
+        cm = company_modules.get(m.key)
+        result[m.key] = bool(cm and cm.enabled) and has_access(db, current_user, m.key, AccessLevel.VIEW)
+    return result
 
 
 @router.get("", response_model=list[ModuleOut])

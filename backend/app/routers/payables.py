@@ -42,6 +42,7 @@ from app.services import payables as ap_svc
 from app.services.accounts_receivable import aging_bucket_for
 from app.services.authority import require_module_access
 from app.services.numbering import next_document_number
+from app.services.periods import PeriodClosedError, require_open_period
 from app.services.tax import apply_gst
 
 router = APIRouter(prefix="/api/accounts-payable", tags=["accounts-payable"])
@@ -440,6 +441,10 @@ def create_bill(
     immediately (PUR-002); a match auto-approves it for payment
     (PUR-003), a mismatch becomes an exception."""
     _supplier_or_404(db, payload.supplier_id, current_user.company_id)
+    try:
+        require_open_period(db, current_user.company_id, payload.invoice_date)
+    except PeriodClosedError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     net = Decimal(str(payload.amount_sgd))
     gst = Decimal(str(payload.gst_amount_sgd))
 
@@ -625,6 +630,10 @@ def create_payment_voucher(
     """Raise a Payment Voucher (PV). Like AR, allocation is a separate
     manual decision -- money can be paid and allocated afterwards."""
     supplier = _supplier_or_404(db, payload.supplier_id, current_user.company_id)
+    try:
+        require_open_period(db, current_user.company_id, payload.payment_date)
+    except PeriodClosedError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
     payment = SupplierPayment(
         company_id=current_user.company_id,

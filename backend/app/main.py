@@ -15,8 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.routers import (
     accounts,
+    bank_accounts,
     payables,
     catalog,
+    currency_rates,
+    document_control,
+    gl_types,
     ledger,
     accounts_receivable,
     auth,
@@ -32,9 +36,13 @@ from app.routers import (
     job_orders,
     modules,
     monitoring,
+    periods,
     quotations,
+    reports,
     service_records,
+    setup_lists,
     software_tasks,
+    tax_codes,
     users,
 )
 from app.services import audit
@@ -88,6 +96,14 @@ app.include_router(payables.router)
 app.include_router(dashboard.router)
 app.include_router(monitoring.router)
 app.include_router(software_tasks.router)
+app.include_router(reports.router)
+app.include_router(setup_lists.router)
+app.include_router(gl_types.router)
+app.include_router(currency_rates.router)
+app.include_router(bank_accounts.router)
+app.include_router(document_control.router)
+app.include_router(tax_codes.router)
+app.include_router(periods.router)
 
 
 @app.get("/api/health")

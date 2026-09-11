@@ -91,32 +91,61 @@ a {
 .app-shell {
   display: flex;
   flex: 1;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
+/* Sidebar is a fixed-height column with three regions: brand-block
+   (top, fixed), .sidebar-nav (middle, scrolls independently once the
+   menu has more links than fit -- the nav is expected to keep growing
+   as modules are added), and .user-info (bottom, fixed). Only the
+   middle region scrolls, so the logo and sign-out stay put. */
 .sidebar {
-  width: 220px;
+  width: 248px;
   background: var(--surface);
   border-right: 1px solid var(--border);
   padding: 20px 16px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar .sidebar-nav {
+  flex: 1;
+  min-height: 0; /* required for a flex child to actually scroll instead of overflowing */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px; /* keep link text clear of the scrollbar */
+  margin-right: -4px;
+  scrollbar-width: thin;
+}
+.sidebar .sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar .sidebar-nav::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
 }
 
 /* Company logo, top-left, above the product name (it does not replace
-   it). Set from Company Setup; stored on the Company record. */
+   it). Set from Company Setup; stored on the Company record. Sized by
+   width with height:auto (not a fixed square box) so a wide wordmark
+   logo renders at full size instead of being squeezed into a sliver --
+   that was the "logo too small" bug: object-fit:contain inside a 48x48
+   box shrank a ~4:1 wide logo down to a ~13px-tall strip. */
 .sidebar .brand-block {
   margin-bottom: 20px;
 }
 
 .sidebar .company-logo {
   display: block;
-  width: 48px;
-  height: 48px;
+  width: 100%;
+  max-width: 200px;
+  height: auto;
   object-fit: contain;
-  border-radius: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .sidebar .brand {
@@ -163,7 +192,7 @@ a {
 }
 
 .sidebar .user-info {
-  margin-top: auto;
+  flex-shrink: 0;
   padding-top: 16px;
   border-top: 1px solid var(--border);
   font-size: 13px;
@@ -174,6 +203,8 @@ a {
   flex: 1;
   padding: 28px 36px;
   max-width: 1000px;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .main-topbar {
@@ -363,6 +394,15 @@ button:disabled {
   min-width: 160px;
 }
 
+/* Report listing tables (Operations Reports / Accounting Reports): keep
+   at least ~5 result rows' worth of vertical room reserved even when a
+   filter narrows the result set to fewer rows, so the screen doesn't
+   look broken/empty -- and never truncate the actual row count below
+   what the filters matched. */
+.report-table-wrap {
+  min-height: 230px;
+}
+
 /* Support Monitoring: compact per-staff cards -- dense enough that at
    least 8 fit on one screen at typical desktop widths, instead of the
    normal roomy .card + <table> combo. */
@@ -402,13 +442,16 @@ button:disabled {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 .stat-value {
-  font-size: 28px;
+  /* 24px (not the old 28px) so a typical currency amount like "S$
+     3,270.00" fits one line in a 160px-wide tile instead of wrapping
+     "S$" onto its own line above the number. */
+  font-size: 24px;
   font-weight: 700;
   color: var(--text);
   overflow-wrap: break-word;
 }
-/* For text/code values (e.g. a GST reg. no.) rather than a short count,
-   where the default 28px is too large to fit the tile. */
+/* For text/code values (e.g. a GST reg. no.) or a longer currency
+   figure, where even 24px is too large to fit the tile on one line. */
 .stat-value-text {
   font-size: 17px;
 }
@@ -575,6 +618,10 @@ button:disabled {
   .main {
     padding: 0;
     max-width: none;
+    /* Undo the on-screen single-viewport scroll box so a printed page
+       isn't clipped to whatever was visible on screen. */
+    height: auto;
+    overflow: visible;
   }
   .invoice-sheet {
     border: none;
