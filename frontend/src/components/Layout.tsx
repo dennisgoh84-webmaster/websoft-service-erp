@@ -79,6 +79,13 @@ export default function Layout() {
   //     same page, not a separate route).
   //   - "GST and Account Period" -> /accounting-periods (GST Return
   //     itself stays a report under Accounting Reports, not moved).
+  //
+  // "Year-End Closing shift below GST and Account Period" (2026-09-11):
+  // it used to be a card at the bottom of the Accounting Periods page;
+  // split out to its own page (YearEndClosingPage.tsx) and nav entry,
+  // placed directly under GST and Account Period, since closing a
+  // fiscal year is a distinct, rare, owner-only action rather than
+  // everyday period upkeep.
   const accountsItems: NavItem[] = [
     { key: 'bank-accounts', path: '/bank-accounts', label: 'Bank', visible: can('finance_accounting') },
     { key: 'quotations', path: '/quotations', label: 'Sales Quotation', visible: can('sales') },
@@ -89,6 +96,7 @@ export default function Layout() {
     { key: 'general-ledger', path: '/general-ledger', label: 'Journal Voucher', visible: can('finance_accounting') },
     { key: 'chart-of-accounts', path: '/chart-of-accounts', label: 'Chart of Accounts', visible: can('finance_accounting') },
     { key: 'accounting-periods', path: '/accounting-periods', label: 'GST and Account Period', visible: can('finance_accounting') },
+    { key: 'year-end-closing', path: '/year-end-closing', label: 'Year-End Closing', visible: can('finance_accounting') },
     { key: 'accounting-reports', path: '/accounting-reports', label: 'Accounting Reports', visible: can('accounting_reports') },
   ]
 

@@ -1,4 +1,4 @@
-// Accounting Periods and Year-End Closing.
+// Accounting Periods.
 //
 // Two pragmatic defaults (confirmed 2026-09-11, logged in
 // docs/open-business-decisions.md): a period with no row defined at
@@ -7,8 +7,14 @@
 // period's own rows say -- there's no hardcoded calendar-year
 // assumption baked into the backend, just a sensible default in this
 // form's own inputs.
+//
+// Year-End Closing used to be a card at the bottom of this page; it
+// moved out to its own page/nav entry on 2026-09-11 (see
+// YearEndClosingPage.tsx) since it's a distinct, rare, owner-only
+// action rather than everyday period upkeep.
 import { useEffect, useState, type FormEvent } from 'react'
-import { api, type Account, type AccountingPeriod, type FiscalYearClosure } from '../lib/api'
+import { Link } from 'react-router-dom'
+import { api, type AccountingPeriod } from '../lib/api'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -21,8 +27,6 @@ function lastDayOfMonth(year: number, monthIndex: number) {
 
 export default function AccountingPeriodsPage() {
   const [periods, setPeriods] = useState<AccountingPeriod[]>([])
-  const [closures, setClosures] = useState<FiscalYearClosure[]>([])
-  const [equityAccounts, setEquityAccounts] = useState<Account[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -31,14 +35,8 @@ export default function AccountingPeriodsPage() {
   const [month, setMonth] = useState(now.getMonth())
   const [creating, setCreating] = useState(false)
 
-  const [closeYear, setCloseYear] = useState(now.getFullYear())
-  const [retainedEarningsId, setRetainedEarningsId] = useState('')
-  const [closingYear, setClosingYear] = useState(false)
-
   function refresh() {
     api.listAccountingPeriods().then(setPeriods).catch((e) => setError(e.message))
-    api.listFiscalYearClosures().then(setClosures).catch(() => setClosures([]))
-    api.listAccounts({ account_type: 'equity' }).then(setEquityAccounts).catch(() => setEquityAccounts([]))
   }
 
   useEffect(refresh, [])
@@ -87,37 +85,6 @@ export default function AccountingPeriodsPage() {
       setError(err instanceof Error ? err.message : 'Failed to reopen period (owner only)')
     }
   }
-
-  async function onCloseFiscalYear(e: FormEvent) {
-    e.preventDefault()
-    if (!retainedEarningsId) {
-      setError('Choose which Equity account receives the closing balance.')
-      return
-    }
-    if (
-      !window.confirm(
-        `Close fiscal year ${closeYear}? This posts one journal entry moving every Revenue/Expense ` +
-          'account\'s balance for the year into the chosen Equity account. It can only be undone by ' +
-          'reversing that journal entry afterwards.',
-      )
-    ) {
-      return
-    }
-    setError(null)
-    setMessage(null)
-    setClosingYear(true)
-    try {
-      await api.closeFiscalYear({ fiscal_year: closeYear, retained_earnings_account_id: retainedEarningsId })
-      setMessage(`Fiscal year ${closeYear} closed.`)
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to close fiscal year')
-    } finally {
-      setClosingYear(false)
-    }
-  }
-
-  const closedFiscalYears = new Set(closures.map((c) => c.fiscal_year))
 
   return (
     <div>
@@ -209,66 +176,10 @@ export default function AccountingPeriodsPage() {
         </form>
       </div>
 
-      <div className="card">
-        <h2>Year-End Closing</h2>
-        <p className="muted">
-          Owner only. Requires every period in the chosen fiscal year to already be closed. Posts one
-          balanced journal entry moving each Revenue/Expense account's movement for the year into the
-          Equity account you choose; reversible afterwards the same way any posted voucher is
-          corrected (General Ledger &rarr; Reverse).
-        </p>
-        <form onSubmit={onCloseFiscalYear}>
-          <div className="form-row">
-            <label>Fiscal year</label>
-            <input
-              type="number"
-              value={closeYear}
-              onChange={(e) => setCloseYear(Number(e.target.value))}
-              style={{ width: 120 }}
-            />
-          </div>
-          <div className="form-row">
-            <label>Retained Earnings account (Equity)</label>
-            <select value={retainedEarningsId} onChange={(e) => setRetainedEarningsId(e.target.value)} required>
-              <option value="">Select an Equity account</option>
-              {equityAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code} {a.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button type="submit" disabled={closingYear || closedFiscalYears.has(closeYear)}>
-            {closedFiscalYears.has(closeYear)
-              ? `FY${closeYear} already closed`
-              : closingYear
-                ? 'Closing...'
-                : `Close fiscal year ${closeYear}`}
-          </button>
-        </form>
-
-        {closures.length > 0 && (
-          <>
-            <h3 style={{ marginTop: 20 }}>Closed fiscal years</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Fiscal year</th>
-                  <th>Closed at</th>
-                </tr>
-              </thead>
-              <tbody>
-                {closures.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.fiscal_year}</td>
-                    <td>{new Date(c.closed_at).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-      </div>
+      <p className="muted">
+        Closing out a whole fiscal year (moving Revenue/Expense into Equity) has its own page:{' '}
+        <Link to="/year-end-closing">Year-End Closing</Link>.
+      </p>
     </div>
   )
 }

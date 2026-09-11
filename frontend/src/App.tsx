@@ -42,6 +42,7 @@ import StaffDetailPage from './pages/StaffDetailPage'
 import StaffMasterPage from './pages/StaffMasterPage'
 import SupportMonitoringPage from './pages/SupportMonitoringPage'
 import TaxTypesPage from './pages/TaxTypesPage'
+import YearEndClosingPage from './pages/YearEndClosingPage'
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth()
@@ -88,6 +89,7 @@ function AppRoutes() {
         <Route path="/bank-accounts" element={<BankAccountsPage />} />
         <Route path="/tax-types" element={<TaxTypesPage />} />
         <Route path="/accounting-periods" element={<AccountingPeriodsPage />} />
+        <Route path="/year-end-closing" element={<YearEndClosingPage />} />
         <Route path="/general-ledger" element={<GeneralLedgerPage />} />
         <Route path="/accounting-reports" element={<AccountingReportsPage />} />
         <Route path="/company-setup" element={<CompanySetupPage />} />
