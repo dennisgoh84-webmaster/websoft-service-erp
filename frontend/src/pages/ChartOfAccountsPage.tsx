@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api, type Account, type AccountType } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Account, type AccountType } from '../lib/api'
 
 const TYPES: AccountType[] = ['asset', 'liability', 'equity', 'revenue', 'expense']
 
@@ -54,6 +55,16 @@ export default function ChartOfAccountsPage() {
     }
   }
 
+  async function onExport(format: string) {
+    setError(null)
+    const filters = { include_inactive: showInactive, account_type: filterType || undefined }
+    if (format === 'csv') {
+      downloadBlob(await api.exportAccountsCsv(filters), 'chart-of-accounts.csv')
+    } else {
+      downloadBlob(await api.exportAccountsExcel(filters), 'chart-of-accounts.xlsx')
+    }
+  }
+
   async function onToggleActive(account: Account) {
     setError(null)
     try {
@@ -96,6 +107,14 @@ export default function ChartOfAccountsPage() {
             />
             Show retired
           </label>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         <h2>Accounts ({accounts.length})</h2>

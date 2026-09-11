@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api, type ExcessTreatment, type ExcessUsageRecord } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type ExcessTreatment, type ExcessUsageRecord } from '../lib/api'
 
 const TREATMENTS: { value: ExcessTreatment; label: string }[] = [
   { value: 'billable', label: 'Billable excess support (SRV-008: contract blended rate)' },
@@ -27,6 +28,15 @@ export default function ExcessReviewPage() {
       ...prev,
       [id]: { treatment: prev[id]?.treatment ?? 'billable', reason: prev[id]?.reason ?? '', ...patch },
     }))
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportExcessUsageCsv(false), 'excess-usage.csv')
+    } else {
+      downloadBlob(await api.exportExcessUsageExcel(false), 'excess-usage.xlsx')
+    }
   }
 
   async function onDecide(id: string) {
@@ -91,7 +101,17 @@ export default function ExcessReviewPage() {
       </div>
 
       <div className="card">
-        <h2>Decided</h2>
+        <div className="filter-bar">
+          <h2 style={{ margin: 0 }}>Decided</h2>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
+        </div>
         <table>
           <thead>
             <tr>

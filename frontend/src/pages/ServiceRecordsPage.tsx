@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type CurrentUser, type JobOrder, type ServiceRecord } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type CurrentUser, type JobOrder, type ServiceRecord } from '../lib/api'
 
 export default function ServiceRecordsPage() {
   const [records, setRecords] = useState<ServiceRecord[]>([])
@@ -28,6 +29,16 @@ export default function ServiceRecordsPage() {
   function resetFilters() {
     setFilterEmployee('')
     setFilterStatus('')
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    const filters = { employee_user_id: filterEmployee || undefined, status: filterStatus || undefined }
+    if (format === 'csv') {
+      downloadBlob(await api.exportServiceRecordsCsv(filters), 'service-records.csv')
+    } else {
+      downloadBlob(await api.exportServiceRecordsExcel(filters), 'service-records.xlsx')
+    }
   }
 
   async function onApprove(id: string) {
@@ -73,6 +84,14 @@ export default function ServiceRecordsPage() {
           <button type="button" className="secondary" onClick={resetFilters}>
             Reset filters
           </button>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         <h2>Records ({records.length})</h2>

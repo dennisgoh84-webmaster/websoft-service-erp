@@ -427,6 +427,7 @@ export interface PaymentAllocation {
 
 export interface Payment {
   id: string
+  voucher_number: string
   customer_id: string
   payment_date: string
   amount_sgd: number
@@ -736,6 +737,10 @@ export const api = {
   // Staff Master (full CRUD; distinct from the plain listUsers directory above)
   listStaff: (includeInactive = false) =>
     request<StaffUser[]>(`/users${includeInactive ? '?include_inactive=true' : ''}`),
+  exportStaffCsv: (includeInactive = false) =>
+    requestBlob(`/users/export.csv${includeInactive ? '?include_inactive=true' : ''}`),
+  exportStaffExcel: (includeInactive = false) =>
+    requestBlob(`/users/export.xlsx${includeInactive ? '?include_inactive=true' : ''}`),
   getStaff: (id: string) => request<StaffUser>(`/users/${id}`),
   createStaff: (payload: {
     full_name: string
@@ -770,6 +775,10 @@ export const api = {
   // Group Authority
   listGroups: (companyId?: string) =>
     request<Group[]>(`/groups${companyId ? `?company_id=${companyId}` : ''}`),
+  exportGroupsCsv: (companyId?: string) =>
+    requestBlob(`/groups/export.csv${companyId ? `?company_id=${companyId}` : ''}`),
+  exportGroupsExcel: (companyId?: string) =>
+    requestBlob(`/groups/export.xlsx${companyId ? `?company_id=${companyId}` : ''}`),
   createGroup: (name: string, description?: string) =>
     request<Group>('/groups', { method: 'POST', body: JSON.stringify({ name, description }) }),
   updateGroup: (id: string, payload: { name?: string; description?: string }) =>
@@ -793,6 +802,22 @@ export const api = {
   listCustomers: (filters: { q?: string; customer_group_id?: string; include_inactive?: boolean } = {}) =>
     request<Customer[]>(
       `/customers${qs({
+        q: filters.q,
+        customer_group_id: filters.customer_group_id,
+        include_inactive: filters.include_inactive ? 'true' : undefined,
+      })}`,
+    ),
+  exportCustomersCsv: (filters: { q?: string; customer_group_id?: string; include_inactive?: boolean } = {}) =>
+    requestBlob(
+      `/customers/export.csv${qs({
+        q: filters.q,
+        customer_group_id: filters.customer_group_id,
+        include_inactive: filters.include_inactive ? 'true' : undefined,
+      })}`,
+    ),
+  exportCustomersExcel: (filters: { q?: string; customer_group_id?: string; include_inactive?: boolean } = {}) =>
+    requestBlob(
+      `/customers/export.xlsx${qs({
         q: filters.q,
         customer_group_id: filters.customer_group_id,
         include_inactive: filters.include_inactive ? 'true' : undefined,
@@ -877,6 +902,10 @@ export const api = {
 
   listContracts: (filters: { status?: string; customer_id?: string } = {}) =>
     request<Contract[]>(`/contracts${qs(filters)}`),
+  exportContractsCsv: (filters: { status?: string; customer_id?: string } = {}) =>
+    requestBlob(`/contracts/export.csv${qs(filters)}`),
+  exportContractsExcel: (filters: { status?: string; customer_id?: string } = {}) =>
+    requestBlob(`/contracts/export.xlsx${qs(filters)}`),
   getContract: (id: string) => request<Contract>(`/contracts/${id}`),
   createContract: (payload: {
     customer_id: string
@@ -896,6 +925,12 @@ export const api = {
   listJobOrders: (
     filters: { status?: string; priority?: string; customer_id?: string; contract_id?: string } = {},
   ) => request<JobOrder[]>(`/job-orders${qs(filters)}`),
+  exportJobOrdersCsv: (
+    filters: { status?: string; priority?: string; customer_id?: string; contract_id?: string } = {},
+  ) => requestBlob(`/job-orders/export.csv${qs(filters)}`),
+  exportJobOrdersExcel: (
+    filters: { status?: string; priority?: string; customer_id?: string; contract_id?: string } = {},
+  ) => requestBlob(`/job-orders/export.xlsx${qs(filters)}`),
   getJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}`),
   createJobOrder: (payload: {
     customer_id: string
@@ -917,6 +952,26 @@ export const api = {
   ) =>
     request<SoftwareTask[]>(
       `/software-tasks${qs({
+        assigned_programmer_id: filters.assigned_programmer_id,
+        tester_user_id: filters.tester_user_id,
+        untested_only: filters.untested_only ? 'true' : undefined,
+      })}`,
+    ),
+  exportSoftwareTasksCsv: (
+    filters: { assigned_programmer_id?: string; tester_user_id?: string; untested_only?: boolean } = {},
+  ) =>
+    requestBlob(
+      `/software-tasks/export.csv${qs({
+        assigned_programmer_id: filters.assigned_programmer_id,
+        tester_user_id: filters.tester_user_id,
+        untested_only: filters.untested_only ? 'true' : undefined,
+      })}`,
+    ),
+  exportSoftwareTasksExcel: (
+    filters: { assigned_programmer_id?: string; tester_user_id?: string; untested_only?: boolean } = {},
+  ) =>
+    requestBlob(
+      `/software-tasks/export.xlsx${qs({
         assigned_programmer_id: filters.assigned_programmer_id,
         tester_user_id: filters.tester_user_id,
         untested_only: filters.untested_only ? 'true' : undefined,
@@ -950,6 +1005,10 @@ export const api = {
 
   listServiceRecords: (filters: { job_order_id?: string; employee_user_id?: string; status?: string } = {}) =>
     request<ServiceRecord[]>(`/service-records${qs(filters)}`),
+  exportServiceRecordsCsv: (filters: { job_order_id?: string; employee_user_id?: string; status?: string } = {}) =>
+    requestBlob(`/service-records/export.csv${qs(filters)}`),
+  exportServiceRecordsExcel: (filters: { job_order_id?: string; employee_user_id?: string; status?: string } = {}) =>
+    requestBlob(`/service-records/export.xlsx${qs(filters)}`),
   submitServiceRecord: (payload: {
     job_order_id: string
     employee_user_id: string
@@ -960,6 +1019,10 @@ export const api = {
 
   listExcessUsage: (pendingOnly = false) =>
     request<ExcessUsageRecord[]>(`/excess-usage${pendingOnly ? '?pending_only=true' : ''}`),
+  exportExcessUsageCsv: (pendingOnly = false) =>
+    requestBlob(`/excess-usage/export.csv${pendingOnly ? '?pending_only=true' : ''}`),
+  exportExcessUsageExcel: (pendingOnly = false) =>
+    requestBlob(`/excess-usage/export.xlsx${pendingOnly ? '?pending_only=true' : ''}`),
   decideExcessUsage: (id: string, treatment: ExcessTreatment, reason: string) =>
     request<ExcessUsageRecord>(`/excess-usage/${id}/decide`, {
       method: 'POST',
@@ -996,6 +1059,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  exportPaymentsCsv: (filters: { customer_id?: string; unallocated_only?: boolean } = {}) =>
+    requestBlob(
+      `/accounts-receivable/payments/export.csv${qs({
+        customer_id: filters.customer_id,
+        unallocated_only: filters.unallocated_only ? 'true' : undefined,
+      })}`,
+    ),
+  exportPaymentsExcel: (filters: { customer_id?: string; unallocated_only?: boolean } = {}) =>
+    requestBlob(
+      `/accounts-receivable/payments/export.xlsx${qs({
+        customer_id: filters.customer_id,
+        unallocated_only: filters.unallocated_only ? 'true' : undefined,
+      })}`,
+    ),
+  getPayment: (id: string) => request<Payment>(`/accounts-receivable/payments/${id}`),
+  exportPaymentDocx: (id: string) => requestBlob(`/accounts-receivable/payments/${id}/export.docx`),
   allocatePayment: (id: string, allocations: { invoice_id: string; amount_sgd: number }[]) =>
     request<Payment>(`/accounts-receivable/payments/${id}/allocate`, {
       method: 'POST',
@@ -1004,6 +1083,10 @@ export const api = {
   // General Ledger
   listVouchers: (filters: { voucher_type?: string; status?: string } = {}) =>
     request<JournalEntry[]>(`/ledger/vouchers${qs(filters)}`),
+  exportVouchersCsv: (filters: { voucher_type?: string; status?: string } = {}) =>
+    requestBlob(`/ledger/vouchers/export.csv${qs(filters)}`),
+  exportVouchersExcel: (filters: { voucher_type?: string; status?: string } = {}) =>
+    requestBlob(`/ledger/vouchers/export.xlsx${qs(filters)}`),
   getVoucher: (id: string) => request<JournalEntry>(`/ledger/vouchers/${id}`),
   createJournalVoucher: (payload: {
     entry_date: string
@@ -1018,10 +1101,16 @@ export const api = {
       body: JSON.stringify({ reason }),
     }),
   trialBalance: (as_at?: string) => request<TrialBalance>(`/ledger/trial-balance${qs({ as_at })}`),
+  exportTrialBalanceCsv: (as_at?: string) => requestBlob(`/ledger/trial-balance/export.csv${qs({ as_at })}`),
+  exportTrialBalanceExcel: (as_at?: string) => requestBlob(`/ledger/trial-balance/export.xlsx${qs({ as_at })}`),
 
   // Accounts Payable
   listSuppliers: (includeInactive = false) =>
     request<Supplier[]>(`/accounts-payable/suppliers${qs({ include_inactive: includeInactive ? 'true' : undefined })}`),
+  exportSuppliersCsv: (includeInactive = false) =>
+    requestBlob(`/accounts-payable/suppliers/export.csv${qs({ include_inactive: includeInactive ? 'true' : undefined })}`),
+  exportSuppliersExcel: (includeInactive = false) =>
+    requestBlob(`/accounts-payable/suppliers/export.xlsx${qs({ include_inactive: includeInactive ? 'true' : undefined })}`),
   createSupplier: (payload: {
     name: string
     email?: string
@@ -1043,6 +1132,10 @@ export const api = {
 
   listPurchaseOrders: (filters: { supplier_id?: string; status?: string } = {}) =>
     request<PurchaseOrder[]>(`/accounts-payable/purchase-orders${qs(filters)}`),
+  exportPurchaseOrdersCsv: (filters: { supplier_id?: string; status?: string } = {}) =>
+    requestBlob(`/accounts-payable/purchase-orders/export.csv${qs(filters)}`),
+  exportPurchaseOrdersExcel: (filters: { supplier_id?: string; status?: string } = {}) =>
+    requestBlob(`/accounts-payable/purchase-orders/export.xlsx${qs(filters)}`),
   createPurchaseOrder: (payload: {
     supplier_id: string
     order_date: string
@@ -1054,6 +1147,10 @@ export const api = {
 
   listBills: (filters: { supplier_id?: string; status?: string } = {}) =>
     request<SupplierInvoice[]>(`/accounts-payable/bills${qs(filters)}`),
+  exportBillsCsv: (filters: { supplier_id?: string; status?: string } = {}) =>
+    requestBlob(`/accounts-payable/bills/export.csv${qs(filters)}`),
+  exportBillsExcel: (filters: { supplier_id?: string; status?: string } = {}) =>
+    requestBlob(`/accounts-payable/bills/export.xlsx${qs(filters)}`),
   createBill: (payload: {
     supplier_id: string
     purchase_order_id?: string | null
@@ -1066,6 +1163,12 @@ export const api = {
 
   listSupplierPayments: (supplierId?: string) =>
     request<SupplierPayment[]>(`/accounts-payable/payments${qs({ supplier_id: supplierId })}`),
+  exportSupplierPaymentsCsv: (supplierId?: string) =>
+    requestBlob(`/accounts-payable/payments/export.csv${qs({ supplier_id: supplierId })}`),
+  exportSupplierPaymentsExcel: (supplierId?: string) =>
+    requestBlob(`/accounts-payable/payments/export.xlsx${qs({ supplier_id: supplierId })}`),
+  getSupplierPayment: (id: string) => request<SupplierPayment>(`/accounts-payable/payments/${id}`),
+  exportSupplierPaymentDocx: (id: string) => requestBlob(`/accounts-payable/payments/${id}/export.docx`),
   recordSupplierPayment: (payload: {
     supplier_id: string
     payment_date: string
@@ -1081,10 +1184,26 @@ export const api = {
       body: JSON.stringify({ allocations }),
     }),
   apAging: () => request<APAgingReport>('/accounts-payable/aging'),
+  exportApAgingCsv: (as_at?: string) => requestBlob(`/accounts-payable/aging/export.csv${qs({ as_at })}`),
+  exportApAgingExcel: (as_at?: string) => requestBlob(`/accounts-payable/aging/export.xlsx${qs({ as_at })}`),
 
   listAccounts: (filters: { include_inactive?: boolean; account_type?: string } = {}) =>
     request<Account[]>(
       `/accounts${qs({
+        include_inactive: filters.include_inactive ? 'true' : undefined,
+        account_type: filters.account_type,
+      })}`,
+    ),
+  exportAccountsCsv: (filters: { include_inactive?: boolean; account_type?: string } = {}) =>
+    requestBlob(
+      `/accounts/export.csv${qs({
+        include_inactive: filters.include_inactive ? 'true' : undefined,
+        account_type: filters.account_type,
+      })}`,
+    ),
+  exportAccountsExcel: (filters: { include_inactive?: boolean; account_type?: string } = {}) =>
+    requestBlob(
+      `/accounts/export.xlsx${qs({
         include_inactive: filters.include_inactive ? 'true' : undefined,
         account_type: filters.account_type,
       })}`,
@@ -1097,6 +1216,8 @@ export const api = {
   ) => request<Account>(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
   arAging: () => request<AgingReport>('/accounts-receivable/aging'),
+  exportArAgingCsv: (as_at?: string) => requestBlob(`/accounts-receivable/aging/export.csv${qs({ as_at })}`),
+  exportArAgingExcel: (as_at?: string) => requestBlob(`/accounts-receivable/aging/export.xlsx${qs({ as_at })}`),
   customerStatement: (customerId: string) =>
     request<CustomerStatement>(`/accounts-receivable/statement/${customerId}`),
   writeOffInvoice: (invoiceId: string, reason: string) =>
@@ -1113,21 +1234,16 @@ export const api = {
   // Event Logs
   listEventLogs: (filters: EventLogFilters & { limit?: number; offset?: number } = {}) =>
     request<AuditLogEntry[]>(`/event-logs${qs(filters)}`),
-  exportEventLogsCsv: async (filters: EventLogFilters = {}): Promise<Blob> => {
-    const token = getToken()
-    const res = await fetch(`/api/event-logs/export${qs(filters)}`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        'X-Device-Id': getDeviceId(),
-      },
-    })
-    if (!res.ok) throw new Error('Failed to export event logs')
-    return res.blob()
-  },
+  exportEventLogsCsv: (filters: EventLogFilters = {}) => requestBlob(`/event-logs/export.csv${qs(filters)}`),
+  exportEventLogsExcel: (filters: EventLogFilters = {}) => requestBlob(`/event-logs/export.xlsx${qs(filters)}`),
 
   // Product / Service Catalog
   listCatalog: (includeInactive = false) =>
     request<Product[]>(`/catalog${includeInactive ? '?include_inactive=true' : ''}`),
+  exportCatalogCsv: (includeInactive = false) =>
+    requestBlob(`/catalog/export.csv${includeInactive ? '?include_inactive=true' : ''}`),
+  exportCatalogExcel: (includeInactive = false) =>
+    requestBlob(`/catalog/export.xlsx${includeInactive ? '?include_inactive=true' : ''}`),
   createCatalogItem: (payload: {
     product_type: ProductType
     name: string
@@ -1158,7 +1274,12 @@ export const api = {
   // Sales Quotation
   listQuotations: (filters: { customer_id?: string; status?: string } = {}) =>
     request<Quotation[]>(`/quotations${qs(filters)}`),
+  exportQuotationsCsv: (filters: { customer_id?: string; status?: string } = {}) =>
+    requestBlob(`/quotations/export.csv${qs(filters)}`),
+  exportQuotationsExcel: (filters: { customer_id?: string; status?: string } = {}) =>
+    requestBlob(`/quotations/export.xlsx${qs(filters)}`),
   getQuotation: (id: string) => request<Quotation>(`/quotations/${id}`),
+  exportQuotationDocx: (id: string) => requestBlob(`/quotations/${id}/export.docx`),
   createQuotation: (payload: {
     customer_id: string
     quotation_date: string

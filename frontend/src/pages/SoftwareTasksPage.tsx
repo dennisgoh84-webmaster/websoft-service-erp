@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api, type CurrentUser, type SoftwareTask } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type CurrentUser, type SoftwareTask } from '../lib/api'
 
 export default function SoftwareTasksPage() {
   const [tasks, setTasks] = useState<SoftwareTask[]>([])
@@ -47,6 +48,16 @@ export default function SoftwareTasksPage() {
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add task')
+    }
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    const filters = { untested_only: untestedOnly }
+    if (format === 'csv') {
+      downloadBlob(await api.exportSoftwareTasksCsv(filters), 'software-tasks.csv')
+    } else {
+      downloadBlob(await api.exportSoftwareTasksExcel(filters), 'software-tasks.xlsx')
     }
   }
 
@@ -129,6 +140,14 @@ export default function SoftwareTasksPage() {
             <input type="checkbox" checked={untestedOnly} onChange={(e) => setUntestedOnly(e.target.checked)} />
             Un-tested only
           </label>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table>

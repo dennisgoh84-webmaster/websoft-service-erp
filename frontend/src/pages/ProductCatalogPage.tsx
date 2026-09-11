@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api, type Product, type ProductType } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Product, type ProductType } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -41,6 +42,15 @@ export default function ProductCatalogPage() {
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add catalog item')
+    }
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportCatalogCsv(showInactive), 'product-catalog.csv')
+    } else {
+      downloadBlob(await api.exportCatalogExcel(showInactive), 'product-catalog.xlsx')
     }
   }
 
@@ -116,6 +126,14 @@ export default function ProductCatalogPage() {
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show inactive
           </label>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
         <table>
           <thead>

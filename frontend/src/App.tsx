@@ -22,8 +22,11 @@ import JobOrdersPage from './pages/JobOrdersPage'
 import Login from './pages/Login'
 import ModulesPage from './pages/ModulesPage'
 import PaymentVoucherPage from './pages/PaymentVoucherPage'
+import PaymentVoucherPrintPage from './pages/PaymentVoucherPrintPage'
 import ProductCatalogPage from './pages/ProductCatalogPage'
+import QuotationPrintPage from './pages/QuotationPrintPage'
 import QuotationsPage from './pages/QuotationsPage'
+import ReceiptPrintPage from './pages/ReceiptPrintPage'
 import ReceiptsPage from './pages/ReceiptsPage'
 import ServiceRecordsPage from './pages/ServiceRecordsPage'
 import SoftwareTasksPage from './pages/SoftwareTasksPage'
@@ -61,11 +64,14 @@ function AppRoutes() {
         <Route path="/software-tasks" element={<SoftwareTasksPage />} />
         <Route path="/excess-review" element={<ExcessReviewPage />} />
         <Route path="/quotations" element={<QuotationsPage />} />
+        <Route path="/quotations/:id/print" element={<QuotationPrintPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/invoices/:id/print" element={<InvoicePrintPage />} />
         <Route path="/receipts" element={<ReceiptsPage />} />
+        <Route path="/receipts/:id/print" element={<ReceiptPrintPage />} />
         <Route path="/accounts-payable" element={<AccountsPayablePage />} />
         <Route path="/payment-voucher" element={<PaymentVoucherPage />} />
+        <Route path="/payment-voucher/:id/print" element={<PaymentVoucherPrintPage />} />
         <Route path="/chart-of-accounts" element={<ChartOfAccountsPage />} />
         <Route path="/general-ledger" element={<GeneralLedgerPage />} />
         <Route path="/company-setup" element={<CompanySetupPage />} />

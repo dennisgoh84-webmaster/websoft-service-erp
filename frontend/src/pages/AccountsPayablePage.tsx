@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type APAgingReport, type PurchaseOrder, type Supplier, type SupplierInvoice } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type APAgingReport, type PurchaseOrder, type Supplier, type SupplierInvoice } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -129,6 +130,42 @@ export default function AccountsPayablePage() {
 
   const poOptionsForSupplier = pos.filter((p) => p.supplier_id === billSupplier && p.status === 'approved')
 
+  async function onExportAging(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportApAgingCsv(), 'ap-aging.csv')
+    } else {
+      downloadBlob(await api.exportApAgingExcel(), 'ap-aging.xlsx')
+    }
+  }
+
+  async function onExportSuppliers(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportSuppliersCsv(), 'suppliers.csv')
+    } else {
+      downloadBlob(await api.exportSuppliersExcel(), 'suppliers.xlsx')
+    }
+  }
+
+  async function onExportPurchaseOrders(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportPurchaseOrdersCsv(), 'purchase-orders.csv')
+    } else {
+      downloadBlob(await api.exportPurchaseOrdersExcel(), 'purchase-orders.xlsx')
+    }
+  }
+
+  async function onExportBills(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportBillsCsv(), 'bills.csv')
+    } else {
+      downloadBlob(await api.exportBillsExcel(), 'bills.xlsx')
+    }
+  }
+
   return (
     <div>
       <h1>Accounts Payable</h1>
@@ -147,7 +184,17 @@ export default function AccountsPayablePage() {
 
       {aging && (
         <div className="card">
-          <h2>AP aging as at {aging.as_at}</h2>
+          <div className="filter-bar">
+            <h2 style={{ margin: 0 }}>AP aging as at {aging.as_at}</h2>
+            <ExportControl
+              formats={[
+                { value: 'csv', label: 'CSV' },
+                { value: 'excel', label: 'Excel' },
+              ]}
+              onExport={onExportAging}
+              onError={setError}
+            />
+          </div>
           <table>
             <thead>
               <tr>
@@ -187,7 +234,17 @@ export default function AccountsPayablePage() {
       )}
 
       <div className="card">
-        <h2>Suppliers ({suppliers.length})</h2>
+        <div className="filter-bar">
+          <h2 style={{ margin: 0 }}>Suppliers ({suppliers.length})</h2>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExportSuppliers}
+            onError={setError}
+          />
+        </div>
         <table>
           <thead>
             <tr>
@@ -246,7 +303,17 @@ export default function AccountsPayablePage() {
       </div>
 
       <div className="card">
-        <h2>Purchase orders ({pos.length})</h2>
+        <div className="filter-bar">
+          <h2 style={{ margin: 0 }}>Purchase orders ({pos.length})</h2>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExportPurchaseOrders}
+            onError={setError}
+          />
+        </div>
         <table>
           <thead>
             <tr>
@@ -319,7 +386,17 @@ export default function AccountsPayablePage() {
       </div>
 
       <div className="card">
-        <h2>Bills ({bills.length})</h2>
+        <div className="filter-bar">
+          <h2 style={{ margin: 0 }}>Bills ({bills.length})</h2>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExportBills}
+            onError={setError}
+          />
+        </div>
         <div style={{ overflowX: 'auto' }}>
           <table>
             <thead>

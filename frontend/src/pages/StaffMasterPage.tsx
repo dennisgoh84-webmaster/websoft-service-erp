@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type Group, type StaffUser, type UserRole } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Group, type StaffUser, type UserRole } from '../lib/api'
 
 const ROLES: UserRole[] = ['owner', 'service_lead', 'sales_manager', 'support_engineer', 'finance']
 
@@ -52,6 +53,15 @@ export default function StaffMasterPage() {
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create staff account')
+    }
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    if (format === 'csv') {
+      downloadBlob(await api.exportStaffCsv(showInactive), 'staff-master.csv')
+    } else {
+      downloadBlob(await api.exportStaffExcel(showInactive), 'staff-master.xlsx')
     }
   }
 
@@ -122,6 +132,14 @@ export default function StaffMasterPage() {
             />
             Show deactivated
           </label>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
         <table>
           <thead>

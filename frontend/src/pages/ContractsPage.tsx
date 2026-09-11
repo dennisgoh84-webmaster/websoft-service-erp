@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, type Contract, type ContractKind, type Customer } from '../lib/api'
+import ExportControl from '../components/ExportControl'
+import { api, downloadBlob, type Contract, type ContractKind, type Customer } from '../lib/api'
 
 const KIND_LABELS: Record<ContractKind, string> = {
   service_support: 'Service Support',
@@ -52,6 +53,16 @@ export default function ContractsPage() {
   function resetFilters() {
     setFilterStatus('')
     setFilterCustomer('')
+  }
+
+  async function onExport(format: string) {
+    setError(null)
+    const filters = { status: filterStatus || undefined, customer_id: filterCustomer || undefined }
+    if (format === 'csv') {
+      downloadBlob(await api.exportContractsCsv(filters), 'contracts.csv')
+    } else {
+      downloadBlob(await api.exportContractsExcel(filters), 'contracts.xlsx')
+    }
   }
 
   return (
@@ -130,6 +141,14 @@ export default function ContractsPage() {
           <button type="button" className="secondary" onClick={resetFilters}>
             Reset filters
           </button>
+          <ExportControl
+            formats={[
+              { value: 'csv', label: 'CSV' },
+              { value: 'excel', label: 'Excel' },
+            ]}
+            onExport={onExport}
+            onError={setError}
+          />
         </div>
 
         <h2>Contracts ({contracts.length})</h2>
