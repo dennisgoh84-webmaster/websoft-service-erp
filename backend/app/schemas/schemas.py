@@ -19,7 +19,7 @@ from app.models.core import UserRole
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrderPriority, JobOrderStatus
 from app.models.licensing import LicenseType
-from app.models.service_records import ServiceRecordOutcome, ServiceRecordStatus
+from app.models.service_records import ServiceRecordCompletion, ServiceRecordOutcome, ServiceRecordStatus
 from app.models.setup import SetupListType
 from app.models.periods import PeriodStatus
 
@@ -389,6 +389,34 @@ class BranchOut(BaseModel):
     is_active: bool
 
 
+class CustomerRelationshipCreate(BaseModel):
+    # Exactly one of these two (validated in the router) -- company-
+    # level and individual-level relationships both use to_customer_id
+    # (the level follows from that Customer's own customer_type);
+    # to_contact_id is the company-contact level.
+    to_customer_id: uuid.UUID | None = None
+    to_contact_id: uuid.UUID | None = None
+    relationship_type: str = Field(min_length=1, max_length=100)
+    note: str | None = None
+
+
+class CustomerRelationshipOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    from_customer_id: uuid.UUID
+    to_customer_id: uuid.UUID | None
+    to_customer_name: str | None
+    to_customer_type: CustomerType | None
+    to_contact_id: uuid.UUID | None
+    to_contact_name: str | None
+    to_contact_customer_id: uuid.UUID | None
+    to_contact_customer_name: str | None
+    relationship_type: str
+    note: str | None
+    is_active: bool
+    created_at: datetime
+
+
 # ---- Contracts ----
 class ContractCreate(BaseModel):
     customer_id: uuid.UUID
@@ -476,6 +504,8 @@ class JobOrderCreate(BaseModel):
     # Manual, optional -- set by Sales/Coordinator after discussion with
     # Support. Confirmed 2026-09-10: not derived from priority.
     due_date: date | None = None
+    # "Option to also tick Job Order as Urgent" -- confirmed 2026-09-11.
+    is_urgent: bool = False
 
 
 class JobOrderAssign(BaseModel):
@@ -484,6 +514,14 @@ class JobOrderAssign(BaseModel):
 
 class JobOrderSetDueDate(BaseModel):
     due_date: date | None = None
+
+
+class JobOrderSetUrgent(BaseModel):
+    is_urgent: bool
+
+
+class JobOrderVoid(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
 
 
 class JobOrderOut(BaseModel):
@@ -495,10 +533,12 @@ class JobOrderOut(BaseModel):
     subject: str
     priority: JobOrderPriority
     status: JobOrderStatus
+    is_urgent: bool
     assigned_to_user_id: uuid.UUID | None
     due_date: date | None
+    void_reason: str | None
     created_at: datetime
-    resolved_at: datetime | None
+    closed_at: datetime | None
 
 
 # ---- Service Records (formerly "Timesheets") ----
@@ -507,6 +547,20 @@ class ServiceRecordCreate(BaseModel):
     employee_user_id: uuid.UUID
     work_date: date
     raw_minutes: int = Field(gt=0)
+    # Confirmed 2026-09-11: set by the submitter -- does this session
+    # finish the job, or will there be another visit? Drives Job Order
+    # auto-close.
+    completion_status: ServiceRecordCompletion = ServiceRecordCompletion.UNCOMPLETED
+    # Confirmed 2026-09-11: manual (no office-hours/holiday calendar
+    # exists to derive this from) -- feeds the suggested deduction
+    # multiplier only.
+    is_after_hours: bool = False
+
+
+class ServiceRecordApprove(BaseModel):
+    # Confirmed 2026-09-11: the approver keys this in herself; the
+    # approval form prefills a suggestion but never enforces it.
+    deducted_minutes: int = Field(gt=0)
 
 
 class ServiceRecordOut(BaseModel):
@@ -518,8 +572,35 @@ class ServiceRecordOut(BaseModel):
     work_date: date
     raw_minutes: int
     rounded_minutes: int
+    deducted_minutes: int | None
     status: ServiceRecordStatus
     outcome: ServiceRecordOutcome
+    completion_status: ServiceRecordCompletion
+    is_after_hours: bool
+    is_late: bool
+
+
+class PendingServiceRecordOut(BaseModel):
+    """Enriched row for the Service Record Approval page -- joins in
+    what the approver needs to see (job order, urgency, a suggested
+    deduction) without her having to look each up separately."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    service_record_number: str
+    job_order_id: uuid.UUID
+    job_order_number: str
+    job_order_subject: str
+    is_urgent: bool
+    employee_user_id: uuid.UUID
+    employee_name: str
+    work_date: date
+    raw_minutes: int
+    rounded_minutes: int
+    completion_status: ServiceRecordCompletion
+    is_after_hours: bool
+    suggested_deducted_minutes: int
+    contract_remaining_minutes: int | None
     is_late: bool
 
 

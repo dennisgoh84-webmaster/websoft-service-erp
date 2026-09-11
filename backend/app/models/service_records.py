@@ -12,7 +12,7 @@ import math
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,6 +32,16 @@ class ServiceRecordOutcome(str, enum.Enum):
     # Work approved under an ANNUAL (term-only) contract -- confirmed
     # 2026-09-10. There is no hour pool to deduct from or exceed.
     NOT_HOUR_METERED = "not_hour_metered"
+
+
+class ServiceRecordCompletion(str, enum.Enum):
+    """Set by whoever submits the record (confirmed 2026-09-11): does
+    this work session finish the Job Order, or will there be another
+    visit? Drives Job Order auto-close -- see
+    app/services/service_records.py maybe_auto_close_job_order()."""
+
+    COMPLETED = "C"
+    UNCOMPLETED = "U"
 
 
 def round_up_to_nearest(minutes: int, increment: int = HOUR_ROUNDING_MINUTES) -> int:
@@ -68,6 +78,28 @@ class ServiceRecord(Base):
     outcome: Mapped[ServiceRecordOutcome] = mapped_column(
         Enum(ServiceRecordOutcome, name="service_record_outcome"), default=ServiceRecordOutcome.PENDING
     )
+    # Set by the submitter -- does this session finish the job, or will
+    # someone come back? Drives Job Order auto-close (confirmed
+    # 2026-09-11, see app/services/service_records.py).
+    completion_status: Mapped[ServiceRecordCompletion] = mapped_column(
+        Enum(ServiceRecordCompletion, name="service_record_completion"),
+        default=ServiceRecordCompletion.UNCOMPLETED,
+        nullable=False,
+    )
+    # "After Office Hrs/Weekend/Holiday X2.0" (confirmed 2026-09-11) --
+    # manual, set by the submitter (no office-hours/public-holiday
+    # calendar exists in this build to derive it from). Feeds the
+    # suggested deduction-minutes multiplier at approval time only; it
+    # never changes raw_minutes/rounded_minutes.
+    is_after_hours: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # The minutes actually deducted from the contract's hour pool, keyed
+    # in by the approver (confirmed 2026-09-11: "actual is 240mins,
+    # deducted is 220mins or 360mins") -- distinct from rounded_minutes,
+    # which stays the objective SRV-007 log. Null until approved; the
+    # approval form prefills a suggestion (rounded_minutes x the
+    # applicable Urgent/after-hours multiplier) but the approver can
+    # type any value.
+    deducted_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

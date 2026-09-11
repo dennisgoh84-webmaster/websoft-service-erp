@@ -7,12 +7,21 @@ whoever opens the Job Order (Sales staff or a Coordinator) after
 discussion with the Support department -- not derived from priority or
 any fixed SLA window. It is optional; a Job Order with no due date set
 is simply not counted as due/overdue anywhere.
+
+Status model reworked 2026-09-11: there is no manual "Resolved" step
+any more. A Job Order auto-closes when its most recently submitted
+Service Record is both Approved and marked Completed ('C', not
+Uncompleted 'U') -- see app/services/service_records.py
+maybe_auto_close_job_order(). CLOSED replaced the old manual
+Resolve->Close two-step; VOID is new, a manual dead-end for a Job Order
+that should never have been raised (duplicate, raised in error),
+separate from a normal completed job.
 """
 import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,8 +31,8 @@ from app.core.database import Base
 class JobOrderStatus(str, enum.Enum):
     OPEN = "open"
     ASSIGNED = "assigned"
-    RESOLVED = "resolved"
     CLOSED = "closed"
+    VOID = "void"
 
 
 class JobOrderPriority(str, enum.Enum):
@@ -66,8 +75,23 @@ class JobOrder(Base):
     # monitoring once set; a null due_date is simply not counted.
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # "Option to also tick Job Order as Urgent then Rates will X1.5"
+    # (confirmed 2026-09-11) -- a manual flag, not inferred from
+    # priority. Used as a suggested (not enforced) minute-deduction
+    # multiplier on Service Record approval -- see
+    # app/services/service_records.py.
+    is_urgent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Set only when status is VOID -- why this Job Order was voided
+    # instead of worked (duplicate, raised in error, etc.). Required by
+    # the void endpoint; the audit log also records who/when.
+    void_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Was resolved_at (a distinct "Resolved" step existed briefly);
+    # renamed 2026-09-11 when that step was folded into auto-close --
+    # this now simply records when CLOSED was reached.
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     customer: Mapped["Customer"] = relationship()  # noqa: F821
     contract: Mapped["Contract | None"] = relationship()  # noqa: F821

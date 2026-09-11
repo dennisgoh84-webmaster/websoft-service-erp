@@ -100,7 +100,7 @@ def list_job_orders_report(
             for o in orders
             if o.due_date
             and o.due_date < today
-            and o.status not in (JobOrderStatus.RESOLVED, JobOrderStatus.CLOSED)
+            and o.status not in (JobOrderStatus.CLOSED, JobOrderStatus.VOID)
         ]
     return orders
 

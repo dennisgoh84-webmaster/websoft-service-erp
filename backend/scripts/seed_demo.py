@@ -975,12 +975,16 @@ def main():
         )
 
         # Already-approved work totalling 540 of the 600 contracted minutes.
+        # Left UNCOMPLETED (the default) so the job order doesn't
+        # auto-close before the final_record demo below.
         for i, raw_minutes in enumerate([240, 300]):
             record = sr_svc.submit_service_record(
                 db, job_order_id=job_order.id, employee_user_id=engineer.id,
                 work_date=date.today() - timedelta(days=10 - i * 3), raw_minutes=raw_minutes,
             )
-            sr_svc.approve_service_record(db, record, job_order, approver=nico)
+            sr_svc.approve_service_record(
+                db, record, job_order, approver=nico, deducted_minutes=record.rounded_minutes,
+            )
 
         db.commit()
         print(f"Consumed so far: {contract.consumed_minutes} / {contract.contracted_minutes} minutes")

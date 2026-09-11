@@ -257,6 +257,22 @@ export interface Branch {
   is_active: boolean
 }
 
+export interface CustomerRelationship {
+  id: string
+  from_customer_id: string
+  to_customer_id: string | null
+  to_customer_name: string | null
+  to_customer_type: CustomerType | null
+  to_contact_id: string | null
+  to_contact_name: string | null
+  to_contact_customer_id: string | null
+  to_contact_customer_name: string | null
+  relationship_type: string
+  note: string | null
+  is_active: boolean
+  created_at: string
+}
+
 export type CustomerFields = Partial<{
   customer_type: CustomerType
   name: string
@@ -316,7 +332,11 @@ export interface Contract {
 }
 
 export type JobOrderPriority = 'low' | 'normal' | 'high' | 'critical'
-export type JobOrderStatus = 'open' | 'assigned' | 'resolved' | 'closed'
+/** No manual "Resolved" step any more -- a Job Order auto-closes when
+ * its most recent Service Record is Approved and marked Completed
+ * ('C'). VOID is a manual dead-end for a job that should never have
+ * been raised (duplicate, raised in error). */
+export type JobOrderStatus = 'open' | 'assigned' | 'closed' | 'void'
 
 export interface JobOrder {
   id: string
@@ -326,11 +346,14 @@ export interface JobOrder {
   subject: string
   priority: JobOrderPriority
   status: JobOrderStatus
+  /** "Tick as Urgent" -- suggests a x1.5 deduction-minutes multiplier on approval. */
+  is_urgent: boolean
   assigned_to_user_id: string | null
   /** Manual, optional -- set by Sales/Coordinator after discussion with Support. */
   due_date: string | null
+  void_reason: string | null
   created_at: string
-  resolved_at: string | null
+  closed_at: string | null
 }
 
 // ---- Operations/Accounting Reports filters ----
@@ -439,6 +462,10 @@ export interface SoftwareTask {
 
 export type ServiceRecordStatus = 'submitted' | 'approved'
 export type ServiceRecordOutcome = 'pending' | 'contract_deduction' | 'excess_usage' | 'not_hour_metered'
+/** 'C' = Completed (this visit finished the job), 'U' = Uncompleted
+ * (another visit is needed) -- set by the submitter, drives Job Order
+ * auto-close. */
+export type ServiceRecordCompletion = 'C' | 'U'
 
 export interface ServiceRecord {
   id: string
@@ -448,8 +475,34 @@ export interface ServiceRecord {
   work_date: string
   raw_minutes: number
   rounded_minutes: number
+  /** Set by the approver at approval time; null until then. */
+  deducted_minutes: number | null
   status: ServiceRecordStatus
   outcome: ServiceRecordOutcome
+  completion_status: ServiceRecordCompletion
+  is_after_hours: boolean
+  is_late: boolean
+}
+
+/** One row on the Service Record Approval page -- a Submitted record
+ * enriched with what the approver needs (job order, urgency, a
+ * suggested deduction) without looking each thing up separately. */
+export interface PendingServiceRecord {
+  id: string
+  service_record_number: string
+  job_order_id: string
+  job_order_number: string
+  job_order_subject: string
+  is_urgent: boolean
+  employee_user_id: string
+  employee_name: string
+  work_date: string
+  raw_minutes: number
+  rounded_minutes: number
+  completion_status: ServiceRecordCompletion
+  is_after_hours: boolean
+  suggested_deducted_minutes: number
+  contract_remaining_minutes: number | null
   is_late: boolean
 }
 
@@ -1111,6 +1164,21 @@ export const api = {
   reactivateBranch: (customerId: string, branchId: string) =>
     request<Branch>(`/customers/${customerId}/branches/${branchId}/reactivate`, { method: 'POST' }),
 
+  listCustomerRelationships: (customerId: string) =>
+    request<CustomerRelationship[]>(`/customers/${customerId}/relationships`),
+  createCustomerRelationship: (
+    customerId: string,
+    payload: { to_customer_id?: string; to_contact_id?: string; relationship_type: string; note?: string },
+  ) =>
+    request<CustomerRelationship>(`/customers/${customerId}/relationships`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  deactivateCustomerRelationship: (customerId: string, relationshipId: string) =>
+    request<CustomerRelationship>(`/customers/${customerId}/relationships/${relationshipId}/deactivate`, {
+      method: 'POST',
+    }),
+
   listContracts: (
     filters: {
       status?: string
@@ -1168,13 +1236,16 @@ export const api = {
     subject: string
     priority?: JobOrderPriority
     due_date?: string | null
+    is_urgent?: boolean
   }) => request<JobOrder>('/job-orders', { method: 'POST', body: JSON.stringify(payload) }),
   assignJobOrder: (id: string, assigned_to_user_id: string) =>
     request<JobOrder>(`/job-orders/${id}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to_user_id }) }),
   setJobOrderDueDate: (id: string, due_date: string | null) =>
     request<JobOrder>(`/job-orders/${id}/due-date`, { method: 'POST', body: JSON.stringify({ due_date }) }),
-  resolveJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}/resolve`, { method: 'POST' }),
-  closeJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}/close`, { method: 'POST' }),
+  setJobOrderUrgent: (id: string, is_urgent: boolean) =>
+    request<JobOrder>(`/job-orders/${id}/urgent`, { method: 'POST', body: JSON.stringify({ is_urgent }) }),
+  voidJobOrder: (id: string, reason: string) =>
+    request<JobOrder>(`/job-orders/${id}/void`, { method: 'POST', body: JSON.stringify({ reason }) }),
   reopenJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}/reopen`, { method: 'POST' }),
 
   supportMonitoring: () => request<SupportMonitoring>('/monitoring/support'),
@@ -1247,8 +1318,15 @@ export const api = {
     employee_user_id: string
     work_date: string
     raw_minutes: number
+    completion_status?: ServiceRecordCompletion
+    is_after_hours?: boolean
   }) => request<ServiceRecord>('/service-records', { method: 'POST', body: JSON.stringify(payload) }),
-  approveServiceRecord: (id: string) => request<ServiceRecord>(`/service-records/${id}/approve`, { method: 'POST' }),
+  listPendingServiceRecordApprovals: () => request<PendingServiceRecord[]>('/service-records/pending-approval'),
+  approveServiceRecord: (id: string, deducted_minutes: number) =>
+    request<ServiceRecord>(`/service-records/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ deducted_minutes }),
+    }),
 
   listExcessUsage: (pendingOnly = false) =>
     request<ExcessUsageRecord[]>(`/excess-usage${pendingOnly ? '?pending_only=true' : ''}`),

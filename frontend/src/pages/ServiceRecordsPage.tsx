@@ -41,22 +41,13 @@ export default function ServiceRecordsPage() {
     }
   }
 
-  async function onApprove(id: string) {
-    setError(null)
-    try {
-      await api.approveServiceRecord(id)
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to approve')
-    }
-  }
-
   return (
     <div>
       <h1>Service Records</h1>
       <p className="muted">
         Time logged against Job Orders (SRV-007: rounds up to the nearest 15 min). To log a new one,
-        open the Job Order it belongs to.
+        open the Job Order it belongs to. To approve one and key in the deduction minutes, see{' '}
+        <Link to="/service-record-approval">Service Record Approval</Link>.
       </p>
       {error && <div className="error-banner">{error}</div>}
 
@@ -102,10 +93,10 @@ export default function ServiceRecordsPage() {
               <th>Job Order</th>
               <th>Employee</th>
               <th>Date</th>
-              <th>Raw / Rounded</th>
+              <th>Raw / Rounded / Deducted</th>
+              <th>Completion</th>
               <th>Status</th>
               <th>Outcome</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -119,6 +110,15 @@ export default function ServiceRecordsPage() {
                 <td>{r.work_date}</td>
                 <td>
                   {r.raw_minutes}m &rarr; {r.rounded_minutes}m
+                  {r.deducted_minutes != null && <> &rarr; {r.deducted_minutes}m deducted</>}
+                </td>
+                <td>
+                  {r.completion_status === 'C' ? 'Completed' : 'Uncompleted'}
+                  {r.is_after_hours && (
+                    <span className="badge exceeded" style={{ marginLeft: 6 }}>
+                      after-hours
+                    </span>
+                  )}
                 </td>
                 <td>
                   {r.status}
@@ -129,7 +129,6 @@ export default function ServiceRecordsPage() {
                   )}
                 </td>
                 <td>{r.outcome}</td>
-                <td>{r.status === 'submitted' && <button onClick={() => onApprove(r.id)}>Approve</button>}</td>
               </tr>
             ))}
             {records.length === 0 && (

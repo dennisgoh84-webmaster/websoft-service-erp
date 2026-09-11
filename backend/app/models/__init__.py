@@ -42,7 +42,14 @@ from app.models.core import (  # noqa: F401
     UserCompanyAccess,
     UserRole,
 )
-from app.models.customers import Branch, Contact, Customer, CustomerGroup, CustomerType  # noqa: F401
+from app.models.customers import (  # noqa: F401
+    Branch,
+    Contact,
+    Customer,
+    CustomerGroup,
+    CustomerRelationship,
+    CustomerType,
+)
 from app.models.catalog import Product, ProductType  # noqa: F401
 from app.models.quotations import Quotation, QuotationLine, QuotationStatus  # noqa: F401
 from app.models.groups import (  # noqa: F401
@@ -54,6 +61,7 @@ from app.models.groups import (  # noqa: F401
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus  # noqa: F401
 from app.models.service_records import (  # noqa: F401
     ServiceRecord,
+    ServiceRecordCompletion,
     ServiceRecordOutcome,
     ServiceRecordStatus,
 )

@@ -24,6 +24,7 @@ import GroupsPage from './pages/GroupsPage'
 import InvoicePrintPage from './pages/InvoicePrintPage'
 import InvoicesPage from './pages/InvoicesPage'
 import JobOrderDetailPage from './pages/JobOrderDetailPage'
+import JobOrderPrintPage from './pages/JobOrderPrintPage'
 import JobOrdersPage from './pages/JobOrdersPage'
 import Login from './pages/Login'
 import ModulesPage from './pages/ModulesPage'
@@ -35,6 +36,7 @@ import QuotationPrintPage from './pages/QuotationPrintPage'
 import QuotationsPage from './pages/QuotationsPage'
 import ReceiptPrintPage from './pages/ReceiptPrintPage'
 import ReceiptsPage from './pages/ReceiptsPage'
+import ServiceRecordApprovalPage from './pages/ServiceRecordApprovalPage'
 import ServiceRecordsPage from './pages/ServiceRecordsPage'
 import SetupListsPage from './pages/SetupListsPage'
 import SoftwareTasksPage from './pages/SoftwareTasksPage'
@@ -69,7 +71,9 @@ function AppRoutes() {
         <Route path="/contracts/:id" element={<ContractDetailPage />} />
         <Route path="/job-orders" element={<JobOrdersPage />} />
         <Route path="/job-orders/:id" element={<JobOrderDetailPage />} />
+        <Route path="/job-orders/:id/print" element={<JobOrderPrintPage />} />
         <Route path="/service-records" element={<ServiceRecordsPage />} />
+        <Route path="/service-record-approval" element={<ServiceRecordApprovalPage />} />
         <Route path="/support-monitoring" element={<SupportMonitoringPage />} />
         <Route path="/software-tasks" element={<SoftwareTasksPage />} />
         <Route path="/excess-review" element={<ExcessReviewPage />} />

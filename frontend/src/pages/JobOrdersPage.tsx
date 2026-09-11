@@ -15,6 +15,7 @@ export default function JobOrdersPage() {
   const [subject, setSubject] = useState('')
   const [priority, setPriority] = useState<JobOrderPriority>('normal')
   const [dueDate, setDueDate] = useState('')
+  const [isUrgent, setIsUrgent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Dynamic filters
@@ -51,9 +52,11 @@ export default function JobOrdersPage() {
         subject,
         priority,
         due_date: dueDate || undefined,
+        is_urgent: isUrgent,
       })
       setSubject('')
       setDueDate('')
+      setIsUrgent(false)
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create job order')
@@ -136,6 +139,17 @@ export default function JobOrdersPage() {
             <label>Due date (optional, as agreed with Support)</label>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
+          <div className="form-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={isUrgent}
+                onChange={(e) => setIsUrgent(e.target.checked)}
+                style={{ marginRight: 6 }}
+              />
+              Urgent (x1.5 suggested deduction rate)
+            </label>
+          </div>
           {error && <div className="error-banner">{error}</div>}
           <button type="submit" disabled={!customerId || !contractId}>
             Create job order
@@ -151,8 +165,8 @@ export default function JobOrdersPage() {
               <option value="">All</option>
               <option value="open">Open</option>
               <option value="assigned">Assigned</option>
-              <option value="resolved">Resolved</option>
               <option value="closed">Closed</option>
+              <option value="void">Void</option>
             </select>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
@@ -216,11 +230,14 @@ export default function JobOrdersPage() {
           <tbody>
             {jobOrders.map((t) => {
               const overdue =
-                !!t.due_date && t.due_date < new Date().toISOString().slice(0, 10) && t.status !== 'resolved' && t.status !== 'closed'
+                !!t.due_date && t.due_date < new Date().toISOString().slice(0, 10) && t.status !== 'closed' && t.status !== 'void'
               return (
                 <tr key={t.id}>
                   <td className="muted">{t.job_order_number}</td>
-                  <td>{t.subject}</td>
+                  <td>
+                    {t.subject}
+                    {t.is_urgent && <span className="badge exceeded" style={{ marginLeft: 6 }}>URGENT</span>}
+                  </td>
                   <td>{customerName(t.customer_id)}</td>
                   <td>{t.priority}</td>
                   <td>{t.status}</td>
@@ -235,8 +252,9 @@ export default function JobOrdersPage() {
                       <span className="muted">-</span>
                     )}
                   </td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 10 }}>
                     <Link to={`/job-orders/${t.id}`}>Open</Link>
+                    <Link to={`/job-orders/${t.id}/print`}>Print</Link>
                   </td>
                 </tr>
               )

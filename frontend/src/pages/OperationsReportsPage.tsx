@@ -273,8 +273,8 @@ export default function OperationsReportsPage() {
                   <option value="">All</option>
                   <option value="open">Open</option>
                   <option value="assigned">Assigned</option>
-                  <option value="resolved">Resolved</option>
                   <option value="closed">Closed</option>
+                  <option value="void">Void</option>
                 </select>
               </div>
               <div className="form-row" style={{ margin: 0 }}>
@@ -452,14 +452,14 @@ export default function OperationsReportsPage() {
               </thead>
               <tbody>
                 {jobOrders.map((o) => {
-                  const overdue = !!o.due_date && o.due_date < new Date().toISOString().slice(0, 10) && o.status !== 'resolved' && o.status !== 'closed'
+                  const overdue = !!o.due_date && o.due_date < new Date().toISOString().slice(0, 10) && o.status !== 'closed' && o.status !== 'void'
                   return (
                     <tr key={o.id}>
                       <td>{customerName(o.customer_id)}</td>
                       <td>{o.subject}</td>
                       <td>{o.priority}</td>
                       <td>
-                        <span className={`badge ${o.status === 'closed' || o.status === 'resolved' ? 'active' : 'draft'}`}>
+                        <span className={`badge ${o.status === 'closed' ? 'active' : o.status === 'void' ? 'expired' : 'draft'}`}>
                           {o.status}
                         </span>
                       </td>

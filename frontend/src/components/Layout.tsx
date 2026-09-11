@@ -59,10 +59,16 @@ export default function Layout() {
 
   const operationsItems: NavItem[] = [
     { key: 'support-monitoring', path: '/support-monitoring', label: 'Support Monitoring', visible: can('reporting') },
-    { key: 'customers', path: '/customers', label: 'Customers', visible: can('customer_management') },
+    { key: 'customers', path: '/customers', label: 'Company / Individual', visible: can('customer_management') },
     { key: 'contracts', path: '/contracts', label: 'Service Contracts', visible: can('service_contracts') },
     { key: 'job-orders', path: '/job-orders', label: 'Job Orders', visible: can('service_operations') },
     { key: 'service-records', path: '/service-records', label: 'Service Records', visible: can('service_records') },
+    {
+      key: 'service-record-approval',
+      path: '/service-record-approval',
+      label: 'Service Record Approval',
+      visible: can('service_records'),
+    },
     { key: 'excess-review', path: '/excess-review', label: 'Excess Review', visible: can('service_contracts') },
     { key: 'software-tasks', path: '/software-tasks', label: 'Software Tasks', visible: can('software_development') },
     { key: 'operations-reports', path: '/operations-reports', label: 'Operations Reports', visible: can('operations_reports') },
