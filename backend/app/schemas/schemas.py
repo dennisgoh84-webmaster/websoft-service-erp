@@ -251,6 +251,7 @@ class CustomerCreate(BaseModel):
     address_postal_code: str | None = None
     address_country: str | None = None
     tags: str | None = None
+    industry_code: str | None = None
     exclude_auto_sent: bool = False
     terms_and_conditions: str | None = None
     memo: str | None = None
@@ -280,6 +281,7 @@ class CustomerUpdate(BaseModel):
     address_postal_code: str | None = None
     address_country: str | None = None
     tags: str | None = None
+    industry_code: str | None = None
     exclude_auto_sent: bool | None = None
     terms_and_conditions: str | None = None
     memo: str | None = None
@@ -308,6 +310,7 @@ class CustomerOut(BaseModel):
     address_postal_code: str | None
     address_country: str | None
     tags: str | None
+    industry_code: str | None
     exclude_auto_sent: bool
     terms_and_conditions: str | None
     memo: str | None

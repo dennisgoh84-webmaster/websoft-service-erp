@@ -7,7 +7,9 @@ import {
   type Contact,
   type Customer,
   type CustomerGroup,
+  type CustomerProductUsageRow,
   type CustomerType,
+  type SetupListItem,
 } from '../lib/api'
 
 const ACTION_LABELS: Record<string, string> = {
@@ -22,6 +24,7 @@ function emptyForm() {
     customer_type: 'company' as CustomerType,
     name: '',
     customer_group_id: '',
+    industry_code: '',
     legacy_customer_code: '',
     contact_person: '',
     uen: '',
@@ -64,7 +67,9 @@ export default function CustomerDetailPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [branches, setBranches] = useState<Branch[]>([])
   const [groups, setGroups] = useState<CustomerGroup[]>([])
+  const [industries, setIndustries] = useState<SetupListItem[]>([])
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([])
+  const [productUsage, setProductUsage] = useState<CustomerProductUsageRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -95,6 +100,7 @@ export default function CustomerDetailPage() {
           customer_type: c.customer_type,
           name: c.name,
           customer_group_id: c.customer_group_id ?? '',
+          industry_code: c.industry_code ?? '',
           legacy_customer_code: c.legacy_customer_code ?? '',
           contact_person: c.contact_person ?? '',
           uen: c.uen ?? '',
@@ -121,11 +127,13 @@ export default function CustomerDetailPage() {
     api.listContacts(id, true).then(setContacts).catch((e) => setError(e.message))
     api.listBranches(id, true).then(setBranches).catch((e) => setError(e.message))
     api.getCustomerAuditLog(id).then(setAuditLog).catch((e) => setError(e.message))
+    api.reportCustomerProductUsage({ customer_id: id }).then(setProductUsage).catch(() => setProductUsage([]))
   }
 
   useEffect(refresh, [id])
   useEffect(() => {
     api.listCustomerGroups().then(setGroups).catch((e) => setError(e.message))
+    api.listSetupItems({ list_type: 'industry' }).then(setIndustries).catch(() => setIndustries([]))
   }, [])
 
   async function onSave(e: FormEvent) {
@@ -138,6 +146,7 @@ export default function CustomerDetailPage() {
         customer_type: form.customer_type,
         name: form.name,
         customer_group_id: form.customer_group_id || null,
+        industry_code: form.industry_code || null,
         legacy_customer_code: form.legacy_customer_code || null,
         contact_person: form.contact_person || null,
         uen: form.uen || null,
@@ -345,6 +354,20 @@ export default function CustomerDetailPage() {
             one holding) so they can be found together -- each stays its own full account with its
             own contracts and invoices.
           </p>
+          <div className="form-row">
+            <label>Industry</label>
+            <select
+              value={form.industry_code}
+              onChange={(e) => setForm((p) => ({ ...p, industry_code: e.target.value }))}
+            >
+              <option value="">Not set</option>
+              {industries.map((i) => (
+                <option key={i.code} value={i.code}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="form-row">
             <label>Contact person</label>
             <input {...field('contact_person')} placeholder="Quick reference, e.g. Mr Tan Wei Ming" />
@@ -595,6 +618,50 @@ export default function CustomerDetailPage() {
           </div>
           <button type="submit">Add branch</button>
         </form>
+      </div>
+
+      <div className="card">
+        <h2>Products in use</h2>
+        <p className="muted">
+          Every catalog product currently covered under one of this customer's contracts (Product
+          Coverage) -- a quick way to see what they already have before offering a renewal or
+          add-on. Visibility only, no automated renewal reminders yet.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Contract</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Coverage</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productUsage.map((row) => (
+              <tr key={`${row.contract_id}-${row.product_id}`}>
+                <td>{row.product_name}</td>
+                <td>
+                  <Link to={`/contracts/${row.contract_id}`}>{row.contract_number}</Link>
+                </td>
+                <td className="muted">{row.contract_kind}</td>
+                <td>
+                  <span className={`badge ${row.contract_status}`}>{row.contract_status}</span>
+                </td>
+                <td className="muted">
+                  {row.start_date} &rarr; {row.end_date}
+                </td>
+              </tr>
+            ))}
+            {productUsage.length === 0 && (
+              <tr>
+                <td colSpan={5} className="muted">
+                  No product coverage recorded on any contract yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <div className="card">

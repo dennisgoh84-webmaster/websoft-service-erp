@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models.core import AuditLogEntry, User
 from app.models.customers import Branch, Contact, Customer, CustomerGroup
 from app.models.groups import AccessLevel
+from app.models.setup import SetupListItem, SetupListType
 from app.schemas.schemas import (
     AuditLogEntryOut,
     BranchCreate,
@@ -28,9 +29,9 @@ router = APIRouter(prefix="/api/customers", tags=["customers"])
 MODULE = "customer_management"
 
 CUSTOMER_EXPORT_FIELDS = [
-    "name", "customer_type", "customer_group", "legacy_customer_code", "contact_person",
-    "uen", "gst_registration_no", "billing_email", "phone", "mobile", "address",
-    "payment_terms_days", "status",
+    "name", "customer_type", "customer_group", "industry", "legacy_customer_code",
+    "contact_person", "uen", "gst_registration_no", "billing_email", "phone", "mobile",
+    "address", "payment_terms_days", "status",
 ]
 
 CUSTOMER_FIELDS = (
@@ -52,6 +53,7 @@ CUSTOMER_FIELDS = (
     "address_postal_code",
     "address_country",
     "tags",
+    "industry_code",
     "exclude_auto_sent",
     "terms_and_conditions",
     "memo",
@@ -193,18 +195,23 @@ def _filter_customers(
     q: str | None,
     customer_group_id: uuid.UUID | None,
     include_inactive: bool,
+    industry_code: str | None = None,
 ):
     """Dynamic filter for the Customer master: free-text `q` matches
-    across name/email/phone/mobile/UEN/legacy code/tags, and
+    across name/email/phone/mobile/UEN/legacy code/tags,
     `customer_group_id` narrows to one group of companies at a time --
     so you can search for a particular customer or pull up a whole
-    group together. Shared by list_customers and the export endpoints
-    so "export what I'm looking at" always matches what's on screen."""
+    group together -- and `industry_code` narrows to one industry
+    (confirmed 2026-09-11: customer grouping by industry). Shared by
+    list_customers and the export endpoints so "export what I'm
+    looking at" always matches what's on screen."""
     query = db.query(Customer).filter(Customer.company_id == company_id)
     if not include_inactive:
         query = query.filter(Customer.is_active)
     if customer_group_id:
         query = query.filter(Customer.customer_group_id == customer_group_id)
+    if industry_code:
+        query = query.filter(Customer.industry_code == industry_code)
     if q:
         like = f"%{q}%"
         query = query.filter(
@@ -226,14 +233,17 @@ def _filter_customers(
 def list_customers(
     q: str | None = None,
     customer_group_id: uuid.UUID | None = None,
+    industry_code: str | None = None,
     include_inactive: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    return _filter_customers(db, current_user.company_id, q, customer_group_id, include_inactive)
+    return _filter_customers(
+        db, current_user.company_id, q, customer_group_id, include_inactive, industry_code
+    )
 
 
-def _customer_row(customer: Customer, group_name: str) -> dict:
+def _customer_row(customer: Customer, group_name: str, industry_name: str) -> dict:
     address = ", ".join(
         filter(
             None,
@@ -247,6 +257,7 @@ def _customer_row(customer: Customer, group_name: str) -> dict:
         "name": customer.name,
         "customer_type": customer.customer_type.value,
         "customer_group": group_name,
+        "industry": industry_name,
         "legacy_customer_code": customer.legacy_customer_code or "",
         "contact_person": customer.contact_person or "",
         "uen": customer.uen or "",
@@ -261,22 +272,39 @@ def _customer_row(customer: Customer, group_name: str) -> dict:
 
 
 def _customers_for_export(
-    db: Session, company_id: uuid.UUID, q: str | None, customer_group_id: uuid.UUID | None, include_inactive: bool
+    db: Session,
+    company_id: uuid.UUID,
+    q: str | None,
+    customer_group_id: uuid.UUID | None,
+    include_inactive: bool,
+    industry_code: str | None = None,
 ) -> list[dict]:
-    customers = _filter_customers(db, company_id, q, customer_group_id, include_inactive)
+    customers = _filter_customers(
+        db, company_id, q, customer_group_id, include_inactive, industry_code
+    )
     group_names = {g.id: g.name for g in db.query(CustomerGroup).filter(CustomerGroup.company_id == company_id)}
-    return [_customer_row(c, group_names.get(c.customer_group_id, "")) for c in customers]
+    industry_names = {
+        i.code: i.name
+        for i in db.query(SetupListItem).filter(SetupListItem.list_type == SetupListType.INDUSTRY)
+    }
+    return [
+        _customer_row(c, group_names.get(c.customer_group_id, ""), industry_names.get(c.industry_code, ""))
+        for c in customers
+    ]
 
 
 @router.get("/export.csv")
 def export_customers_csv(
     q: str | None = None,
     customer_group_id: uuid.UUID | None = None,
+    industry_code: str | None = None,
     include_inactive: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    rows = _customers_for_export(db, current_user.company_id, q, customer_group_id, include_inactive)
+    rows = _customers_for_export(
+        db, current_user.company_id, q, customer_group_id, include_inactive, industry_code
+    )
     csv_text = exports.rows_to_csv(CUSTOMER_EXPORT_FIELDS, rows)
     return StreamingResponse(
         iter([csv_text]),
@@ -289,11 +317,14 @@ def export_customers_csv(
 def export_customers_excel(
     q: str | None = None,
     customer_group_id: uuid.UUID | None = None,
+    industry_code: str | None = None,
     include_inactive: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    rows = _customers_for_export(db, current_user.company_id, q, customer_group_id, include_inactive)
+    rows = _customers_for_export(
+        db, current_user.company_id, q, customer_group_id, include_inactive, industry_code
+    )
     data = exports.rows_to_excel(CUSTOMER_EXPORT_FIELDS, rows, sheet_name="Customers")
     return StreamingResponse(
         iter([data]),

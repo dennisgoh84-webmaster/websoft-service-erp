@@ -30,6 +30,10 @@ class SetupListType(str, enum.Enum):
     STATE = "state"  # parent_code = the owning Country's code
     AREA_CODE = "area_code"
     CURRENCY = "currency"
+    # Confirmed 2026-09-11: customer grouping by industry -- a
+    # controlled vocabulary like the others above, not free text, so
+    # it groups usefully instead of fragmenting on typos/variants.
+    INDUSTRY = "industry"
 
 
 class SetupListItem(Base):

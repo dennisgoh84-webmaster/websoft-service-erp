@@ -213,6 +213,9 @@ export interface Customer {
   address_postal_code: string | null
   address_country: string | null
   tags: string | null
+  /** Setup Lists code (list_type=industry) -- optional, for grouping/
+   * filtering customers by industry. */
+  industry_code: string | null
   /** Reserved -- nothing reads this yet, no automated emailing exists. */
   exclude_auto_sent: boolean
   terms_and_conditions: string | null
@@ -271,6 +274,7 @@ export type CustomerFields = Partial<{
   address_postal_code: string | null
   address_country: string | null
   tags: string | null
+  industry_code: string | null
   exclude_auto_sent: boolean
   terms_and_conditions: string | null
   memo: string | null
@@ -355,6 +359,31 @@ export interface ServiceRecordReportFilters {
   start_date?: string
   end_date?: string
   [key: string]: string | number | boolean | undefined
+}
+
+/** Confirmed 2026-09-11: "check customer using which product" --
+ * visibility only, one row per (customer, product) currently covered
+ * under a contract's Product Coverage. */
+export interface CustomerProductUsageFilters {
+  customer_id?: string
+  product_id?: string
+  industry_code?: string
+  [key: string]: string | number | boolean | undefined
+}
+
+export interface CustomerProductUsageRow {
+  customer_id: string
+  customer_name: string
+  industry_code: string | null
+  industry_name: string
+  product_id: string
+  product_name: string
+  contract_id: string
+  contract_number: string
+  contract_kind: ContractKind
+  contract_status: ContractStatus
+  start_date: string
+  end_date: string
 }
 
 // ---- Support Monitoring ----
@@ -551,8 +580,8 @@ export interface GLType {
   is_active: boolean
 }
 
-// ---- Setup Lists (Nationality / Country / State / Area Code / Currency) ----
-export type SetupListType = 'nationality' | 'country' | 'state' | 'area_code' | 'currency'
+// ---- Setup Lists (Nationality / Country / State / Area Code / Currency / Industry) ----
+export type SetupListType = 'nationality' | 'country' | 'state' | 'area_code' | 'currency' | 'industry'
 
 export interface SetupListItem {
   id: string
@@ -952,28 +981,39 @@ export const api = {
 
   // Dynamic filter: free-text `q` matches name/email/phone/mobile/UEN/
   // legacy code/tags; customer_group_id pulls up a whole group of
-  // companies together; includeInactive reveals deactivated customers.
-  listCustomers: (filters: { q?: string; customer_group_id?: string; include_inactive?: boolean } = {}) =>
+  // companies together; industry_code narrows to one industry
+  // (confirmed 2026-09-11: customer grouping by industry); includeInactive
+  // reveals deactivated customers.
+  listCustomers: (
+    filters: { q?: string; customer_group_id?: string; industry_code?: string; include_inactive?: boolean } = {},
+  ) =>
     request<Customer[]>(
       `/customers${qs({
         q: filters.q,
         customer_group_id: filters.customer_group_id,
+        industry_code: filters.industry_code,
         include_inactive: filters.include_inactive ? 'true' : undefined,
       })}`,
     ),
-  exportCustomersCsv: (filters: { q?: string; customer_group_id?: string; include_inactive?: boolean } = {}) =>
+  exportCustomersCsv: (
+    filters: { q?: string; customer_group_id?: string; industry_code?: string; include_inactive?: boolean } = {},
+  ) =>
     requestBlob(
       `/customers/export.csv${qs({
         q: filters.q,
         customer_group_id: filters.customer_group_id,
+        industry_code: filters.industry_code,
         include_inactive: filters.include_inactive ? 'true' : undefined,
       })}`,
     ),
-  exportCustomersExcel: (filters: { q?: string; customer_group_id?: string; include_inactive?: boolean } = {}) =>
+  exportCustomersExcel: (
+    filters: { q?: string; customer_group_id?: string; industry_code?: string; include_inactive?: boolean } = {},
+  ) =>
     requestBlob(
       `/customers/export.xlsx${qs({
         q: filters.q,
         customer_group_id: filters.customer_group_id,
+        industry_code: filters.industry_code,
         include_inactive: filters.include_inactive ? 'true' : undefined,
       })}`,
     ),
@@ -1492,6 +1532,13 @@ export const api = {
     requestBlob(`/reports/operations/service-records/export.csv${qs(filters)}`),
   exportServiceRecordsReportExcel: (filters: ServiceRecordReportFilters = {}) =>
     requestBlob(`/reports/operations/service-records/export.xlsx${qs(filters)}`),
+
+  reportCustomerProductUsage: (filters: CustomerProductUsageFilters = {}) =>
+    request<CustomerProductUsageRow[]>(`/reports/operations/customer-product-usage${qs(filters)}`),
+  exportCustomerProductUsageCsv: (filters: CustomerProductUsageFilters = {}) =>
+    requestBlob(`/reports/operations/customer-product-usage/export.csv${qs(filters)}`),
+  exportCustomerProductUsageExcel: (filters: CustomerProductUsageFilters = {}) =>
+    requestBlob(`/reports/operations/customer-product-usage/export.xlsx${qs(filters)}`),
 
   // ---- Accounting Reports ----
   reportArAging: (as_at?: string) => request<AgingReport>(`/reports/accounting/ar-aging${qs({ as_at })}`),

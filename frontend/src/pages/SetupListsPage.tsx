@@ -1,7 +1,7 @@
-// Setup Lists -- Nationality, Country, State, Area Code, Currency
-// codes. Global reference data, shared by every company (see
+// Setup Lists -- Nationality, Country, State, Area Code, Currency,
+// Industry codes. Global reference data, shared by every company (see
 // app/models/setup.py): one generic list_type selector + table rather
-// than five near-identical pages.
+// than five/six near-identical pages.
 import { useEffect, useState, type FormEvent } from 'react'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type SetupListItem, type SetupListType } from '../lib/api'
@@ -12,6 +12,7 @@ const LIST_TYPES: { value: SetupListType; label: string }[] = [
   { value: 'state', label: 'State / Province' },
   { value: 'area_code', label: 'Area Code' },
   { value: 'currency', label: 'Currency' },
+  { value: 'industry', label: 'Industry' },
 ]
 
 export default function SetupListsPage() {

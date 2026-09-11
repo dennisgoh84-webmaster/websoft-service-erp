@@ -378,6 +378,87 @@ def service_records_report_export_excel(
     )
 
 
+CUSTOMER_PRODUCT_USAGE_EXPORT_FIELDS = [
+    "customer_name", "industry_name", "product_name", "contract_number", "contract_kind",
+    "contract_status", "start_date", "end_date",
+]
+
+
+def _customer_product_usage_rows(
+    db: Session, current_user: User, **filters
+) -> list[dict]:
+    rows = reports_svc.list_customer_product_usage(db, current_user.company_id, **filters)
+    return [
+        {
+            "customer_name": r["customer_name"],
+            "industry_name": r["industry_name"],
+            "product_name": r["product_name"],
+            "contract_number": r["contract_number"],
+            "contract_kind": r["contract_kind"],
+            "contract_status": r["contract_status"],
+            "start_date": r["start_date"].isoformat(),
+            "end_date": r["end_date"].isoformat(),
+        }
+        for r in rows
+    ]
+
+
+@router.get("/operations/customer-product-usage")
+def customer_product_usage_report(
+    customer_id: uuid.UUID | None = None,
+    product_id: uuid.UUID | None = None,
+    industry_code: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(OPS_MODULE, AccessLevel.VIEW)),
+):
+    """Confirmed 2026-09-11: "check customer using which product" --
+    visibility only for this round, see reports_svc.list_customer_product_usage."""
+    return reports_svc.list_customer_product_usage(
+        db, current_user.company_id, customer_id=customer_id, product_id=product_id,
+        industry_code=industry_code,
+    )
+
+
+@router.get("/operations/customer-product-usage/export.csv")
+def customer_product_usage_export_csv(
+    customer_id: uuid.UUID | None = None,
+    product_id: uuid.UUID | None = None,
+    industry_code: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(OPS_MODULE, AccessLevel.VIEW)),
+):
+    rows = _customer_product_usage_rows(
+        db, current_user, customer_id=customer_id, product_id=product_id, industry_code=industry_code,
+    )
+    _audit_export(db, current_user, "Operations Report: Customer Product Usage", "csv", len(rows))
+    csv_text = exports.rows_to_csv(CUSTOMER_PRODUCT_USAGE_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=customer-product-usage.csv"},
+    )
+
+
+@router.get("/operations/customer-product-usage/export.xlsx")
+def customer_product_usage_export_excel(
+    customer_id: uuid.UUID | None = None,
+    product_id: uuid.UUID | None = None,
+    industry_code: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(OPS_MODULE, AccessLevel.VIEW)),
+):
+    rows = _customer_product_usage_rows(
+        db, current_user, customer_id=customer_id, product_id=product_id, industry_code=industry_code,
+    )
+    _audit_export(db, current_user, "Operations Report: Customer Product Usage", "excel", len(rows))
+    data = exports.rows_to_excel(CUSTOMER_PRODUCT_USAGE_EXPORT_FIELDS, rows, sheet_name="Customer Product Usage")
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=customer-product-usage.xlsx"},
+    )
+
+
 # ==== Accounting Reports =================================================
 
 

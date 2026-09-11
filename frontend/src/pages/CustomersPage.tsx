@@ -1,11 +1,19 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Customer, type CustomerGroup, type CustomerType } from '../lib/api'
+import {
+  api,
+  downloadBlob,
+  type Customer,
+  type CustomerGroup,
+  type CustomerType,
+  type SetupListItem,
+} from '../lib/api'
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [groups, setGroups] = useState<CustomerGroup[]>([])
+  const [industries, setIndustries] = useState<SetupListItem[]>([])
   const [name, setName] = useState('')
   const [customerType, setCustomerType] = useState<CustomerType>('company')
   const [email, setEmail] = useState('')
@@ -13,22 +21,30 @@ export default function CustomersPage() {
   const [terms, setTerms] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  // Dynamic filter -- search for a particular customer, or pull up a
-  // whole group of companies together.
+  // Dynamic filter -- search for a particular customer, pull up a
+  // whole group of companies together, or narrow to one industry
+  // (confirmed 2026-09-11: customer grouping by industry).
   const [q, setQ] = useState('')
   const [filterGroup, setFilterGroup] = useState('')
+  const [filterIndustry, setFilterIndustry] = useState('')
   const [showInactive, setShowInactive] = useState(false)
 
   function refresh() {
     api
-      .listCustomers({ q: q || undefined, customer_group_id: filterGroup || undefined, include_inactive: showInactive })
+      .listCustomers({
+        q: q || undefined,
+        customer_group_id: filterGroup || undefined,
+        industry_code: filterIndustry || undefined,
+        include_inactive: showInactive,
+      })
       .then(setCustomers)
       .catch((e) => setError(e.message))
   }
 
-  useEffect(refresh, [q, filterGroup, showInactive])
+  useEffect(refresh, [q, filterGroup, filterIndustry, showInactive])
   useEffect(() => {
     api.listCustomerGroups().then(setGroups).catch((e) => setError(e.message))
+    api.listSetupItems({ list_type: 'industry' }).then(setIndustries).catch(() => setIndustries([]))
   }, [])
 
   function groupName(id: string | null) {
@@ -36,15 +52,26 @@ export default function CustomersPage() {
     return groups.find((g) => g.id === id)?.name ?? null
   }
 
+  function industryName(code: string | null) {
+    if (!code) return null
+    return industries.find((i) => i.code === code)?.name ?? code
+  }
+
   function resetFilters() {
     setQ('')
     setFilterGroup('')
+    setFilterIndustry('')
     setShowInactive(false)
   }
 
   async function onExport(format: string) {
     setError(null)
-    const filters = { q: q || undefined, customer_group_id: filterGroup || undefined, include_inactive: showInactive }
+    const filters = {
+      q: q || undefined,
+      customer_group_id: filterGroup || undefined,
+      industry_code: filterIndustry || undefined,
+      include_inactive: showInactive,
+    }
     if (format === 'csv') {
       downloadBlob(await api.exportCustomersCsv(filters), 'customers.csv')
     } else {
@@ -141,6 +168,17 @@ export default function CustomersPage() {
               ))}
             </select>
           </div>
+          <div className="form-row" style={{ margin: 0 }}>
+            <label>Industry</label>
+            <select value={filterIndustry} onChange={(e) => setFilterIndustry(e.target.value)}>
+              <option value="">All</option>
+              {industries.map((i) => (
+                <option key={i.code} value={i.code}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show inactive
@@ -164,6 +202,7 @@ export default function CustomersPage() {
             <tr>
               <th>Name</th>
               <th>Group</th>
+              <th>Industry</th>
               <th>Type</th>
               <th>Email</th>
               <th>Phone</th>
@@ -180,6 +219,7 @@ export default function CustomersPage() {
                   <Link to={`/customers/${c.id}`}>{c.name}</Link>
                 </td>
                 <td className="muted">{groupName(c.customer_group_id) ?? '-'}</td>
+                <td className="muted">{industryName(c.industry_code) ?? '-'}</td>
                 <td className="muted">{c.customer_type === 'individual' ? 'Individual' : 'Company'}</td>
                 <td>{c.billing_email ?? '-'}</td>
                 <td>{c.phone ?? '-'}</td>
@@ -200,13 +240,13 @@ export default function CustomersPage() {
                 </td>
                 <td style={{ display: 'flex', gap: 10 }}>
                   <Link to={`/customers/${c.id}`}>Open</Link>
-                  <Link to={`/contracts?customer=${c.id}`}>Contracts</Link>
+                  <Link to={`/contracts?customer=${c.id}`}>Service Contracts</Link>
                 </td>
               </tr>
             ))}
             {customers.length === 0 && (
               <tr>
-                <td colSpan={9} className="muted">
+                <td colSpan={10} className="muted">
                   No customers match these filters.
                 </td>
               </tr>

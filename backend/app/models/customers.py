@@ -121,6 +121,12 @@ class Customer(Base):
     # elsewhere in the system yet, so this matches that (e.g. "B2B, VIP").
     tags: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # Confirmed 2026-09-11: customer grouping by industry. A loose
+    # reference to SetupListItem.code where list_type=INDUSTRY (same
+    # pattern as SetupListItem.parent_code) rather than a hard FK, kept
+    # optional -- not every customer's industry is known up front.
+    industry_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
     # Reserved: no automated invoice/reminder emailing exists yet, so
     # this flag isn't read by anything today. See module docstring.
     exclude_auto_sent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

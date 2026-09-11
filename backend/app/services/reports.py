@@ -20,11 +20,13 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.models.billing import Invoice, InvoiceStatus
-from app.models.contracts import Contract, ContractKind, ContractStatus
+from app.models.catalog import Product
+from app.models.contracts import Contract, ContractKind, ContractProduct, ContractStatus
 from app.models.customers import Customer
 from app.models.job_orders import JobOrder, JobOrderStatus
 from app.models.payables import BillStatus, Supplier, SupplierInvoice
 from app.models.service_records import ServiceRecord, ServiceRecordOutcome, ServiceRecordStatus
+from app.models.setup import SetupListItem, SetupListType
 from app.services.accounts_receivable import aging_bucket_for
 
 EMPTY_BUCKET = {
@@ -132,6 +134,62 @@ def list_service_records_report(
     if end_date is not None:
         query = query.filter(ServiceRecord.work_date <= end_date)
     return query.order_by(ServiceRecord.work_date.desc()).all()
+
+
+def list_customer_product_usage(
+    db: Session,
+    company_id: uuid.UUID,
+    *,
+    customer_id: uuid.UUID | None = None,
+    product_id: uuid.UUID | None = None,
+    industry_code: str | None = None,
+) -> list[dict]:
+    """Confirmed 2026-09-11: "check customer using which product" --
+    one row per (customer, product) currently covered under a
+    contract's Product Coverage (ContractProduct). Filter by Customer
+    to see everything they have; filter by Product to see who has it
+    (and, by comparison against the full customer list, who doesn't)
+    -- the starting point for a manual add-on/renewal conversation.
+    Visibility only, confirmed in scope for this round -- no automated
+    "gap" flagging or renewal reminders yet (separate, not-yet-scoped
+    follow-up)."""
+    query = (
+        db.query(Contract, Customer, Product)
+        .join(ContractProduct, ContractProduct.contract_id == Contract.id)
+        .join(Customer, Contract.customer_id == Customer.id)
+        .join(Product, ContractProduct.product_id == Product.id)
+        .filter(Contract.company_id == company_id)
+    )
+    if customer_id is not None:
+        query = query.filter(Customer.id == customer_id)
+    if product_id is not None:
+        query = query.filter(Product.id == product_id)
+    if industry_code is not None:
+        query = query.filter(Customer.industry_code == industry_code)
+    rows = query.order_by(Customer.name, Product.name).all()
+
+    industry_names = {
+        i.code: i.name
+        for i in db.query(SetupListItem).filter(SetupListItem.list_type == SetupListType.INDUSTRY)
+    }
+
+    return [
+        {
+            "customer_id": customer.id,
+            "customer_name": customer.name,
+            "industry_code": customer.industry_code,
+            "industry_name": industry_names.get(customer.industry_code, ""),
+            "product_id": product.id,
+            "product_name": product.name,
+            "contract_id": contract.id,
+            "contract_number": contract.contract_number,
+            "contract_kind": contract.contract_kind.value,
+            "contract_status": contract.status.value,
+            "start_date": contract.start_date,
+            "end_date": contract.end_date,
+        }
+        for contract, customer, product in rows
+    ]
 
 
 # ---- Accounting Reports ------------------------------------------------

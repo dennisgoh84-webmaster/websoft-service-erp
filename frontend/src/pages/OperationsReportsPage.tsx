@@ -4,6 +4,7 @@
 // dynamic-filter + one-Export-button pattern as Invoices; a report type
 // selector switches which filter panel and columns show.
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import {
   api,
@@ -12,21 +13,26 @@ import {
   type ContractKind,
   type ContractStatus,
   type Customer,
+  type CustomerProductUsageRow,
   type JobOrder,
   type JobOrderStatus,
+  type Product,
   type ServiceRecord,
   type ServiceRecordOutcome,
   type ServiceRecordStatus,
+  type SetupListItem,
   type StaffUser,
 } from '../lib/api'
 import { isoToMonth, monthEndISO, monthStartISO } from '../lib/period'
 
-type ReportType = 'contracts' | 'job-orders' | 'service-records'
+type ReportType = 'contracts' | 'job-orders' | 'service-records' | 'customer-product-usage'
 
 export default function OperationsReportsPage() {
   const [reportType, setReportType] = useState<ReportType>('contracts')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [staff, setStaff] = useState<StaffUser[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [industries, setIndustries] = useState<SetupListItem[]>([])
   const [error, setError] = useState<string | null>(null)
 
   // Shared-shape filters -- only the ones relevant to the selected
@@ -46,9 +52,13 @@ export default function OperationsReportsPage() {
   const [srStatus, setSrStatus] = useState<ServiceRecordStatus | ''>('')
   const [srOutcome, setSrOutcome] = useState<ServiceRecordOutcome | ''>('')
 
+  const [productId, setProductId] = useState('')
+  const [industryCode, setIndustryCode] = useState('')
+
   const [contracts, setContracts] = useState<Contract[]>([])
   const [jobOrders, setJobOrders] = useState<JobOrder[]>([])
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([])
+  const [productUsage, setProductUsage] = useState<CustomerProductUsageRow[]>([])
 
   // All job orders, unfiltered -- used only to resolve a service record's
   // customer via its job order (Service Records has no customer_id of
@@ -59,6 +69,8 @@ export default function OperationsReportsPage() {
     api.listCustomers().then(setCustomers).catch(() => setCustomers([]))
     api.listStaff().then(setStaff).catch(() => setStaff([]))
     api.listJobOrders().then(setAllJobOrders).catch(() => setAllJobOrders([]))
+    api.listCatalog().then(setProducts).catch(() => setProducts([]))
+    api.listSetupItems({ list_type: 'industry' }).then(setIndustries).catch(() => setIndustries([]))
   }, [])
 
   function resetFilters() {
@@ -73,6 +85,8 @@ export default function OperationsReportsPage() {
     setOverdueOnly(false)
     setSrStatus('')
     setSrOutcome('')
+    setProductId('')
+    setIndustryCode('')
   }
 
   useEffect(() => {
@@ -101,7 +115,7 @@ export default function OperationsReportsPage() {
         })
         .then(setJobOrders)
         .catch((e) => setError(e.message))
-    } else {
+    } else if (reportType === 'service-records') {
       api
         .reportServiceRecords({
           status: srStatus || undefined,
@@ -113,11 +127,20 @@ export default function OperationsReportsPage() {
         })
         .then(setServiceRecords)
         .catch((e) => setError(e.message))
+    } else {
+      api
+        .reportCustomerProductUsage({
+          customer_id: customerId || undefined,
+          product_id: productId || undefined,
+          industry_code: industryCode || undefined,
+        })
+        .then(setProductUsage)
+        .catch((e) => setError(e.message))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     reportType, customerId, staffId, startDate, endDate, contractStatus, contractKind,
-    expiringWithinDays, jobOrderStatus, overdueOnly, srStatus, srOutcome,
+    expiringWithinDays, jobOrderStatus, overdueOnly, srStatus, srOutcome, productId, industryCode,
   ])
 
   const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? id.slice(0, 8)
@@ -148,7 +171,7 @@ export default function OperationsReportsPage() {
       }
       const blob = format === 'csv' ? await api.exportJobOrdersReportCsv(filters) : await api.exportJobOrdersReportExcel(filters)
       downloadBlob(blob, `job-orders-report.${format === 'csv' ? 'csv' : 'xlsx'}`)
-    } else {
+    } else if (reportType === 'service-records') {
       const filters = {
         status: srStatus || undefined,
         outcome: srOutcome || undefined,
@@ -160,6 +183,17 @@ export default function OperationsReportsPage() {
       const blob =
         format === 'csv' ? await api.exportServiceRecordsReportCsv(filters) : await api.exportServiceRecordsReportExcel(filters)
       downloadBlob(blob, `service-records-report.${format === 'csv' ? 'csv' : 'xlsx'}`)
+    } else {
+      const filters = {
+        customer_id: customerId || undefined,
+        product_id: productId || undefined,
+        industry_code: industryCode || undefined,
+      }
+      const blob =
+        format === 'csv'
+          ? await api.exportCustomerProductUsageCsv(filters)
+          : await api.exportCustomerProductUsageExcel(filters)
+      downloadBlob(blob, `customer-product-usage.${format === 'csv' ? 'csv' : 'xlsx'}`)
     }
   }
 
@@ -177,9 +211,10 @@ export default function OperationsReportsPage() {
           <div className="form-row" style={{ margin: 0 }}>
             <label>Report</label>
             <select value={reportType} onChange={(e) => { setReportType(e.target.value as ReportType); resetFilters() }}>
-              <option value="contracts">Contracts</option>
+              <option value="contracts">Service Contracts</option>
               <option value="job-orders">Job Orders</option>
               <option value="service-records">Service Records</option>
+              <option value="customer-product-usage">Customer Product Usage</option>
             </select>
           </div>
 
@@ -297,22 +332,53 @@ export default function OperationsReportsPage() {
             </>
           )}
 
-          <div className="form-row" style={{ margin: 0 }}>
-            <label>Period from</label>
-            <input
-              type="month"
-              value={isoToMonth(startDate)}
-              onChange={(e) => setStartDate(monthStartISO(e.target.value))}
-            />
-          </div>
-          <div className="form-row" style={{ margin: 0 }}>
-            <label>Period to</label>
-            <input
-              type="month"
-              value={isoToMonth(endDate)}
-              onChange={(e) => setEndDate(monthEndISO(e.target.value))}
-            />
-          </div>
+          {reportType === 'customer-product-usage' && (
+            <>
+              <div className="form-row" style={{ margin: 0 }}>
+                <label>Product</label>
+                <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+                  <option value="">All</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-row" style={{ margin: 0 }}>
+                <label>Industry</label>
+                <select value={industryCode} onChange={(e) => setIndustryCode(e.target.value)}>
+                  <option value="">All</option>
+                  {industries.map((i) => (
+                    <option key={i.code} value={i.code}>
+                      {i.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          {reportType !== 'customer-product-usage' && (
+            <>
+              <div className="form-row" style={{ margin: 0 }}>
+                <label>Period from</label>
+                <input
+                  type="month"
+                  value={isoToMonth(startDate)}
+                  onChange={(e) => setStartDate(monthStartISO(e.target.value))}
+                />
+              </div>
+              <div className="form-row" style={{ margin: 0 }}>
+                <label>Period to</label>
+                <input
+                  type="month"
+                  value={isoToMonth(endDate)}
+                  onChange={(e) => setEndDate(monthEndISO(e.target.value))}
+                />
+              </div>
+            </>
+          )}
 
           <button type="button" className="secondary" onClick={resetFilters}>
             Reset filters
@@ -450,6 +516,48 @@ export default function OperationsReportsPage() {
                   <tr>
                     <td colSpan={7} className="muted">
                       No service records match these filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+
+          {reportType === 'customer-product-usage' && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Industry</th>
+                  <th>Product</th>
+                  <th>Contract</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Coverage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productUsage.map((row) => (
+                  <tr key={`${row.contract_id}-${row.product_id}`}>
+                    <td>{row.customer_name}</td>
+                    <td className="muted">{row.industry_name || '-'}</td>
+                    <td>{row.product_name}</td>
+                    <td>
+                      <Link to={`/contracts/${row.contract_id}`}>{row.contract_number}</Link>
+                    </td>
+                    <td className="muted">{row.contract_kind}</td>
+                    <td>
+                      <span className={`badge ${row.contract_status}`}>{row.contract_status}</span>
+                    </td>
+                    <td className="muted">
+                      {row.start_date} &rarr; {row.end_date}
+                    </td>
+                  </tr>
+                ))}
+                {productUsage.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="muted">
+                      No customers currently covered for these filters.
                     </td>
                   </tr>
                 )}

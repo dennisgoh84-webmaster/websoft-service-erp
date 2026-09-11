@@ -361,6 +361,13 @@ SETUP_LIST_ITEMS = [
     (SetupListType.CURRENCY, "GBP", "British Pound", None),
     (SetupListType.CURRENCY, "CNY", "Chinese Yuan", None),
     (SetupListType.CURRENCY, "AUD", "Australian Dollar", None),
+    # Confirmed 2026-09-11: customer grouping by industry.
+    (SetupListType.INDUSTRY, "MFG", "Manufacturing", None),
+    (SetupListType.INDUSTRY, "LOGISTICS", "Logistics & Transportation", None),
+    (SetupListType.INDUSTRY, "TECH", "Technology / Software", None),
+    (SetupListType.INDUSTRY, "ENG", "Engineering", None),
+    (SetupListType.INDUSTRY, "RETAIL", "Retail", None),
+    (SetupListType.INDUSTRY, "PROF_SVC", "Professional Services", None),
 ]
 
 
@@ -600,6 +607,7 @@ def main():
             memo="Long-standing customer since 2019; prefers email over phone.",
             billing_notes="Requires PO number on every invoice.",
             payment_terms_days=30,  # terms vary per customer (confirmed)
+            industry_code="MFG",
         )
         # More company-1 customers, so the Customer list/filter has
         # enough rows to be worth demoing on screen.
@@ -614,6 +622,7 @@ def main():
             address_line1="12 Factory Road", address_city="Singapore",
             address_postal_code="100012", address_country="Singapore",
             payment_terms_days=30,
+            industry_code="LOGISTICS",
         )
         beacon = Customer(
             company_id=company.id, name="Beacon Software Solutions Pte Ltd",
@@ -625,6 +634,7 @@ def main():
             address_line1="7 Ayer Rajah Crescent", address_city="Singapore",
             address_postal_code="139951", address_country="Singapore",
             payment_terms_days=45,
+            industry_code="TECH",
         )
         crestview = Customer(
             company_id=company.id, name="Crestview Engineering Pte Ltd",
@@ -636,6 +646,7 @@ def main():
             address_line1="55 Ubi Avenue 3", address_city="Singapore",
             address_postal_code="408864", address_country="Singapore",
             payment_terms_days=None,  # terms not agreed yet
+            industry_code="ENG",
         )
         tan_ah_kow = Customer(
             company_id=company.id, name="Tan Ah Kow",
@@ -645,6 +656,8 @@ def main():
             address_line1="Blk 123 Bishan St 12", address_city="Singapore",
             address_postal_code="570123", address_country="Singapore",
             payment_terms_days=7,
+            # Individuals often just don't have one -- left unset on
+            # purpose to demo that the field is optional.
         )
         # Company 2's own customer -- switching companies swaps the whole
         # dataset, so this is what Dennis sees under Websoft Digital.
@@ -657,6 +670,7 @@ def main():
             address_line1="20 Orchard Lane", address_city="Singapore",
             address_postal_code="200020", address_country="Singapore",
             payment_terms_days=14,  # a different customer, different terms
+            industry_code="RETAIL",
         )
         db.add_all([customer, acme_logistics, beacon, crestview, tan_ah_kow, customer2])
         db.flush()
