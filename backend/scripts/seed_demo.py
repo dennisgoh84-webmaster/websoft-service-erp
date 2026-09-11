@@ -64,6 +64,7 @@ from app.models.tax import TaxCode
 from app.models.catalog import Product, ProductType
 from app.models.quotations import Quotation, QuotationLine, QuotationStatus
 from app.models.software_tasks import SoftwareTask
+from app.models.ops_tasks import OpsTask, OpsTaskCategory, OpsTaskStatus
 from app.services import payables as ap_svc
 from app.services import billing as billing_svc
 from app.services import contracts as contract_svc
@@ -112,6 +113,12 @@ MODULE_CATALOG = [
     ("accounting_reports", "Accounting Reports (AR/AP Aging, Trial Balance)", True, True),
     ("integrations", "Integrations (incl. Odoo migration)", False, False),  # deferred
     ("ai_assistant", "AI Assistant", False, False),
+    # Personal, freeform task tracker per staff member (confirmed
+    # 2026-09-11) -- everyone gets FULL on their own dashboard; see
+    # GROUP_CATALOG below and app/routers/ops_dashboard.py for the
+    # separate manager-role check that lets Owner/Service Lead/Sales
+    # Manager view another staff member's dashboard too.
+    ("ops_dashboard", "Ops Dashboard (personal task tracker)", True, True),
 ]
 
 
@@ -144,6 +151,7 @@ GROUP_CATALOG = {
                 "software_development",
                 "operations_reports",
                 "accounting_reports",
+                "ops_dashboard",
             )
         },
     ),
@@ -159,6 +167,7 @@ GROUP_CATALOG = {
             "operations_reports": VIEW,
             "core_administration": NONE,
             "event_logs": NONE,  # system-wide audit trail -- Owner/Admin only by default
+            "ops_dashboard": FULL,
         },
     ),
     "Sales Team": (
@@ -176,6 +185,7 @@ GROUP_CATALOG = {
             "accounting_reports": VIEW,
             "core_administration": NONE,
             "event_logs": NONE,
+            "ops_dashboard": FULL,
         },
     ),
     "Finance Team": (
@@ -197,6 +207,7 @@ GROUP_CATALOG = {
             "service_records": NONE,
             "core_administration": NONE,
             "event_logs": NONE,
+            "ops_dashboard": FULL,
         },
     ),
 }
@@ -970,6 +981,68 @@ def main():
                     assigned_programmer_id=dennis.id,
                     tester_user_id=nico.id,
                     created_by_user_id=dennis.id,
+                ),
+            ]
+        )
+
+        # Ops Dashboard sample data (confirmed 2026-09-11) -- a couple of
+        # freeform categories/tasks per staff member, themed to this
+        # demo's own customers rather than copying the unrelated
+        # personal-tool content from the reference screenshot. All
+        # flagged is_sample=True (no in-app "reset seed" exists; these
+        # are just believable starting content, like every other
+        # module's demo data).
+        dennis_cat1 = OpsTaskCategory(
+            company_id=company.id, owner_user_id=dennis.id,
+            name="Customer Follow-ups", cadence_label="Weekly", sort_order=0,
+        )
+        dennis_cat2 = OpsTaskCategory(
+            company_id=company.id, owner_user_id=dennis.id,
+            name="Admin & Reporting", cadence_label="Month-end", sort_order=1,
+        )
+        nico_cat1 = OpsTaskCategory(
+            company_id=company.id, owner_user_id=nico.id,
+            name="Service Follow-ups", cadence_label="Daily", sort_order=0,
+        )
+        db.add_all([dennis_cat1, dennis_cat2, nico_cat1])
+        db.flush()
+
+        db.add_all(
+            [
+                OpsTask(
+                    company_id=company.id, category_id=dennis_cat1.id, owner_user_id=dennis.id,
+                    title="Call Acme Manufacturing re: contract renewal",
+                    status=OpsTaskStatus.IN_PROGRESS, next_action="Confirm renewal hours with Cherish",
+                    owner_label="Dennis", follow_up_staff_id=cherish.id,
+                    follow_up_date=date.today() + timedelta(days=5), is_sample=True,
+                ),
+                OpsTask(
+                    company_id=company.id, category_id=dennis_cat1.id, owner_user_id=dennis.id,
+                    title="Review Crestview Engineering's payment terms",
+                    status=OpsTaskStatus.NOT_STARTED, owner_label="Dennis", is_sample=True,
+                ),
+                OpsTask(
+                    company_id=company.id, category_id=dennis_cat2.id, owner_user_id=dennis.id,
+                    title="Prepare monthly billings summary",
+                    status=OpsTaskStatus.NOT_STARTED, next_action="Export from Accounting Reports",
+                    owner_label="Dennis", due_label="Month-end", is_sample=True,
+                ),
+                OpsTask(
+                    company_id=company.id, category_id=dennis_cat2.id, owner_user_id=dennis.id,
+                    title="Reconcile bank statement",
+                    status=OpsTaskStatus.BLOCKED, next_action="Waiting on bank statement download",
+                    owner_label="Dennis", is_sample=True,
+                ),
+                OpsTask(
+                    company_id=company.id, category_id=nico_cat1.id, owner_user_id=nico.id,
+                    title="Review pending excess usage",
+                    status=OpsTaskStatus.WATCH, next_action="Check Excess Review queue",
+                    owner_label="Nico", is_sample=True,
+                ),
+                OpsTask(
+                    company_id=company.id, category_id=nico_cat1.id, owner_user_id=nico.id,
+                    title="Check overdue job orders",
+                    status=OpsTaskStatus.IN_PROGRESS, owner_label="Nico", is_sample=True,
                 ),
             ]
         )

@@ -742,6 +742,66 @@ export interface GSTReturn {
   net_gst_payable_sgd: number
 }
 
+// ---- Ops Dashboard (personal task tracker, confirmed 2026-09-11) ----
+export type OpsTaskStatus = 'not_started' | 'in_progress' | 'watch' | 'blocked' | 'done'
+
+export interface OpsTaskCategory {
+  id: string
+  owner_user_id: string
+  name: string
+  cadence_label: string | null
+  sort_order: number
+}
+
+export interface OpsTask {
+  id: string
+  category_id: string
+  owner_user_id: string
+  title: string
+  status: OpsTaskStatus
+  next_action: string | null
+  owner_label: string | null
+  due_label: string | null
+  follow_up_staff_id: string | null
+  follow_up_staff_name: string | null
+  follow_up_date: string | null
+  is_sample: boolean
+}
+
+export interface OpsDashboardCategory {
+  category: OpsTaskCategory
+  tasks: OpsTask[]
+}
+
+export interface OpsRollupJobOrder {
+  id: string
+  job_order_number: string
+  subject: string
+  status: string
+  due_date: string | null
+}
+
+export interface OpsRollupSoftwareTask {
+  id: string
+  title: string
+  role: string
+  is_tested: boolean
+}
+
+export interface OpsDashboard {
+  staff_id: string
+  staff_name: string
+  can_view_others: boolean
+  categories: OpsDashboardCategory[]
+  total_tasks: number
+  open_count: number
+  in_progress_count: number
+  blocked_count: number
+  done_count: number
+  my_job_orders: OpsRollupJobOrder[]
+  my_software_tasks: OpsRollupSoftwareTask[]
+}
+
 // ---- General Ledger / vouchers ----
 export type VoucherType = 'journal' | 'receipt' | 'payment' | 'sales_invoice' | 'purchase_invoice'
 export type JournalStatus = 'draft' | 'posted' | 'reversed'
@@ -1769,4 +1829,34 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  // ---- Ops Dashboard ----
+  getOpsDashboard: (staffId?: string) => request<OpsDashboard>(`/ops-dashboard${qs({ staff_id: staffId })}`),
+  createOpsTaskCategory: (payload: { name: string; cadence_label?: string; owner_user_id?: string }) =>
+    request<OpsTaskCategory>('/ops-dashboard/categories', { method: 'POST', body: JSON.stringify(payload) }),
+  createOpsTask: (payload: {
+    category_id: string
+    title: string
+    status?: OpsTaskStatus
+    next_action?: string
+    owner_label?: string
+    due_label?: string
+    follow_up_staff_id?: string
+    follow_up_date?: string
+  }) => request<OpsTask>('/ops-dashboard/tasks', { method: 'POST', body: JSON.stringify(payload) }),
+  updateOpsTask: (
+    id: string,
+    payload: Partial<{
+      title: string
+      status: OpsTaskStatus
+      next_action: string
+      owner_label: string
+      due_label: string
+      follow_up_staff_id: string
+      follow_up_date: string
+      clear_follow_up_staff: boolean
+      clear_follow_up_date: boolean
+    }>,
+  ) => request<OpsTask>(`/ops-dashboard/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  archiveOpsTask: (id: string) => request<OpsTask>(`/ops-dashboard/tasks/${id}/archive`, { method: 'POST' }),
 }

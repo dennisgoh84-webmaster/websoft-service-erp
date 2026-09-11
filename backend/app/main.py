@@ -36,6 +36,7 @@ from app.routers import (
     job_orders,
     modules,
     monitoring,
+    ops_dashboard,
     periods,
     quotations,
     reports,
@@ -104,6 +105,7 @@ app.include_router(bank_accounts.router)
 app.include_router(document_control.router)
 app.include_router(tax_codes.router)
 app.include_router(periods.router)
+app.include_router(ops_dashboard.router)
 
 
 @app.get("/api/health")

@@ -29,6 +29,7 @@ import JobOrdersPage from './pages/JobOrdersPage'
 import Login from './pages/Login'
 import ModulesPage from './pages/ModulesPage'
 import OperationsReportsPage from './pages/OperationsReportsPage'
+import OpsDashboardPage from './pages/OpsDashboardPage'
 import PaymentVoucherPage from './pages/PaymentVoucherPage'
 import PaymentVoucherPrintPage from './pages/PaymentVoucherPrintPage'
 import ProductCatalogPage from './pages/ProductCatalogPage'
@@ -65,6 +66,7 @@ function AppRoutes() {
         }
       >
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/ops-dashboard" element={<OpsDashboardPage />} />
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/customers/:id" element={<CustomerDetailPage />} />
         <Route path="/contracts" element={<ContractsPage />} />

@@ -22,6 +22,7 @@ from app.models.licensing import LicenseType
 from app.models.service_records import ServiceRecordCompletion, ServiceRecordOutcome, ServiceRecordStatus
 from app.models.setup import SetupListType
 from app.models.periods import PeriodStatus
+from app.models.ops_tasks import OpsTaskStatus
 
 
 # ---- Auth ----
@@ -1490,3 +1491,94 @@ class GSTReturn(BaseModel):
     total_output_tax_sgd: float
     total_input_tax_sgd: float
     net_gst_payable_sgd: float  # output - input; negative means reclaimable
+
+
+# ---- Ops Dashboard (personal task tracker, confirmed 2026-09-11) ----
+class OpsTaskCategoryCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    cadence_label: str | None = None
+    # Manager creating a category on someone else's dashboard; defaults
+    # to the caller's own when omitted.
+    owner_user_id: uuid.UUID | None = None
+
+
+class OpsTaskCategoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    owner_user_id: uuid.UUID
+    name: str
+    cadence_label: str | None
+    sort_order: int
+
+
+class OpsTaskCreate(BaseModel):
+    category_id: uuid.UUID
+    title: str = Field(min_length=1, max_length=500)
+    status: OpsTaskStatus = OpsTaskStatus.NOT_STARTED
+    next_action: str | None = None
+    owner_label: str | None = None
+    due_label: str | None = None
+    follow_up_staff_id: uuid.UUID | None = None
+    follow_up_date: date | None = None
+
+
+class OpsTaskUpdate(BaseModel):
+    title: str | None = None
+    status: OpsTaskStatus | None = None
+    next_action: str | None = None
+    owner_label: str | None = None
+    due_label: str | None = None
+    follow_up_staff_id: uuid.UUID | None = None
+    follow_up_date: date | None = None
+    clear_follow_up_staff: bool = False
+    clear_follow_up_date: bool = False
+
+
+class OpsTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    category_id: uuid.UUID
+    owner_user_id: uuid.UUID
+    title: str
+    status: OpsTaskStatus
+    next_action: str | None
+    owner_label: str | None
+    due_label: str | None
+    follow_up_staff_id: uuid.UUID | None
+    follow_up_staff_name: str | None = None
+    follow_up_date: date | None
+    is_sample: bool
+
+
+class OpsDashboardCategoryOut(BaseModel):
+    category: OpsTaskCategoryOut
+    tasks: list[OpsTaskOut]
+
+
+class OpsRollupJobOrderOut(BaseModel):
+    id: uuid.UUID
+    job_order_number: str
+    subject: str
+    status: str
+    due_date: date | None
+
+
+class OpsRollupSoftwareTaskOut(BaseModel):
+    id: uuid.UUID
+    title: str
+    role: str  # "Programmer" or "Tester"
+    is_tested: bool
+
+
+class OpsDashboardOut(BaseModel):
+    staff_id: uuid.UUID
+    staff_name: str
+    can_view_others: bool
+    categories: list[OpsDashboardCategoryOut]
+    total_tasks: int
+    open_count: int
+    in_progress_count: int
+    blocked_count: int
+    done_count: int
+    my_job_orders: list[OpsRollupJobOrderOut]
+    my_software_tasks: list[OpsRollupSoftwareTaskOut]

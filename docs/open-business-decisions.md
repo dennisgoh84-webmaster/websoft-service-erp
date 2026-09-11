@@ -929,6 +929,67 @@ records, contract hours) plus several features/terms not yet built.
 
 ---
 
+## 20. Ops Dashboard: personal task tracker per staff member (raised 2026-09-11)
+
+Requested as "Create a staff individual ops dashboard based on the
+staff login," modeled on a sample screenshot (categories of tasks, a
+status/next-action/owner/due/follow-up table, stat tiles, a status
+legend, filters, expand/collapse, export).
+
+20.1. **Both freeform tasks AND a real-ERP-data rollup, confirmed
+   2026-09-11.** Two distinct sections on one page, not merged into one
+   data model:
+   - Freeform: `OpsTaskCategory`/`OpsTask` -- manually created
+     categories and tasks, independent of Job Orders/Contracts, with
+     the exact columns in the sample (status, next action, owner
+     label, due label, follow-up staff, follow-up date). `owner_label`
+     and `due_label` are free text, not foreign keys/real dates --
+     the sample itself mixes values like "Dennis + Bot" and "Month-end"
+     with real names/dates in those columns, so a strict type would
+     reject exactly what the sample shows.
+   - Real-ERP rollup: read-only "My open Job Orders" and "My Software
+     Tasks" sections, computed by filtering existing tables
+     (`JobOrder.assigned_to_user_id`, `SoftwareTask.assigned_programmer_id`
+     /`tester_user_id`) for the viewed staff member -- no new model.
+
+20.2. **Visibility: everyone sees their own; Owner/Service
+   Lead/Sales Manager can also view AND edit anyone's, confirmed
+   2026-09-11.** Mirrors the "manager-ish" role set already used for
+   Service Record approval and Excess Review (`MANAGER_ROLES` in
+   `app/routers/ops_dashboard.py`) rather than inventing a new role
+   concept. A manager gets a "Viewing" dropdown to switch to any staff
+   member's dashboard; anyone else sees no such control.
+
+20.3. **No in-app "Reset seed" button.** The sample screenshot has one,
+   but it's a real feature now, not a demo tool -- a button that wipes
+   a staff member's actual task list would contradict "never
+   permanently delete important business or financial records" in
+   spirit (these aren't financial records, but the same caution
+   applies). Sample/demo content instead comes from `seed_demo.py`
+   like every other module's demo data, flagged `is_sample=True` and
+   shown with a "(sample)" label.
+
+20.4. **"Edit staff list" links to Staff Master instead of a new admin
+   screen.** Staff Master already is the canonical place to manage
+   staff accounts; duplicating that here would just be two places that
+   can drift out of sync. The button in the sample is treated as
+   "manage who can appear in the follow-up-staff dropdown," which is
+   exactly what Staff Master already does.
+
+20.5. **Export JSON** downloads the currently-loaded dashboard (all
+   categories/tasks/rollups for whoever is being viewed) as a `.json`
+   file, client-side -- no backend export endpoint, since there's
+   nothing to compute beyond what's already fetched.
+
+*Where implemented:* `backend/app/models/ops_tasks.py`,
+`backend/app/routers/ops_dashboard.py`, `backend/app/schemas/schemas.py`,
+`frontend/src/pages/OpsDashboardPage.tsx`, nav entry ("My Ops
+Dashboard") in `frontend/src/components/Layout.tsx`, module key
+`ops_dashboard` in Module Control/Group Authority (all four default
+Groups get FULL). Migration: `08ceed0e5b5d`.
+
+---
+
 ## How to use this document
 
 - Do not start detailed schema or workflow design for an area until the
