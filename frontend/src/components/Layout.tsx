@@ -68,19 +68,27 @@ export default function Layout() {
     { key: 'operations-reports', path: '/operations-reports', label: 'Operations Reports', visible: can('operations_reports') },
   ]
 
+  // Order/labels below follow Dennis's requested sequence (2026-09-11):
+  // Bank / Sales Quotation / Sales Invoice / Receipt Voucher / Purchase
+  // Order / Accounts Payable / Payment Voucher / Journal Voucher / Chart
+  // of Accounts / GST and Account Period. Two items in that list have no
+  // dedicated route of their own, so they're mapped onto the closest
+  // existing page rather than getting a confusing duplicate nav entry --
+  // see docs/open-business-decisions.md for the full note:
+  //   - "Purchase Order" -> /accounts-payable (POs are a section of that
+  //     same page, not a separate route).
+  //   - "GST and Account Period" -> /accounting-periods (GST Return
+  //     itself stays a report under Accounting Reports, not moved).
   const accountsItems: NavItem[] = [
+    { key: 'bank-accounts', path: '/bank-accounts', label: 'Bank', visible: can('finance_accounting') },
     { key: 'quotations', path: '/quotations', label: 'Sales Quotation', visible: can('sales') },
-    { key: 'invoices', path: '/invoices', label: 'Invoices', visible: can('billing') },
-    { key: 'receipts', path: '/receipts', label: 'Receipts', visible: can('accounts_receivable') },
+    { key: 'invoices', path: '/invoices', label: 'Sales Invoice', visible: can('billing') },
+    { key: 'receipts', path: '/receipts', label: 'Receipt Voucher', visible: can('accounts_receivable') },
     { key: 'accounts-payable', path: '/accounts-payable', label: 'Accounts Payable', visible: can('accounts_payable') },
     { key: 'payment-voucher', path: '/payment-voucher', label: 'Payment Voucher', visible: can('accounts_payable') },
+    { key: 'general-ledger', path: '/general-ledger', label: 'Journal Voucher', visible: can('finance_accounting') },
     { key: 'chart-of-accounts', path: '/chart-of-accounts', label: 'Chart of Accounts', visible: can('finance_accounting') },
-    { key: 'gl-types', path: '/gl-types', label: 'GL Types', visible: can('finance_accounting') },
-    { key: 'tax-types', path: '/tax-types', label: 'Tax Types', visible: can('finance_accounting') },
-    { key: 'bank-accounts', path: '/bank-accounts', label: 'Bank Master File', visible: can('finance_accounting') },
-    { key: 'currency-rates', path: '/currency-rates', label: 'Currency Rate Table', visible: can('finance_accounting') },
-    { key: 'general-ledger', path: '/general-ledger', label: 'General Ledger', visible: can('finance_accounting') },
-    { key: 'accounting-periods', path: '/accounting-periods', label: 'Accounting Periods', visible: can('finance_accounting') },
+    { key: 'accounting-periods', path: '/accounting-periods', label: 'GST and Account Period', visible: can('finance_accounting') },
     { key: 'accounting-reports', path: '/accounting-reports', label: 'Accounting Reports', visible: can('accounting_reports') },
   ]
 
@@ -91,6 +99,9 @@ export default function Layout() {
     { key: 'groups', path: '/groups', label: 'Group Authority', visible: can('core_administration') },
     { key: 'product-catalog', path: '/product-catalog', label: 'Product Catalog', visible: can('sales') },
     { key: 'setup-lists', path: '/setup-lists', label: 'Setup Lists', visible: can('core_administration') },
+    { key: 'gl-types', path: '/gl-types', label: 'GL Types', visible: can('finance_accounting') },
+    { key: 'tax-types', path: '/tax-types', label: 'Tax Types', visible: can('finance_accounting') },
+    { key: 'currency-rates', path: '/currency-rates', label: 'Currency Rate Table', visible: can('finance_accounting') },
     { key: 'document-control', path: '/document-control', label: 'Document Control', visible: can('core_administration') },
     { key: 'event-logs', path: '/event-logs', label: 'Event Logs', visible: can('event_logs') },
   ]

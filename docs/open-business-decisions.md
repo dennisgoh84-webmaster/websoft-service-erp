@@ -716,6 +716,51 @@ records, contract hours) plus several features/terms not yet built.
 
 ---
 
+## 17. Accounts menu default order + Tax/Currency/GL Types moved to Maintenance (raised 2026-09-11)
+
+17.1. **Accounts section default order.** **Status: DECIDED 2026-09-11.**
+   Set the default (pre-drag) order of the Accounts sidebar section to
+   Dennis's requested sequence: Bank, Sales Quotation, Sales Invoice,
+   Receipt Voucher, Accounts Payable, Payment Voucher, Journal Voucher,
+   Chart of Accounts, GST and Account Period, Accounting Reports.
+   Several existing links were relabeled to match the requested wording
+   (Invoices -> Sales Invoice, Receipts -> Receipt Voucher, General
+   Ledger -> Journal Voucher, Accounting Periods -> GST and Account
+   Period, Bank Master File -> Bank) -- the underlying pages and routes
+   are unchanged, only the nav label and position moved. This is still
+   just a *default*: per #16.4 each user can drag-reorder their own
+   copy, so this only sets what a fresh browser sees.
+
+   Two items in the requested list have no dedicated page of their own,
+   so they were mapped onto the closest existing route rather than
+   adding a confusing duplicate nav entry -- flag for correction if
+   either mapping is wrong:
+   - **"Purchase Order"** -> `/accounts-payable`. Purchase Orders are
+     already a section of the Accounts Payable page (alongside
+     Suppliers and Bills), not a separate route -- a genuine standalone
+     PO page/route was not built.
+   - **"GST and Account Period"** -> `/accounting-periods` (relabeled).
+     The GST F5-style return itself was NOT moved -- it stays a report
+     under Accounting Reports (#48), since it's a report output, not a
+     period-setup screen.
+
+17.2. **GL Types, Tax Types, Currency Rate Table moved to Maintenance.**
+   **Status: DECIDED 2026-09-11.** Per "Those tax type, currency type
+   files should be in the Maintenance Section" -- moved out of the
+   Accounts section into Maintenance, alongside Setup Lists (their
+   closest sibling: all four are reference/master-data maintenance
+   screens, not transactional). GL Types was moved along with Tax Types
+   and Currency Rate Table even though only the latter two were named
+   explicitly, since it's the same kind of reference-data screen and
+   was the only one of the three left behind otherwise -- flag if GL
+   Types was meant to stay under Accounts.
+   *Where implemented:* `frontend/src/components/Layout.tsx`
+   (`accountsItems` / `maintenanceItems` arrays). No route or page
+   changes -- URLs are unchanged, only which sidebar section links to
+   them.
+
+---
+
 ## How to use this document
 
 - Do not start detailed schema or workflow design for an area until the
