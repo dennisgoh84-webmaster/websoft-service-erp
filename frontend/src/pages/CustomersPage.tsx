@@ -103,8 +103,13 @@ export default function CustomersPage() {
 
   return (
     <div>
-      <h1>Customers</h1>
-      <p className="muted">Customer Management -- the account each contract, job order, and invoice belongs to.</p>
+      <h1>Company / Individual</h1>
+      <p className="muted">
+        Company / Individual records (Customer Management) -- the account each contract, job order, and
+        invoice belongs to. Use Relationships (on a record's own page) to link it to another Company /
+        Individual, a specific Contact there, or note it also acts as a supplier or dealer -- Suppliers
+        for Accounts Payable purposes are still managed separately under Accounts Payable.
+      </p>
 
       <div className="card" style={{ marginTop: 20 }}>
         <h2>Add customer</h2>
@@ -196,7 +201,7 @@ export default function CustomersPage() {
           />
         </div>
 
-        <h2>Customers ({customers.length})</h2>
+        <h2>Company / Individual ({customers.length})</h2>
         <table>
           <thead>
             <tr>

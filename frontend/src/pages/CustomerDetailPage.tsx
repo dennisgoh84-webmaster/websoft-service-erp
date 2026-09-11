@@ -8,6 +8,7 @@ import {
   type Customer,
   type CustomerGroup,
   type CustomerProductUsageRow,
+  type CustomerRelationship,
   type CustomerType,
   type SetupListItem,
 } from '../lib/api'
@@ -66,6 +67,9 @@ export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [branches, setBranches] = useState<Branch[]>([])
+  const [relationships, setRelationships] = useState<CustomerRelationship[]>([])
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([])
+  const [relTargetContacts, setRelTargetContacts] = useState<Contact[]>([])
   const [groups, setGroups] = useState<CustomerGroup[]>([])
   const [industries, setIndustries] = useState<SetupListItem[]>([])
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([])
@@ -85,6 +89,12 @@ export default function CustomerDetailPage() {
 
   // New-branch form
   const [branchForm, setBranchForm] = useState(emptyBranchForm())
+
+  // New-relationship form
+  const [relTargetCustomerId, setRelTargetCustomerId] = useState('')
+  const [relTargetContactId, setRelTargetContactId] = useState('')
+  const [relType, setRelType] = useState('')
+  const [relNote, setRelNote] = useState('')
 
   // Inline "new group" entry, since a group of companies may not exist
   // yet when you first need to tag a customer into one.
@@ -126,6 +136,7 @@ export default function CustomerDetailPage() {
       .catch(() => setNotFound(true))
     api.listContacts(id, true).then(setContacts).catch((e) => setError(e.message))
     api.listBranches(id, true).then(setBranches).catch((e) => setError(e.message))
+    api.listCustomerRelationships(id).then(setRelationships).catch((e) => setError(e.message))
     api.getCustomerAuditLog(id).then(setAuditLog).catch((e) => setError(e.message))
     api.reportCustomerProductUsage({ customer_id: id }).then(setProductUsage).catch(() => setProductUsage([]))
   }
@@ -134,7 +145,20 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     api.listCustomerGroups().then(setGroups).catch((e) => setError(e.message))
     api.listSetupItems({ list_type: 'industry' }).then(setIndustries).catch(() => setIndustries([]))
+    api.listCustomers().then(setAllCustomers).catch(() => setAllCustomers([]))
   }, [])
+
+  // Fetch the chosen target's contacts so "relate to a specific
+  // contact person there" can be offered -- confirmed 2026-09-11
+  // ("company contacts relationship also").
+  useEffect(() => {
+    setRelTargetContactId('')
+    if (!relTargetCustomerId) {
+      setRelTargetContacts([])
+      return
+    }
+    api.listContacts(relTargetCustomerId).then(setRelTargetContacts).catch(() => setRelTargetContacts([]))
+  }, [relTargetCustomerId])
 
   async function onSave(e: FormEvent) {
     e.preventDefault()
@@ -254,6 +278,38 @@ export default function CustomerDetailPage() {
     }
   }
 
+  async function onAddRelationship(e: FormEvent) {
+    e.preventDefault()
+    if (!id) return
+    setError(null)
+    try {
+      await api.createCustomerRelationship(id, {
+        to_customer_id: relTargetContactId ? undefined : relTargetCustomerId,
+        to_contact_id: relTargetContactId || undefined,
+        relationship_type: relType,
+        note: relNote || undefined,
+      })
+      setRelTargetCustomerId('')
+      setRelTargetContactId('')
+      setRelType('')
+      setRelNote('')
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add relationship')
+    }
+  }
+
+  async function onRemoveRelationship(relationshipId: string) {
+    if (!id) return
+    setError(null)
+    try {
+      await api.deactivateCustomerRelationship(id, relationshipId)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove relationship')
+    }
+  }
+
   async function onAddGroup(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -267,7 +323,7 @@ export default function CustomerDetailPage() {
     }
   }
 
-  if (notFound) return <p>Customer not found. <Link to="/customers">Back to Customers</Link></p>
+  if (notFound) return <p>Not found. <Link to="/customers">Back to Company / Individual</Link></p>
   if (!customer) return <p>Loading...</p>
 
   function field(key: keyof ReturnType<typeof emptyForm>) {
@@ -617,6 +673,118 @@ export default function CustomerDetailPage() {
             <input {...branchField('phone')} />
           </div>
           <button type="submit">Add branch</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h2>Relationships</h2>
+        <p className="muted">
+          Link this record to another Company / Individual -- at the company level, the individual
+          level, or to one of that company's named Contacts.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Related to</th>
+              <th>Level</th>
+              <th>Relationship</th>
+              <th>Note</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {relationships.map((r) => (
+              <tr key={r.id}>
+                <td>
+                  {r.to_customer_id ? (
+                    <Link to={`/customers/${r.to_customer_id}`}>{r.to_customer_name}</Link>
+                  ) : (
+                    <>
+                      {r.to_contact_name}{' '}
+                      <span className="muted">
+                        (
+                        <Link to={`/customers/${r.to_contact_customer_id}`}>{r.to_contact_customer_name}</Link>
+                        )
+                      </span>
+                    </>
+                  )}
+                </td>
+                <td className="muted">
+                  {r.to_contact_id ? 'Contact' : r.to_customer_type === 'individual' ? 'Individual' : 'Company'}
+                </td>
+                <td>{r.relationship_type}</td>
+                <td className="muted">{r.note ?? '-'}</td>
+                <td>
+                  <button className="secondary" onClick={() => onRemoveRelationship(r.id)}>
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {relationships.length === 0 && (
+              <tr>
+                <td colSpan={5} className="muted">
+                  No relationships recorded yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        <form onSubmit={onAddRelationship} style={{ marginTop: 14 }}>
+          <div className="form-row">
+            <label>Related Company / Individual</label>
+            <select
+              value={relTargetCustomerId}
+              onChange={(e) => setRelTargetCustomerId(e.target.value)}
+              required
+            >
+              <option value="">Select...</option>
+              {allCustomers
+                .filter((c) => c.id !== id)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.customer_type})
+                  </option>
+                ))}
+            </select>
+          </div>
+          {relTargetContacts.length > 0 && (
+            <div className="form-row">
+              <label>Specific contact (optional)</label>
+              <select value={relTargetContactId} onChange={(e) => setRelTargetContactId(e.target.value)}>
+                <option value="">Whole company / individual</option>
+                {relTargetContacts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="form-row">
+            <label>Relationship</label>
+            <input
+              value={relType}
+              onChange={(e) => setRelType(e.target.value)}
+              required
+              placeholder="e.g. Parent Company, Referred By, Business Partner"
+              list="relationship-type-suggestions"
+            />
+            <datalist id="relationship-type-suggestions">
+              <option value="Parent Company" />
+              <option value="Subsidiary" />
+              <option value="Sister Company" />
+              <option value="Referred By" />
+              <option value="Business Partner" />
+              <option value="Same Decision Maker" />
+            </datalist>
+          </div>
+          <div className="form-row">
+            <label>Note (optional)</label>
+            <input value={relNote} onChange={(e) => setRelNote(e.target.value)} />
+          </div>
+          <button type="submit">Add relationship</button>
         </form>
       </div>
 

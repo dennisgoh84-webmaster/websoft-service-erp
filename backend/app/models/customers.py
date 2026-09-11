@@ -198,3 +198,42 @@ class Branch(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     customer: Mapped["Customer"] = relationship(back_populates="branches")
+
+
+class CustomerRelationship(Base):
+    """A link from one Customer to another Customer or Contact --
+    "company / individual" relationships confirmed 2026-09-11, distinct
+    from CustomerGroup above (a same-group *tag*, not a typed link
+    between two specific records). Covers all three levels the request
+    named without needing a separate field for which: company-level and
+    individual-level are both just to_customer_id (the level follows
+    from that Customer's own customer_type), and company-contact-level
+    is to_contact_id (exactly one of the two is set).
+
+    Undirected/symmetric by default (confirmed as a pragmatic default,
+    not an explicitly confirmed rule -- see
+    docs/open-business-decisions.md): one row, shown the same way on
+    both ends, rather than a directional pair like "Parent of" /
+    "Subsidiary of". relationship_type is free text (no fixed taxonomy
+    was given), matching how Customer.tags is already free text
+    elsewhere on this model."""
+
+    __tablename__ = "customer_relationships"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    from_customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    to_customer_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("customers.id"), nullable=True)
+    to_contact_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("contacts.id"), nullable=True)
+    relationship_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Soft-delete, matching every other master record here.
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+    from_customer: Mapped["Customer"] = relationship(foreign_keys=[from_customer_id])
+    to_customer: Mapped["Customer | None"] = relationship(foreign_keys=[to_customer_id])
+    to_contact: Mapped["Contact | None"] = relationship(foreign_keys=[to_contact_id])

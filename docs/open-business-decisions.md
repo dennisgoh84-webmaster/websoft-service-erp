@@ -808,6 +808,122 @@ records, contract hours) plus several features/terms not yet built.
    `frontend/src/lib/api.ts`. No migration needed -- the column already
    existed.
 
+   **Superseded the same day -- see #19.1 below.** The explicit status
+   list given afterwards ("open, closed, assigned, void") replaced this
+   manual Resolve/Close pair with an auto-close rule; this entry is
+   kept for history, not as the current design.
+
+---
+
+## 19. Job Order status rework, Service Record deduction workflow,
+   Company/Individual relationships, Job Order printing (raised 2026-09-11)
+
+19.1. **Job Order status: open/assigned/closed/void; auto-close
+   replaces manual Resolve/Close.** **Status: DECIDED 2026-09-11.**
+   RESOLVED is gone; VOID is new (a manual dead-end for a job that
+   should never have been raised -- duplicate, raised in error --
+   distinct from a normally finished job). A Job Order now auto-closes
+   when its **most recently submitted** Service Record is both
+   Approved and marked Completed ('C', not Uncompleted 'U') --
+   `maybe_auto_close_job_order()` in
+   `backend/app/services/service_records.py`. Only the latest record
+   matters, so earlier Uncompleted visits don't block closing once the
+   final visit is done and approved. Void requires a reason (audited);
+   Reopen (owner-only, undoes either Closed or Void back to
+   Assigned/Open) still exists for correcting a mistake without a
+   direct database edit. Once Closed or Void, Assignment/Due-date/Log-
+   a-Service-Record are hidden on the page and rejected server-side too
+   (reopen first) -- a gap found while building this, not explicitly
+   requested, but an obvious consequence of "finished/cancelled work
+   shouldn't take new entries."
+   *Migration:* `a025ca222e9c` rebuilds the `job_order_status` Postgres
+   enum (no `DROP VALUE` exists) and renames `resolved_at` ->
+   `closed_at`.
+
+19.2. **Service Record: Completion (C/U), After-hours flag, and
+   approver-keyed Deduction minutes.** **Status: DECIDED 2026-09-11.**
+   `completion_status` is set by whoever submits the record (does this
+   visit finish the job, or is another one needed) and drives 19.1's
+   auto-close. `is_after_hours` is a manual tick (no office-hours/
+   public-holiday calendar exists in this build to derive it from).
+   `deducted_minutes` is a new field the approver keys in herself at
+   approval time -- distinct from the objective `rounded_minutes` log
+   -- confirmed via "actual is 240mins, deducted is 220mins or
+   360mins." A new page, **Service Record Approval**
+   (`/service-record-approval`, nav entry below Service Records),
+   replaced the old one-click Approve button (which had no way to
+   collect a minutes value) -- it prefills a *suggestion* per 19.3 but
+   the approver can type any value.
+
+19.3. **Urgent (x1.5) / After-hours-Weekend-Holiday (x2.0) deduction
+   multiplier -- suggestion only, not enforced.** **Status: DECIDED
+   2026-09-11.** `Job Order.is_urgent` is a manual tick (toggle on the
+   Job Order detail page or at creation). The suggested deduction
+   minutes on the Approval page is `rounded_minutes x` the higher of
+   the two multipliers when both apply (confirmed: not stacked/
+   multiplied together, so Urgent + after-hours suggests x2.0, not
+   x3.0) -- `suggested_deduction_minutes()` in
+   `backend/app/services/service_records.py`. This only changes what
+   number is prefilled; the approver's typed-in value is what's
+   actually deducted and posted, so getting the suggestion formula
+   slightly wrong has no data-integrity consequence, only a
+   convenience one. The multiplier does **not** touch the excess-hour
+   billing rate (SRV-008's blended rate) -- flag if urgency/after-hours
+   was meant to affect the dollar rate charged on excess time too, not
+   just contract-hour-pool minutes consumed.
+
+19.4. **Job Order printing.** **Status: DECIDED 2026-09-11.** The
+   listing + filters this asked for already existed
+   (`JobOrdersPage.tsx`); added the printing half -- a Print link per
+   row and on the detail page, opening `/job-orders/:id/print`
+   (`JobOrderPrintPage.tsx`), following the same pattern as every other
+   printed document in the app (Quotation, Invoice, Receipt, Payment
+   Voucher).
+
+19.5. **Due date / Assignment shown side by side.** **Status: DECIDED
+   2026-09-11.** Two small cards side by side on the Job Order detail
+   page instead of stacked full-width -- pure layout, no field or
+   behavior change.
+
+19.6. **"Company / Individual" relationships -- rename + links, not a
+   restructure.** **Status: DECIDED 2026-09-11 (confirmed scope: rename
+   the label and add relationship links between existing records,
+   *not* split Customer into two distinct entity types).** The
+   Customers nav entry, page title, and table heading are relabeled
+   "Company / Individual" -- the underlying `Customer` table/fields are
+   unchanged (it already had `customer_type` = company/individual).
+   New: `CustomerRelationship`, an undirected link from one Customer to
+   another Customer **or** to a specific Contact at another company
+   (covers all three levels asked for -- company-level and individual-
+   level both use `to_customer_id`, since the level already follows
+   from that Customer's own `customer_type`; company-contact-level uses
+   `to_contact_id`; exactly one is set). `relationship_type` is free
+   text (no fixed taxonomy was given, matching how `Customer.tags`
+   already works) with a few suggested values in the UI. Undirected by
+   default (one row, same label shown from either side) rather than a
+   directional pair like "Parent of"/"Subsidiary of" -- a pragmatic
+   default, flag if a directional model was actually wanted. "Can be
+   customer or supplier or dealer" is noted as page copy, not built as
+   a merge with the separate Supplier entity (Accounts Payable) --
+   that's a materially bigger change and wasn't the confirmed scope.
+   Every other screen that references "Customer" (Job Orders,
+   Contracts, Invoices, etc.) keeps that wording -- only the Customers
+   module's own nav/page labels changed, to keep this a bounded rename
+   rather than an app-wide sweep.
+   *Where implemented:* `backend/app/models/customers.py`
+   (`CustomerRelationship`), `backend/app/routers/customers.py`,
+   `backend/app/schemas/schemas.py`, `frontend/src/pages/
+   CustomerDetailPage.tsx`, `frontend/src/pages/CustomersPage.tsx`,
+   `frontend/src/components/Layout.tsx`. Migration: `c2b41b06fd17`.
+
+19.7. **Incident Module -- deferred.** Requested ("log calls, route to
+   Sales Quotation / Job Order / Software Tasks / a callback, future
+   Outlook integration") but explicitly deferred to its own follow-up
+   pass per Dennis's instruction ("settle company/individual first
+   then new incident module later"). Confirmed so far: converting an
+   Incident should auto-create the real linked record (not just route/
+   assign) -- to be designed in full when that pass starts.
+
 ---
 
 ## How to use this document

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.core import AuditLogEntry, User
-from app.models.customers import Branch, Contact, Customer, CustomerGroup
+from app.models.customers import Branch, Contact, Customer, CustomerGroup, CustomerRelationship
 from app.models.groups import AccessLevel
 from app.models.setup import SetupListItem, SetupListType
 from app.schemas.schemas import (
@@ -20,6 +20,8 @@ from app.schemas.schemas import (
     ContactUpdate,
     CustomerCreate,
     CustomerOut,
+    CustomerRelationshipCreate,
+    CustomerRelationshipOut,
     CustomerUpdate,
 )
 from app.services import audit, exports
@@ -82,6 +84,34 @@ def _branch_or_404(db: Session, customer: Customer, branch_id: uuid.UUID) -> Bra
     if not branch or branch.customer_id != customer.id:
         raise HTTPException(status_code=404, detail="Branch not found")
     return branch
+
+
+def _company_contact_or_404(db: Session, contact_id: uuid.UUID, company_id: uuid.UUID) -> Contact:
+    """Unlike _contact_or_404 above, a relationship's target Contact can
+    belong to ANY Customer in this company -- not necessarily the one
+    the relationship is being added from."""
+    contact = db.get(Contact, contact_id)
+    if not contact or contact.customer.company_id != company_id:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return contact
+
+
+def _relationship_out(rel: CustomerRelationship) -> CustomerRelationshipOut:
+    return CustomerRelationshipOut(
+        id=rel.id,
+        from_customer_id=rel.from_customer_id,
+        to_customer_id=rel.to_customer_id,
+        to_customer_name=rel.to_customer.name if rel.to_customer else None,
+        to_customer_type=rel.to_customer.customer_type if rel.to_customer else None,
+        to_contact_id=rel.to_contact_id,
+        to_contact_name=rel.to_contact.name if rel.to_contact else None,
+        to_contact_customer_id=rel.to_contact.customer_id if rel.to_contact else None,
+        to_contact_customer_name=rel.to_contact.customer.name if rel.to_contact else None,
+        relationship_type=rel.relationship_type,
+        note=rel.note,
+        is_active=rel.is_active,
+        created_at=rel.created_at,
+    )
 
 
 @router.post("", response_model=CustomerOut)
@@ -628,3 +658,97 @@ def reactivate_branch(
     db.commit()
     db.refresh(branch)
     return branch
+
+
+# ---- Relationships (company/individual/contact links, confirmed 2026-09-11) ----
+# See CustomerRelationship's own docstring in app/models/customers.py
+# for why there's no separate "level" field and why this is undirected.
+@router.get("/{customer_id}/relationships", response_model=list[CustomerRelationshipOut])
+def list_customer_relationships(
+    customer_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    rels = (
+        db.query(CustomerRelationship)
+        .filter(CustomerRelationship.from_customer_id == customer.id)
+        .filter(CustomerRelationship.is_active)
+        .order_by(CustomerRelationship.created_at.desc())
+        .all()
+    )
+    return [_relationship_out(r) for r in rels]
+
+
+@router.post("/{customer_id}/relationships", response_model=CustomerRelationshipOut)
+def create_customer_relationship(
+    customer_id: uuid.UUID,
+    payload: CustomerRelationshipCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    if bool(payload.to_customer_id) == bool(payload.to_contact_id):
+        raise HTTPException(
+            status_code=422, detail="Link to exactly one of another Company/Individual or a Contact."
+        )
+    if payload.to_customer_id:
+        target = _customer_or_404(db, payload.to_customer_id, current_user.company_id)
+        if target.id == customer.id:
+            raise HTTPException(status_code=422, detail="A record cannot be related to itself.")
+    if payload.to_contact_id:
+        _company_contact_or_404(db, payload.to_contact_id, current_user.company_id)
+
+    rel = CustomerRelationship(
+        company_id=current_user.company_id,
+        from_customer_id=customer.id,
+        to_customer_id=payload.to_customer_id,
+        to_contact_id=payload.to_contact_id,
+        relationship_type=payload.relationship_type,
+        note=payload.note,
+        created_by_user_id=current_user.id,
+    )
+    db.add(rel)
+    db.flush()
+    audit.record(
+        db,
+        entity_type="customer_relationship",
+        entity_id=rel.id,
+        action="created",
+        actor_user_id=current_user.id,
+        details=f"from={customer.name}, type={payload.relationship_type}",
+        new_value={
+            "to_customer_id": str(payload.to_customer_id) if payload.to_customer_id else None,
+            "to_contact_id": str(payload.to_contact_id) if payload.to_contact_id else None,
+            "relationship_type": payload.relationship_type,
+        },
+    )
+    db.commit()
+    db.refresh(rel)
+    return _relationship_out(rel)
+
+
+@router.post("/{customer_id}/relationships/{relationship_id}/deactivate", response_model=CustomerRelationshipOut)
+def deactivate_customer_relationship(
+    customer_id: uuid.UUID,
+    relationship_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    rel = db.get(CustomerRelationship, relationship_id)
+    if not rel or rel.from_customer_id != customer.id:
+        raise HTTPException(status_code=404, detail="Relationship not found")
+    rel.is_active = False
+    audit.record(
+        db,
+        entity_type="customer_relationship",
+        entity_id=rel.id,
+        action="deactivated",
+        actor_user_id=current_user.id,
+        old_value={"is_active": True},
+        new_value={"is_active": False},
+    )
+    db.commit()
+    db.refresh(rel)
+    return _relationship_out(rel)
