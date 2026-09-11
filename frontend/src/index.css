@@ -492,10 +492,19 @@ button:disabled {
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  /* align-items: stretch (the grid default) makes every tile match the
+     tallest one in its own row; the shared min-height below on top of
+     that keeps tiles the same size across separate .stat-grid blocks
+     too (Financial Summary vs Service Operations), so a short-content
+     tile doesn't look tiny next to a longer one two rows down. */
   gap: 14px;
   margin: 20px 0;
 }
 .stat-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 160px;
   margin-bottom: 0;
   transition: box-shadow 0.15s;
 }

@@ -18,19 +18,24 @@ function Stat({
       fit a tile on one line -- see .stat-value-text in index.css. */
   small?: boolean
 }) {
-  const inner = (
-    <div className="card stat-tile">
+  const content = (
+    <>
       <div className={`stat-value${small ? ' stat-value-text' : ''}`}>{value}</div>
       <div className="stat-label">{label}</div>
       {hint && <div className="muted" style={{ marginTop: 4 }}>{hint}</div>}
-    </div>
+    </>
   )
+  // The tile itself is the grid item either way (a linked tile is the
+  // <a>, not a <div> nested inside one) -- a nested div only ever sizes
+  // to its own content and never actually fills the grid cell, which is
+  // why tiles used to come out different heights depending on whether
+  // they linked anywhere or how much hint text they had.
   return to ? (
-    <Link to={to} style={{ textDecoration: 'none', color: 'inherit' }}>
-      {inner}
+    <Link to={to} className="card stat-tile" style={{ textDecoration: 'none', color: 'inherit' }}>
+      {content}
     </Link>
   ) : (
-    inner
+    <div className="card stat-tile">{content}</div>
   )
 }
 
