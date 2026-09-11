@@ -93,3 +93,46 @@ provided" -- not resolved here, just flagged so they're ready to ask):
 
 **Not yet started.** No models, routes, or UI exist for this. Recorded
 here so it isn't lost before next week's work begins.
+
+---
+
+## 2. Incident Module -- Support Staff call/issue log, with routing to Sales/Job Order/Software Tasks (raised 2026-09-11, deferred until after Company/Individual)
+
+Requested as: Support Staff log incoming calls/issues, which get routed
+to Sales (a Quotation), Support (a Job Order), Software Tasks, or
+"someone to return call." Explicitly deferred by Dennis until after the
+Company/Individual work ("settle company/individual first then new
+incident module later") -- recorded here so the design details already
+confirmed aren't lost in the meantime.
+
+**Confirmed so far:**
+
+- Converting an Incident **auto-creates** the real target record (a
+  Quotation, Job Order, or Software Task pre-filled from the Incident,
+  with a back-reference to it) -- not just routing/assigning the
+  Incident for someone else to act on manually (confirmed 2026-09-11,
+  see docs/open-business-decisions.md #19.7).
+- **Outlook integration, confirmed 2026-09-11 as an Outlook Add-in with
+  two buttons**, not a fully automatic mailbox-polling approach:
+  - **"Convert to Incident"** -- sends the open email's sender,
+    subject, and body to the API to create an Incident.
+  - **"Convert to Job Order"** -- before allowing this one, the system
+    must **check for a valid contract** for that customer first, and
+    only allow the conversion if one exists. (Open question: what
+    happens when there is no valid contract -- block with an error
+    telling the sender to create/find a contract first, or fall back to
+    creating an Incident instead and let staff route it manually? Not
+    yet decided.)
+  - Both buttons are one click each, not automatic -- Support Staff
+    still triggers the conversion themselves, reading the email as
+    normal first.
+  - Needs an Azure AD app registration and Outlook Add-in manifest;
+    standard Microsoft Graph/Office Add-in mechanics, nothing exotic.
+
+**Still open** (from the original recording, unchanged): the full
+Incident data model (fields, statuses), what "Sales decide Quote or
+Directly go to Software Tasks" looks like as a routing UI, and whether
+"someone to return Call" creates any record at all or is just an
+assignment/reminder.
+
+**Not yet started.** No models, routes, or UI exist for this.
