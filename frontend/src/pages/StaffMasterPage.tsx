@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
+import StaffAvatar from '../components/StaffAvatar'
 import { api, downloadBlob, type Group, type StaffUser, type UserRole } from '../lib/api'
 
 const ROLES: UserRole[] = ['owner', 'service_lead', 'sales_manager', 'support_engineer', 'finance']
@@ -156,7 +157,10 @@ export default function StaffMasterPage() {
             {staff.map((u) => (
               <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.6 }}>
                 <td>
-                  <Link to={`/staff/${u.id}`}>{u.full_name}</Link>
+                  <Link to={`/staff/${u.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <StaffAvatar photo={u.photo} fullName={u.full_name} size={24} />
+                    {u.full_name}
+                  </Link>
                 </td>
                 <td>{u.email}</td>
                 <td>{u.role}</td>

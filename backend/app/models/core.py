@@ -144,6 +144,11 @@ class User(Base):
     # on UserCompanyAccess.group_id (one Group per company this user
     # works in). `role` above stays global -- it only drives the
     # named-responsibility business rules, not module access.
+    # Confirmed 2026-09-11: Support Monitoring should be able to show a
+    # staff photo. Same inline-data-URI pattern as Company.logo above,
+    # for the same reason -- a small image needed on every render of a
+    # staff-facing screen, not a business document.
+    photo: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

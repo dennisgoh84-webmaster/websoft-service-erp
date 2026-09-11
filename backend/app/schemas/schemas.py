@@ -100,6 +100,9 @@ class UserOut(BaseModel):
     email: str
     role: UserRole
     group_id: uuid.UUID | None
+    # Confirmed 2026-09-11: shown on Staff Master and Support Monitoring.
+    # A data URI, same inline-image pattern as Company.logo.
+    photo: str | None
     is_active: bool
     created_at: datetime
 
@@ -116,6 +119,7 @@ class UserUpdate(BaseModel):
     full_name: str | None = None
     role: UserRole | None = None
     group_id: uuid.UUID | None = None
+    photo: str | None = None
 
 
 class UserPasswordReset(BaseModel):
@@ -1118,6 +1122,7 @@ class StaffMonitoringOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     user_id: uuid.UUID
     full_name: str
+    photo: str | None = None
     open_job_orders: int
     overdue_job_orders: int
     due_soon_job_orders: int
@@ -1321,10 +1326,36 @@ class DocumentSequenceOut(BaseModel):
     prefix: str
     year: int
     last_number: int
+    # What the next document raised in this kind/year will look like,
+    # given the current format (default or customized) -- computed
+    # server-side so the UI never has to guess the padding/layout.
+    next_number: str
 
 
 class DocumentSequenceUpdate(BaseModel):
     last_number: int = Field(ge=0)
+    reason: str = Field(min_length=1)
+
+
+class DocumentNumberFormatOut(BaseModel):
+    doc_kind: str
+    prefix: str
+    number_length: int
+    include_year: bool
+    # False when this doc_kind has no override row yet and is showing
+    # the built-in default -- lets the UI say "default" vs "custom".
+    is_custom: bool
+    example: str
+
+
+class DocumentNumberFormatUpdate(BaseModel):
+    # Confirmed 2026-09-11: "customization of the running number
+    # formatting and front alphabet" -- uppercase letters/digits only
+    # (the "-year-seq" separators are added automatically, not part of
+    # what's customizable here).
+    prefix: str = Field(min_length=1, max_length=10, pattern=r"^[A-Z0-9]+$")
+    number_length: int = Field(ge=1, le=10)
+    include_year: bool = True
     reason: str = Field(min_length=1)
 
 

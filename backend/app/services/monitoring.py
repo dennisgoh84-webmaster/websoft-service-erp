@@ -33,6 +33,8 @@ OPEN_STATUSES = (JobOrderStatus.OPEN, JobOrderStatus.ASSIGNED)
 class StaffMonitoring:
     user_id: uuid.UUID
     full_name: str
+    # Confirmed 2026-09-11: shown as an avatar on the monitoring screen.
+    photo: str | None = None
     open_job_orders: int = 0
     overdue_job_orders: int = 0
     due_soon_job_orders: int = 0
@@ -87,7 +89,7 @@ def get_support_monitoring(db: Session, *, company_id: uuid.UUID, as_of: date | 
     )
 
     by_staff: dict[uuid.UUID, StaffMonitoring] = {
-        u.id: StaffMonitoring(user_id=u.id, full_name=u.full_name) for u in staff
+        u.id: StaffMonitoring(user_id=u.id, full_name=u.full_name, photo=u.photo) for u in staff
     }
     unassigned = StaffMonitoring(user_id=uuid.UUID(int=0), full_name="Un-Assigned")
 

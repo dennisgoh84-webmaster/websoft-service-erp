@@ -637,6 +637,39 @@ records, contract hours) plus several features/terms not yet built.
    *Arises in:* Service Contracts, Service Operations, Service
    Records, Document Control.
 
+## 15. Document number format customization and staff photos (raised 2026-09-11)
+
+15.1. **Document Control: customizable prefix and digit padding.**
+   **Status: DECIDED 2026-09-11.** Each document kind's running number
+   now has a per-company format, editable from Document Control:
+   prefix ("front alphabet"), digit padding (e.g. 4 -> "0001"), and
+   whether the year is included. A kind nobody has customized keeps
+   using the built-in default (PREFIXES in `app/services/numbering.py`,
+   4 digits, year included) -- adding this changed nothing for anyone
+   who doesn't touch it. A format change only affects numbers issued
+   from that point on; every document already numbered keeps the exact
+   text it was given (never renamed retroactively).
+   *Where implemented:* `app/services/numbering.py`
+   (`DocumentNumberFormat`, `format_document_number`),
+   `app/routers/document_control.py`, migration `cc953b888c6b`.
+   *Arises in:* Document Control, and every module that numbers a
+   document (Contracts, Invoices, Bills, JV, POs, Quotations,
+   Receipts, Payment Vouchers, Job Orders, Service Records).
+
+15.2. **Staff photos on Support Monitoring.** **Status: DECIDED
+   2026-09-11.** `User.photo` holds an optional staff photo (inline
+   data URI, same pattern/size cap as `Company.logo`), uploaded from a
+   staff member's own Staff Master page. Shown as a circular avatar on
+   Support Monitoring and the Staff Master list; falls back to the
+   person's initials when no photo is set. No requirement was given
+   for cropping/aspect-ratio enforcement, so the raw uploaded image is
+   shown `object-fit: cover` inside a circle -- revisit if a specific
+   crop/aspect-ratio behaviour is wanted.
+   *Where implemented:* `app/models/core.py` (`User.photo`),
+   `app/services/monitoring.py`, migration `80a442a466b3`,
+   `frontend/src/components/StaffAvatar.tsx`.
+   *Arises in:* Staff Master, Support Monitoring.
+
 ---
 
 ## How to use this document

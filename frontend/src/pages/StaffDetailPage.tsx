@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import CompanyAccessCard from '../components/CompanyAccessCard'
 import { api, type AuditLogEntry, type StaffUser, type UserRole } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
 const ROLES: UserRole[] = ['owner', 'service_lead', 'sales_manager', 'support_engineer', 'finance']
+const MAX_PHOTO_BYTES = 300 * 1024
 
 const ACTION_LABELS: Record<string, string> = {
   created: 'Account created',
@@ -27,6 +28,7 @@ export default function StaffDetailPage() {
 
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<UserRole>('support_engineer')
+  const [photo, setPhoto] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [newPassword, setNewPassword] = useState('')
@@ -40,6 +42,7 @@ export default function StaffDetailPage() {
         setStaff(u)
         setFullName(u.full_name)
         setRole(u.role)
+        setPhoto(u.photo)
       })
       .catch(() => setNotFound(true))
     api.getStaffAuditLog(id).then(setAuditLog).catch((e) => setError(e.message))
@@ -61,7 +64,7 @@ export default function StaffDetailPage() {
     setError(null)
     setSaving(true)
     try {
-      const updated = await api.updateStaff(id, { full_name: fullName, role })
+      const updated = await api.updateStaff(id, { full_name: fullName, role, photo })
       setStaff(updated)
       refresh()
     } catch (err) {
@@ -69,6 +72,24 @@ export default function StaffDetailPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  function onPickPhoto(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError(null)
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file.')
+      return
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError('That image is too large -- please use one under 300 KB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => setPhoto(reader.result as string)
+    reader.onerror = () => setError('Could not read that file.')
+    reader.readAsDataURL(file)
   }
 
   async function onResetPassword(e: FormEvent) {
@@ -122,6 +143,49 @@ export default function StaffDetailPage() {
       <div className="card">
         <h2>Profile</h2>
         <form onSubmit={onSave}>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 14 }}>
+            <div>
+              <div className="form-row">
+                <label>Photo (shown on Support Monitoring)</label>
+                <div
+                  style={{
+                    width: 96,
+                    height: 96,
+                    border: '1px solid var(--border)',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    background: 'var(--bg)',
+                  }}
+                >
+                  {photo ? (
+                    <img
+                      src={photo}
+                      alt={`${staff.full_name} photo`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      No photo
+                    </span>
+                  )}
+                </div>
+              </div>
+              <input type="file" accept="image/*" onChange={onPickPhoto} />
+              {photo && (
+                <button
+                  type="button"
+                  className="secondary"
+                  style={{ marginTop: 8, display: 'block' }}
+                  onClick={() => setPhoto(null)}
+                >
+                  Remove photo
+                </button>
+              )}
+            </div>
+          </div>
           <div className="form-row">
             <label>Full name</label>
             <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />

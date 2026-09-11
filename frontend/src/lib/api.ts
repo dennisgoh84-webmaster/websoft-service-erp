@@ -122,6 +122,8 @@ export interface StaffUser {
   email: string
   role: UserRole
   group_id: string | null
+  /** Data URI, e.g. "data:image/png;base64,..." -- shown on Staff Master and Support Monitoring. */
+  photo: string | null
   is_active: boolean
   created_at: string
 }
@@ -390,6 +392,7 @@ export interface CustomerProductUsageRow {
 export interface StaffMonitoring {
   user_id: string
   full_name: string
+  photo: string | null
   open_job_orders: number
   overdue_job_orders: number
   due_soon_job_orders: number
@@ -631,6 +634,19 @@ export interface DocumentSequence {
   prefix: string
   year: number
   last_number: number
+  next_number: string
+}
+
+/** Confirmed 2026-09-11: "customization of the running number
+ * formatting and front alphabet." A doc_kind with is_custom=false is
+ * showing the built-in default, not an explicit override. */
+export interface DocumentNumberFormat {
+  doc_kind: string
+  prefix: string
+  number_length: number
+  include_year: boolean
+  is_custom: boolean
+  example: string
 }
 
 // ---- Accounting Periods / Year-End Closing ----
@@ -931,7 +947,7 @@ export const api = {
   }) => request<StaffUser>('/users', { method: 'POST', body: JSON.stringify(payload) }),
   updateStaff: (
     id: string,
-    payload: { full_name?: string; role?: UserRole; group_id?: string | null },
+    payload: { full_name?: string; role?: UserRole; group_id?: string | null; photo?: string | null },
   ) => request<StaffUser>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deactivateStaff: (id: string) => request<StaffUser>(`/users/${id}/deactivate`, { method: 'POST' }),
   reactivateStaff: (id: string) => request<StaffUser>(`/users/${id}/reactivate`, { method: 'POST' }),
@@ -1646,6 +1662,15 @@ export const api = {
   listDocumentSequences: () => request<DocumentSequence[]>('/document-control'),
   updateDocumentSequence: (id: string, payload: { last_number: number; reason: string }) =>
     request<DocumentSequence>(`/document-control/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  listDocumentNumberFormats: () => request<DocumentNumberFormat[]>('/document-control/formats'),
+  updateDocumentNumberFormat: (
+    docKind: string,
+    payload: { prefix: string; number_length: number; include_year: boolean; reason: string },
+  ) =>
+    request<DocumentNumberFormat>(`/document-control/formats/${docKind}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 
   // ---- Accounting Periods / Year-End Closing ----
   listAccountingPeriods: (fiscal_year?: number) =>

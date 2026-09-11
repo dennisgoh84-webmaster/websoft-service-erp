@@ -37,6 +37,34 @@ class DocumentSequence(Base):
     last_number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
+class DocumentNumberFormat(Base):
+    """Per-company, per-document-kind override of the running number's
+    prefix ("front alphabet") and digit padding -- confirmed 2026-09-11:
+    "allow customization of the running number formatting and front
+    alphabet." A doc_kind with no row here keeps using the built-in
+    default (PREFIXES below, 4-digit padding, year included) -- adding
+    this table changes nothing for a doc_kind nobody has customized.
+
+    Changing a format only affects numbers issued AFTER the change --
+    every document already numbered keeps the text it was given
+    (CLAUDE.md: never modify existing business records)."""
+
+    __tablename__ = "document_number_formats"
+    __table_args__ = (
+        UniqueConstraint("company_id", "doc_kind", name="uq_document_number_format"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    doc_kind: Mapped[str] = mapped_column(String(30), nullable=False)
+    prefix: Mapped[str] = mapped_column(String(10), nullable=False)
+    # Digits the running number is zero-padded to, e.g. 4 -> "0001".
+    number_length: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
+    include_year: Mapped[bool] = mapped_column(nullable=False, default=True)
+
+
 PREFIXES = {
     "invoice": "INV",       # sales tax invoice
     "receipt": "RV",        # receipt voucher -- money in
@@ -93,5 +121,29 @@ def next_document_number(
 
     row.last_number += 1
     db.flush()
-    prefix = PREFIXES.get(doc_kind, doc_kind.upper()[:3])
-    return f"{prefix}-{year}-{row.last_number:04d}"
+    return format_document_number(db, company_id=company_id, doc_kind=doc_kind, year=year, number=row.last_number)
+
+
+def format_document_number(
+    db: Session, *, company_id: uuid.UUID, doc_kind: str, year: int, number: int
+) -> str:
+    """Render a document number using this company's customization for
+    `doc_kind` (Document Control), if any, else the built-in default.
+    Split out from next_document_number so Document Control's preview
+    of "what would the next number look like" can call it without
+    consuming a number."""
+    fmt = (
+        db.query(DocumentNumberFormat)
+        .filter(
+            DocumentNumberFormat.company_id == company_id,
+            DocumentNumberFormat.doc_kind == doc_kind,
+        )
+        .first()
+    )
+    if fmt:
+        prefix, number_length, include_year = fmt.prefix, fmt.number_length, fmt.include_year
+    else:
+        prefix, number_length, include_year = PREFIXES.get(doc_kind, doc_kind.upper()[:3]), 4, True
+
+    seq = f"{number:0{number_length}d}"
+    return f"{prefix}-{year}-{seq}" if include_year else f"{prefix}-{seq}"

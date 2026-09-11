@@ -37,6 +37,24 @@ MODULE = "core_administration"
 
 USER_EXPORT_FIELDS = ["full_name", "email", "role", "group_name", "is_active"]
 
+# A staff photo is held inline as a data URI (User.photo), same pattern
+# and size cap rationale as Company.logo in app/routers/companies.py.
+MAX_PHOTO_CHARS = 400_000  # ~300 KB of base64
+
+
+def _validate_photo(photo: str | None) -> None:
+    if photo is None:
+        return
+    if not photo.startswith("data:image/"):
+        raise HTTPException(
+            status_code=400,
+            detail="Photo must be an image data URI (e.g. 'data:image/png;base64,...').",
+        )
+    if len(photo) > MAX_PHOTO_CHARS:
+        raise HTTPException(
+            status_code=400, detail="Photo is too large -- please use an image under ~300 KB."
+        )
+
 
 def _get_user_or_404(db: Session, user_id: uuid.UUID) -> User:
     user = db.get(User, user_id)
@@ -80,6 +98,7 @@ def _user_out(db: Session, user: User, company_id: uuid.UUID) -> UserOut:
         email=user.email,
         role=user.role,
         group_id=access.group_id if access else None,
+        photo=user.photo,
         is_active=user.is_active,
         created_at=user.created_at,
     )
@@ -355,6 +374,15 @@ def update_user(
         _apply("full_name", fields["full_name"])
     if "role" in fields:
         _apply("role", fields["role"])
+    if "photo" in fields:
+        _validate_photo(fields["photo"])
+        old_photo, new_photo = user.photo, fields["photo"]
+        if old_photo != new_photo:
+            # Never dump base64 image data into the audit trail -- record
+            # that it changed, not the pixels (same as Company.logo).
+            old_value["photo"] = "(image set)" if old_photo else "(none)"
+            new_value["photo"] = "(image set)" if new_photo else "(none)"
+        user.photo = new_photo
     if "group_id" in fields:
         # "Their Group in the company I am currently working in" -- Group
         # is per company, so this writes to the access row, not the user.

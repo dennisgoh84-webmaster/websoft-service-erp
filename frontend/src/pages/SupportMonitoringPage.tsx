@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import StaffAvatar from '../components/StaffAvatar'
 import { api, type StaffMonitoring, type SupportMonitoring } from '../lib/api'
 
 function StaffCard({ row }: { row: StaffMonitoring }) {
@@ -7,7 +8,10 @@ function StaffCard({ row }: { row: StaffMonitoring }) {
   return (
     <div className="card monitor-card" style={{ borderColor: overloaded ? '#b33' : undefined }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <strong className="monitor-name">{row.full_name}</strong>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <StaffAvatar photo={row.photo} fullName={row.full_name} size={30} />
+          <strong className="monitor-name">{row.full_name}</strong>
+        </span>
         {overloaded && <span className="badge exceeded">overloaded</span>}
       </div>
       <div className="monitor-row">
