@@ -158,7 +158,7 @@ export default function StaffMasterPage() {
               <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.6 }}>
                 <td>
                   <Link to={`/staff/${u.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <StaffAvatar photo={u.photo} fullName={u.full_name} size={24} />
+                    <StaffAvatar photo={u.photo} fullName={u.full_name} size={32} />
                     {u.full_name}
                   </Link>
                 </td>

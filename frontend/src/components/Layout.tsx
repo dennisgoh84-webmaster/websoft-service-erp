@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import CompanySwitcher from './CompanySwitcher'
+import NavSection, { type NavItem } from './NavSection'
 import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../lib/AuthContext'
 
@@ -32,7 +33,13 @@ function loadCollapsed(): Record<string, boolean> {
     only renders when at least one link inside it is visible to this
     user, exactly like the pre-existing Maintenance section already
     did -- collapsing a section never reveals anything a user's Group
-    Authority already hides. */
+    Authority already hides.
+
+    Also confirmed 2026-09-11: "let me choose the sequence for the menu
+    bar" -- each link within a section can be dragged to reorder it
+    (see components/NavSection.tsx), independently per browser, on top
+    of the same Group-Authority-filtered set -- reordering never
+    reveals or hides anything. */
 export default function Layout() {
   const { user, logout, activeCompany, moduleAccess } = useAuth()
   const can = (moduleKey: string) => moduleAccess[moduleKey] === true
@@ -50,24 +57,43 @@ export default function Layout() {
     })
   }
 
-  const opsVisible =
-    can('reporting') ||
-    can('customer_management') ||
-    can('service_contracts') ||
-    can('service_operations') ||
-    can('service_records') ||
-    can('software_development') ||
-    can('operations_reports')
+  const operationsItems: NavItem[] = [
+    { key: 'support-monitoring', path: '/support-monitoring', label: 'Support Monitoring', visible: can('reporting') },
+    { key: 'customers', path: '/customers', label: 'Customers', visible: can('customer_management') },
+    { key: 'contracts', path: '/contracts', label: 'Service Contracts', visible: can('service_contracts') },
+    { key: 'job-orders', path: '/job-orders', label: 'Job Orders', visible: can('service_operations') },
+    { key: 'service-records', path: '/service-records', label: 'Service Records', visible: can('service_records') },
+    { key: 'excess-review', path: '/excess-review', label: 'Excess Review', visible: can('service_contracts') },
+    { key: 'software-tasks', path: '/software-tasks', label: 'Software Tasks', visible: can('software_development') },
+    { key: 'operations-reports', path: '/operations-reports', label: 'Operations Reports', visible: can('operations_reports') },
+  ]
 
-  const accountsVisible =
-    can('sales') ||
-    can('billing') ||
-    can('accounts_receivable') ||
-    can('accounts_payable') ||
-    can('finance_accounting') ||
-    can('accounting_reports')
+  const accountsItems: NavItem[] = [
+    { key: 'quotations', path: '/quotations', label: 'Sales Quotation', visible: can('sales') },
+    { key: 'invoices', path: '/invoices', label: 'Invoices', visible: can('billing') },
+    { key: 'receipts', path: '/receipts', label: 'Receipts', visible: can('accounts_receivable') },
+    { key: 'accounts-payable', path: '/accounts-payable', label: 'Accounts Payable', visible: can('accounts_payable') },
+    { key: 'payment-voucher', path: '/payment-voucher', label: 'Payment Voucher', visible: can('accounts_payable') },
+    { key: 'chart-of-accounts', path: '/chart-of-accounts', label: 'Chart of Accounts', visible: can('finance_accounting') },
+    { key: 'gl-types', path: '/gl-types', label: 'GL Types', visible: can('finance_accounting') },
+    { key: 'tax-types', path: '/tax-types', label: 'Tax Types', visible: can('finance_accounting') },
+    { key: 'bank-accounts', path: '/bank-accounts', label: 'Bank Master File', visible: can('finance_accounting') },
+    { key: 'currency-rates', path: '/currency-rates', label: 'Currency Rate Table', visible: can('finance_accounting') },
+    { key: 'general-ledger', path: '/general-ledger', label: 'General Ledger', visible: can('finance_accounting') },
+    { key: 'accounting-periods', path: '/accounting-periods', label: 'Accounting Periods', visible: can('finance_accounting') },
+    { key: 'accounting-reports', path: '/accounting-reports', label: 'Accounting Reports', visible: can('accounting_reports') },
+  ]
 
-  const maintenanceVisible = can('core_administration') || can('event_logs') || can('sales')
+  const maintenanceItems: NavItem[] = [
+    { key: 'company-setup', path: '/company-setup', label: 'Company Setup', visible: can('core_administration') },
+    { key: 'staff', path: '/staff', label: 'Staff Master', visible: can('core_administration') },
+    { key: 'modules', path: '/modules', label: 'Module Control', visible: can('core_administration') },
+    { key: 'groups', path: '/groups', label: 'Group Authority', visible: can('core_administration') },
+    { key: 'product-catalog', path: '/product-catalog', label: 'Product Catalog', visible: can('sales') },
+    { key: 'setup-lists', path: '/setup-lists', label: 'Setup Lists', visible: can('core_administration') },
+    { key: 'document-control', path: '/document-control', label: 'Document Control', visible: can('core_administration') },
+    { key: 'event-logs', path: '/event-logs', label: 'Event Logs', visible: can('event_logs') },
+  ]
 
   return (
     <div className="app-shell">
@@ -96,88 +122,29 @@ export default function Layout() {
             Company Dashboard
           </NavLink>
 
-          {opsVisible && (
-            <div className="nav-section">
-              <button
-                type="button"
-                className="nav-section-label"
-                aria-expanded={!collapsed.operations}
-                onClick={() => toggleSection('operations')}
-              >
-                <span>Operations</span>
-                <span className="nav-section-chevron">{collapsed.operations ? '▸' : '▾'}</span>
-              </button>
-              {!collapsed.operations && (
-                <>
-                  {can('reporting') && <NavLink to="/support-monitoring">Support Monitoring</NavLink>}
-                  {can('customer_management') && <NavLink to="/customers">Customers</NavLink>}
-                  {can('service_contracts') && <NavLink to="/contracts">Service Contracts</NavLink>}
-                  {can('service_operations') && <NavLink to="/job-orders">Job Orders</NavLink>}
-                  {can('service_records') && <NavLink to="/service-records">Service Records</NavLink>}
-                  {can('service_contracts') && <NavLink to="/excess-review">Excess Review</NavLink>}
-                  {can('software_development') && <NavLink to="/software-tasks">Software Tasks</NavLink>}
-                  {can('operations_reports') && <NavLink to="/operations-reports">Operations Reports</NavLink>}
-                </>
-              )}
-            </div>
-          )}
+          <NavSection
+            sectionKey="operations"
+            title="Operations"
+            items={operationsItems}
+            collapsed={!!collapsed.operations}
+            onToggle={() => toggleSection('operations')}
+          />
 
-          {accountsVisible && (
-            <div className="nav-section">
-              <button
-                type="button"
-                className="nav-section-label"
-                aria-expanded={!collapsed.accounts}
-                onClick={() => toggleSection('accounts')}
-              >
-                <span>Accounts</span>
-                <span className="nav-section-chevron">{collapsed.accounts ? '▸' : '▾'}</span>
-              </button>
-              {!collapsed.accounts && (
-                <>
-                  {can('sales') && <NavLink to="/quotations">Sales Quotation</NavLink>}
-                  {can('billing') && <NavLink to="/invoices">Invoices</NavLink>}
-                  {can('accounts_receivable') && <NavLink to="/receipts">Receipts</NavLink>}
-                  {can('accounts_payable') && <NavLink to="/accounts-payable">Accounts Payable</NavLink>}
-                  {can('accounts_payable') && <NavLink to="/payment-voucher">Payment Voucher</NavLink>}
-                  {can('finance_accounting') && <NavLink to="/chart-of-accounts">Chart of Accounts</NavLink>}
-                  {can('finance_accounting') && <NavLink to="/gl-types">GL Types</NavLink>}
-                  {can('finance_accounting') && <NavLink to="/tax-types">Tax Types</NavLink>}
-                  {can('finance_accounting') && <NavLink to="/bank-accounts">Bank Master File</NavLink>}
-                  {can('finance_accounting') && <NavLink to="/currency-rates">Currency Rate Table</NavLink>}
-                  {can('finance_accounting') && <NavLink to="/general-ledger">General Ledger</NavLink>}
-                  {can('finance_accounting') && <NavLink to="/accounting-periods">Accounting Periods</NavLink>}
-                  {can('accounting_reports') && <NavLink to="/accounting-reports">Accounting Reports</NavLink>}
-                </>
-              )}
-            </div>
-          )}
+          <NavSection
+            sectionKey="accounts"
+            title="Accounts"
+            items={accountsItems}
+            collapsed={!!collapsed.accounts}
+            onToggle={() => toggleSection('accounts')}
+          />
 
-          {maintenanceVisible && (
-            <div className="nav-section">
-              <button
-                type="button"
-                className="nav-section-label"
-                aria-expanded={!collapsed.maintenance}
-                onClick={() => toggleSection('maintenance')}
-              >
-                <span>Maintenance</span>
-                <span className="nav-section-chevron">{collapsed.maintenance ? '▸' : '▾'}</span>
-              </button>
-              {!collapsed.maintenance && (
-                <>
-                  {can('core_administration') && <NavLink to="/company-setup">Company Setup</NavLink>}
-                  {can('core_administration') && <NavLink to="/staff">Staff Master</NavLink>}
-                  {can('core_administration') && <NavLink to="/modules">Module Control</NavLink>}
-                  {can('core_administration') && <NavLink to="/groups">Group Authority</NavLink>}
-                  {can('sales') && <NavLink to="/product-catalog">Product Catalog</NavLink>}
-                  {can('core_administration') && <NavLink to="/setup-lists">Setup Lists</NavLink>}
-                  {can('core_administration') && <NavLink to="/document-control">Document Control</NavLink>}
-                  {can('event_logs') && <NavLink to="/event-logs">Event Logs</NavLink>}
-                </>
-              )}
-            </div>
-          )}
+          <NavSection
+            sectionKey="maintenance"
+            title="Maintenance"
+            items={maintenanceItems}
+            collapsed={!!collapsed.maintenance}
+            onToggle={() => toggleSection('maintenance')}
+          />
         </div>
 
         <div className="user-info">

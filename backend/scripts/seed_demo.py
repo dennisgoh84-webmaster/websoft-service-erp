@@ -33,7 +33,9 @@ Sets up:
   script doing it upfront.
 """
 import base64
+import struct
 import sys
+import zlib
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -446,6 +448,54 @@ def logo_data_uri(initials: str, bg: str = "#7a1f2e") -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
 
 
+def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
+    return (
+        struct.pack(">I", len(data))
+        + chunk_type
+        + data
+        + struct.pack(">I", zlib.crc32(chunk_type + data) & 0xFFFFFFFF)
+    )
+
+
+def avatar_photo_data_uri(bg_hex: str, size: int = 160) -> str:
+    """A placeholder staff photo -- confirmed 2026-09-11: sample photos
+    for Support Monitoring's 8-staff demo view. NOT a real photograph:
+    this environment's outbound network access is a small allowlist of
+    code-library CDNs (no photo/stock-image host is reachable), and
+    there is no image-generation tool available either, so an actual
+    photo of a real or synthetic person cannot be produced here. This
+    is a generic person-silhouette icon instead, encoded as a plain PNG
+    with the stdlib only (zlib + struct -- CLAUDE.md: no unnecessary
+    dependencies). It exercises the exact same User.photo field and
+    rendering path a real uploaded photo would (Staff Master's own
+    upload -- see StaffDetailPage.tsx -- produces a real photo data URI
+    the same way); this is demo/seed data only, never application
+    runtime code."""
+    bg = tuple(int(bg_hex[i : i + 2], 16) for i in (0, 2, 4))
+    fg = (245, 240, 235)
+
+    cx, cy = size / 2, size * 0.40
+    head_r = size * 0.17
+    body_cx, body_cy, body_r = size / 2, size * 1.05, size * 0.42
+
+    rows = bytearray()
+    for y in range(size):
+        rows.append(0)  # filter byte: None
+        for x in range(size):
+            in_head = (x - cx) ** 2 + (y - cy) ** 2 <= head_r**2
+            in_body = y >= size * 0.62 and (x - body_cx) ** 2 + (y - body_cy) ** 2 <= body_r**2
+            rows += bytes(fg if (in_head or in_body) else bg)
+
+    ihdr = struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0)
+    png = (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(b"IHDR", ihdr)
+        + _png_chunk(b"IDAT", zlib.compress(bytes(rows), 9))
+        + _png_chunk(b"IEND", b"")
+    )
+    return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+
+
 def file_data_uri(path: Path, mime: str) -> str:
     """The real Webmaster Consultancy logo, extracted from Dennis's own
     Quotation letterhead (Quote_0160, shared 2026-09-10) so printed
@@ -521,17 +571,46 @@ def main():
         nico = User(
             company_id=company.id, email="nico@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Nico (Service & Support Lead)",
-            role=UserRole.SERVICE_LEAD,
+            role=UserRole.SERVICE_LEAD, photo=avatar_photo_data_uri("7a1f2b"),
         )
         cherish = User(
             company_id=company.id, email="cherish@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Cherish (Sales Manager)",
-            role=UserRole.SALES_MANAGER,
+            role=UserRole.SALES_MANAGER, photo=avatar_photo_data_uri("2f4858"),
         )
         engineer = User(
             company_id=company.id, email="weiling@websoft.local",
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Wei Ling (Support Engineer)",
-            role=UserRole.SUPPORT_ENGINEER,
+            role=UserRole.SUPPORT_ENGINEER, photo=avatar_photo_data_uri("1b998b"),
+        )
+        # Confirmed 2026-09-11: 5 more Company-1 staff, purely so
+        # Support Monitoring has a realistic 8-person view to demo/
+        # screenshot -- same roles/pattern as the original 3, no new
+        # business rule.
+        marcus = User(
+            company_id=company.id, email="marcus@websoft.local",
+            hashed_password=hash_password(DEMO_PASSWORD), full_name="Marcus Tan (Support Engineer)",
+            role=UserRole.SUPPORT_ENGINEER, photo=avatar_photo_data_uri("5b4b8a"),
+        )
+        farhana = User(
+            company_id=company.id, email="farhana@websoft.local",
+            hashed_password=hash_password(DEMO_PASSWORD), full_name="Farhana Ismail (Support Engineer)",
+            role=UserRole.SUPPORT_ENGINEER, photo=avatar_photo_data_uri("c96a2c"),
+        )
+        kevin = User(
+            company_id=company.id, email="kevin@websoft.local",
+            hashed_password=hash_password(DEMO_PASSWORD), full_name="Kevin Lim (Sales Executive)",
+            role=UserRole.SALES_MANAGER, photo=avatar_photo_data_uri("3a6b35"),
+        )
+        siti = User(
+            company_id=company.id, email="siti@websoft.local",
+            hashed_password=hash_password(DEMO_PASSWORD), full_name="Siti Rahman (Support Engineer)",
+            role=UserRole.SUPPORT_ENGINEER, photo=avatar_photo_data_uri("8a4f7d"),
+        )
+        bryan = User(
+            company_id=company.id, email="bryan@websoft.local",
+            hashed_password=hash_password(DEMO_PASSWORD), full_name="Bryan Ong (Finance)",
+            role=UserRole.FINANCE, photo=avatar_photo_data_uri("44576d"),
         )
         # Staff of the second entity only -- proves staff, groups and
         # data are company-scoped: Priya never sees company 1's records.
@@ -540,7 +619,7 @@ def main():
             hashed_password=hash_password(DEMO_PASSWORD), full_name="Priya (Digital Lead)",
             role=UserRole.SALES_MANAGER,
         )
-        db.add_all([dennis, nico, cherish, engineer, priya])
+        db.add_all([dennis, nico, cherish, engineer, marcus, farhana, kevin, siti, bryan, priya])
         db.flush()
 
         # Multi-company access + the Group each person holds IN EACH
@@ -573,6 +652,26 @@ def main():
                 UserCompanyAccess(
                     user_id=engineer.id, company_id=company.id,
                     group_id=groups["Service Team"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=marcus.id, company_id=company.id,
+                    group_id=groups["Service Team"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=farhana.id, company_id=company.id,
+                    group_id=groups["Service Team"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=kevin.id, company_id=company.id,
+                    group_id=groups["Sales Team"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=siti.id, company_id=company.id,
+                    group_id=groups["Service Team"].id,
+                ),
+                UserCompanyAccess(
+                    user_id=bryan.id, company_id=company.id,
+                    group_id=groups["Finance Team"].id,
                 ),
                 UserCompanyAccess(
                     user_id=priya.id, company_id=company2.id,
@@ -960,7 +1059,7 @@ def main():
         all_groups = {**{g.id: n for n, g in groups.items()}, **{g.id: n for n, g in groups2.items()}}
         company_names = {company.id: company.name, company2.id: company2.name}
         access_rows = db.query(UserCompanyAccess).all()
-        for u in (dennis, nico, cherish, engineer, priya):
+        for u in (dennis, nico, cherish, engineer, marcus, farhana, kevin, siti, bryan, priya):
             print(f"  {u.email:30s} role={u.role.value}")
             for row in [a for a in access_rows if a.user_id == u.id]:
                 marker = " (active)" if row.company_id == u.company_id else ""

@@ -670,6 +670,50 @@ records, contract hours) plus several features/terms not yet built.
    `frontend/src/components/StaffAvatar.tsx`.
    *Arises in:* Staff Master, Support Monitoring.
 
+## 16. Sample staff photos, bigger avatars, menu reordering (raised 2026-09-11)
+
+16.1. **Sample photos are a generated icon, not a real photo --
+   environment limitation, not a choice.** Asked for "real person" sample
+   photos for the 8-staff demo; this environment's outbound network
+   access is a small allowlist of code-library CDNs (confirmed by a
+   403 testing a face-image host) and there is no image-generation
+   tool available, so neither a real nor an AI-synthetic photo can be
+   produced here. `avatar_photo_data_uri()` in `scripts/seed_demo.py`
+   generates a flat-icon silhouette instead (pure stdlib PNG encoder,
+   no dependency added), purely for sample/demo data -- the real
+   feature (uploading an actual photo from Staff Master) is unaffected
+   and already fully working. Revisit if a way to source real/
+   synthetic photos becomes available.
+
+16.2. **8 sample Company-1 staff.** **Status: DECIDED 2026-09-11.**
+   5 more staff (Marcus, Farhana, Kevin, Siti, Bryan) added to
+   `seed_demo.py` alongside the original 3 (Nico, Cherish, Wei Ling),
+   purely so Support Monitoring has a realistic 8-person view to demo
+   -- same roles/Group pattern as the original 3, no new business
+   rule. Company 2 (Priya only) is untouched.
+
+16.3. **Support Monitoring: bigger avatars, "Total Job Orders" tile
+   removed.** **Status: DECIDED 2026-09-11.** Avatar size on the
+   staff cards increased (30px -> 56px); the summary row now shows
+   only Open Job Orders, Overdue, Unassigned, Pending Service Records
+   and Un-Tested Software Tasks -- the redundant "Total Job Orders"
+   tile (sum of open + resolved/closed) was dropped. The backend
+   still computes and returns `total_job_orders`; only this screen
+   stopped displaying it.
+
+16.4. **Menu bar: choose the link sequence.** **Status: DECIDED
+   2026-09-11.** Every link within a sidebar section (Operations /
+   Accounts / Maintenance) can be dragged to reorder it -- a per-
+   browser display preference (localStorage, one order list per
+   section), same posture as the collapse state (#14.1's sibling
+   feature): it changes where a link appears, never what a user can
+   see (Group Authority-hidden links stay hidden regardless of
+   position). Reordering across sections is not supported -- a link
+   stays under the module area it belongs to.
+   *Where implemented:* `frontend/src/components/NavSection.tsx`,
+   `frontend/src/components/Layout.tsx`.
+   *Arises in:* every module with a nav link.
+
 ---
 
 ## How to use this document

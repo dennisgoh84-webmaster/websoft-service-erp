@@ -7,12 +7,14 @@ function StaffCard({ row }: { row: StaffMonitoring }) {
   const overloaded = row.overdue_job_orders > 0
   return (
     <div className="card monitor-card" style={{ borderColor: overloaded ? '#b33' : undefined }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <StaffAvatar photo={row.photo} fullName={row.full_name} size={30} />
-          <strong className="monitor-name">{row.full_name}</strong>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <StaffAvatar photo={row.photo} fullName={row.full_name} size={56} />
+        <span style={{ minWidth: 0 }}>
+          <strong className="monitor-name" style={{ display: 'block' }}>
+            {row.full_name}
+          </strong>
+          {overloaded && <span className="badge exceeded">overloaded</span>}
         </span>
-        {overloaded && <span className="badge exceeded">overloaded</span>}
       </div>
       <div className="monitor-row">
         <span className="muted">Open Job Orders</span>
@@ -102,10 +104,6 @@ export default function SupportMonitoringPage() {
             <div className="card stat-tile">
               <div className="stat-value">{data.summary.total_untested_software_tasks}</div>
               <div className="stat-label">Un-Tested Software Tasks</div>
-            </div>
-            <div className="card stat-tile">
-              <div className="stat-value">{data.summary.total_job_orders}</div>
-              <div className="stat-label">Total Job Orders</div>
             </div>
           </div>
         </div>

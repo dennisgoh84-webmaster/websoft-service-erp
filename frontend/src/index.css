@@ -204,6 +204,39 @@ a {
   background: var(--bg);
   border-radius: 6px;
 }
+/* One draggable nav link row (see components/NavSection.tsx) -- the
+   handle only shows on hover so the menu doesn't look cluttered when
+   nobody's trying to reorder it. */
+.sidebar .nav-item-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.sidebar .nav-item-row a {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar .nav-drag-handle {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.sidebar .nav-item-row:hover .nav-drag-handle {
+  opacity: 0.6;
+}
+.sidebar .nav-item-row.dragging {
+  opacity: 0.4;
+}
+.sidebar .nav-item-row.dragging .nav-drag-handle {
+  opacity: 0.6;
+}
+
 .sidebar .nav-section-chevron {
   font-size: 11px;
   opacity: 0.7;
