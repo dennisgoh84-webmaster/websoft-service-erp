@@ -498,6 +498,7 @@ class JobOrderOut(BaseModel):
     assigned_to_user_id: uuid.UUID | None
     due_date: date | None
     created_at: datetime
+    resolved_at: datetime | None
 
 
 # ---- Service Records (formerly "Timesheets") ----

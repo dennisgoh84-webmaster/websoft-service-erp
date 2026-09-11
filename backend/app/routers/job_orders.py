@@ -1,11 +1,12 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.core import User
+from app.models.core import User, UserRole
 from app.models.customers import Customer
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrder, JobOrderStatus
@@ -205,6 +206,113 @@ def set_job_order_due_date(
         actor_user_id=current_user.id,
         old_value={"due_date": old_due_date.isoformat() if old_due_date else None},
         new_value={"due_date": payload.due_date.isoformat() if payload.due_date else None},
+    )
+    db.commit()
+    db.refresh(job_order)
+    return job_order
+
+
+# ---- Resolve / Close / Reopen ---------------------------------------
+#
+# The RESOLVED and CLOSED statuses (and the resolved_at column) existed
+# on the model from the start, but nothing ever set them -- confirmed
+# 2026-09-11 as a gap, not an intentional "no closing step" design (the
+# documented workflow, docs/workflows.md step 10, explicitly ends with
+# "Job Order is resolved and closed"). Who exactly performs this and
+# under what precondition was never confirmed, so this uses the same
+# pragmatic default as the rest of this Job Order (EDIT access on
+# service_operations, same as assign/due-date -- no extra approval
+# gate), and keeps Resolved/Closed as two distinct steps since the
+# model and every filter dropdown already treat them as distinct
+# statuses. Flagged in docs/open-business-decisions.md for correction
+# if a specific role or precondition (e.g. all Service Records must be
+# approved first) was actually intended.
+def _require_job_order(db: Session, job_order_id: uuid.UUID, current_user: User) -> JobOrder:
+    job_order = db.get(JobOrder, job_order_id)
+    if not job_order or job_order.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Job order not found")
+    return job_order
+
+
+@router.post("/{job_order_id}/resolve", response_model=JobOrderOut)
+def resolve_job_order(
+    job_order_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    job_order = _require_job_order(db, job_order_id, current_user)
+    if job_order.status not in (JobOrderStatus.OPEN, JobOrderStatus.ASSIGNED):
+        raise HTTPException(
+            status_code=409, detail=f"Job order is already {job_order.status.value}; nothing to resolve."
+        )
+    old_status = job_order.status
+    job_order.status = JobOrderStatus.RESOLVED
+    job_order.resolved_at = datetime.now(timezone.utc)
+    audit.record(
+        db,
+        entity_type="job_order",
+        entity_id=job_order.id,
+        action="resolved",
+        actor_user_id=current_user.id,
+        old_value={"status": old_status.value},
+        new_value={"status": job_order.status.value},
+    )
+    db.commit()
+    db.refresh(job_order)
+    return job_order
+
+
+@router.post("/{job_order_id}/close", response_model=JobOrderOut)
+def close_job_order(
+    job_order_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    job_order = _require_job_order(db, job_order_id, current_user)
+    if job_order.status != JobOrderStatus.RESOLVED:
+        raise HTTPException(status_code=409, detail="Only a Resolved job order can be closed.")
+    job_order.status = JobOrderStatus.CLOSED
+    audit.record(
+        db,
+        entity_type="job_order",
+        entity_id=job_order.id,
+        action="closed",
+        actor_user_id=current_user.id,
+        old_value={"status": JobOrderStatus.RESOLVED.value},
+        new_value={"status": JobOrderStatus.CLOSED.value},
+    )
+    db.commit()
+    db.refresh(job_order)
+    return job_order
+
+
+@router.post("/{job_order_id}/reopen", response_model=JobOrderOut)
+def reopen_job_order(
+    job_order_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    # Reopening is the "undo a resolve/close" path, so it's owner-only,
+    # mirroring the accounting-period reopen pattern (FULL, not EDIT).
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
+):
+    """Correct an accidental Resolve/Close without editing the database
+    directly (project rule: never modify production data directly) --
+    owner-only, mirroring the Accounting Period reopen pattern."""
+    if current_user.role != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Only the owner can reopen a job order.")
+    job_order = _require_job_order(db, job_order_id, current_user)
+    if job_order.status not in (JobOrderStatus.RESOLVED, JobOrderStatus.CLOSED):
+        raise HTTPException(status_code=409, detail="Job order is not resolved or closed.")
+    old_status = job_order.status
+    job_order.status = JobOrderStatus.ASSIGNED if job_order.assigned_to_user_id else JobOrderStatus.OPEN
+    job_order.resolved_at = None
+    audit.record(
+        db,
+        entity_type="job_order",
+        entity_id=job_order.id,
+        action="reopened",
+        actor_user_id=current_user.id,
+        old_value={"status": old_status.value},
+        new_value={"status": job_order.status.value},
     )
     db.commit()
     db.refresh(job_order)

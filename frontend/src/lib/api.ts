@@ -330,6 +330,7 @@ export interface JobOrder {
   /** Manual, optional -- set by Sales/Coordinator after discussion with Support. */
   due_date: string | null
   created_at: string
+  resolved_at: string | null
 }
 
 // ---- Operations/Accounting Reports filters ----
@@ -1172,6 +1173,9 @@ export const api = {
     request<JobOrder>(`/job-orders/${id}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to_user_id }) }),
   setJobOrderDueDate: (id: string, due_date: string | null) =>
     request<JobOrder>(`/job-orders/${id}/due-date`, { method: 'POST', body: JSON.stringify({ due_date }) }),
+  resolveJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}/resolve`, { method: 'POST' }),
+  closeJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}/close`, { method: 'POST' }),
+  reopenJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}/reopen`, { method: 'POST' }),
 
   supportMonitoring: () => request<SupportMonitoring>('/monitoring/support'),
 

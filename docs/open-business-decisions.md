@@ -761,6 +761,55 @@ records, contract hours) plus several features/terms not yet built.
 
 ---
 
+## 18. Year-End Closing nav position; Job Orders Resolve/Close was a dead end (raised 2026-09-11)
+
+18.1. **Year-End Closing moved to its own page/nav entry.** **Status:
+   DECIDED 2026-09-11.** Per "Year End Closing shift below GST and
+   Account Period" -- it used to be a card at the bottom of the
+   Accounting Periods page; split out to its own route
+   (`/year-end-closing`) and Accounts nav entry, positioned directly
+   below "GST and Account Period". The Accounting Periods page now
+   just points to it.
+   *Where implemented:* `frontend/src/pages/YearEndClosingPage.tsx`
+   (new), `frontend/src/pages/AccountingPeriodsPage.tsx` (trimmed),
+   `frontend/src/components/Layout.tsx`, `frontend/src/App.tsx`.
+
+18.2. **Job Orders could never actually be Resolved or Closed --
+   fixed.** **Status: DECIDED 2026-09-11, flag if the assumptions
+   below are wrong.** Requested as "Run through Job Orders and see
+   what to touch up"; this is the finding, not a UI polish item. The
+   `RESOLVED`/`CLOSED` statuses and the `resolved_at` column existed on
+   the model from the very first build, and the Dashboard/Support
+   Monitoring "open job orders" counts already excluded them (see
+   `OPEN_STATUSES` in `app/services/monitoring.py`) -- but no endpoint
+   ever set a Job Order to either status. Every Job Order was
+   permanently stuck at Open or Assigned; the documented workflow
+   (docs/workflows.md step 10: "Job Order is resolved and closed") was
+   simply never wired up.
+
+   Added `POST /job-orders/{id}/resolve` (Open/Assigned -> Resolved,
+   stamps `resolved_at`), `.../close` (Resolved -> Closed), and
+   `.../reopen` (undoes either, back to Assigned/Open -- owner-only,
+   mirroring the Accounting Period reopen pattern, so a mistake never
+   needs a direct database edit). Two defaults, not confirmed business
+   rules -- flag if wrong:
+   - **Who can resolve/close:** same access as the rest of this page
+     (EDIT on service_operations, same as Assign/Due-date) -- no extra
+     approval gate, since the workflow doc doesn't name a specific
+     approver for this step the way it does for Excess Review (Nico/
+     Cherish, SRV-004/011).
+   - **No precondition check** (e.g. all Service Records must be
+     Approved first) before allowing Resolve -- the workflow doc lists
+     billing/invoicing as a prior step but doesn't say the system must
+     enforce it before Resolve is allowed.
+   *Where implemented:* `backend/app/routers/job_orders.py`,
+   `backend/app/schemas/schemas.py` (`resolved_at` now returned),
+   `frontend/src/pages/JobOrderDetailPage.tsx`,
+   `frontend/src/lib/api.ts`. No migration needed -- the column already
+   existed.
+
+---
+
 ## How to use this document
 
 - Do not start detailed schema or workflow design for an area until the

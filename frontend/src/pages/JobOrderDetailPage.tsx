@@ -1,13 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { api, type CurrentUser, type ServiceRecord, type JobOrder } from '../lib/api'
+import { useAuth } from '../lib/AuthContext'
 
 export default function JobOrderDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const { user } = useAuth()
   const [jobOrder, setJobOrder] = useState<JobOrder | null>(null)
   const [records, setRecords] = useState<ServiceRecord[]>([])
   const [users, setUsers] = useState<CurrentUser[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [working, setWorking] = useState(false)
 
   const [assignee, setAssignee] = useState('')
   const [employee, setEmployee] = useState('')
@@ -80,20 +83,90 @@ export default function JobOrderDetailPage() {
     }
   }
 
+  async function onResolve() {
+    if (!id) return
+    setError(null)
+    setWorking(true)
+    try {
+      await api.resolveJobOrder(id)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resolve job order')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function onClose() {
+    if (!id) return
+    setError(null)
+    setWorking(true)
+    try {
+      await api.closeJobOrder(id)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to close job order')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function onReopen() {
+    if (!id) return
+    setError(null)
+    setWorking(true)
+    try {
+      await api.reopenJobOrder(id)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reopen job order (owner only)')
+    } finally {
+      setWorking(false)
+    }
+  }
+
   if (!jobOrder) return <p>Loading...</p>
+
+  const isResolved = jobOrder.status === 'resolved'
+  const isClosed = jobOrder.status === 'closed'
+  const isOpenOrAssigned = jobOrder.status === 'open' || jobOrder.status === 'assigned'
+  const statusBadgeClass = isClosed ? 'expired' : 'active'
 
   return (
     <div>
       <h1>{jobOrder.subject}</h1>
       <p>
         <span className="muted">{jobOrder.job_order_number}</span>{' '}
-        <span className="badge active">{jobOrder.status}</span>{' '}
+        <span className={`badge ${statusBadgeClass}`}>{jobOrder.status}</span>{' '}
         <span className="muted">Priority: {jobOrder.priority} (SRV-009: no formal SLA target yet)</span>
         {jobOrder.due_date && (
           <>
             {' '}
             &middot; <span className="muted">Due {jobOrder.due_date}</span>
           </>
+        )}
+        {jobOrder.resolved_at && (
+          <>
+            {' '}
+            &middot; <span className="muted">Resolved {new Date(jobOrder.resolved_at).toLocaleString()}</span>
+          </>
+        )}
+      </p>
+      <p style={{ display: 'flex', gap: 10 }}>
+        {isOpenOrAssigned && (
+          <button onClick={onResolve} disabled={working}>
+            Mark Resolved
+          </button>
+        )}
+        {isResolved && (
+          <button onClick={onClose} disabled={working}>
+            Close job order
+          </button>
+        )}
+        {(isResolved || isClosed) && user?.role === 'owner' && (
+          <button className="secondary" onClick={onReopen} disabled={working}>
+            Reopen (owner)
+          </button>
         )}
       </p>
       {error && <div className="error-banner">{error}</div>}
