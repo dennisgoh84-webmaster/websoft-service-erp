@@ -27,6 +27,7 @@ from app.models.accounting import (
     VoucherType,
 )
 from app.services.numbering import next_document_number
+from app.services.periods import PeriodClosedError, require_open_period
 
 
 class LedgerRuleViolation(Exception):
@@ -105,15 +106,27 @@ def create_journal_entry(
     return entry
 
 
-def post_entry(db: Session, entry: JournalEntry, *, actor_user_id: uuid.UUID) -> JournalEntry:
+def post_entry(
+    db: Session, entry: JournalEntry, *, actor_user_id: uuid.UUID, bypass_period_check: bool = False
+) -> JournalEntry:
     """Post a draft voucher to the ledger. Refuses to post anything that
-    doesn't balance -- that check is the whole point of double entry."""
+    doesn't balance -- that check is the whole point of double entry --
+    or anything dated inside a closed accounting period (see
+    app/services/periods.py). `bypass_period_check` exists only for the
+    Year-End Closing voucher itself, which is deliberately dated inside
+    a period that is closed by definition."""
     from datetime import datetime, timezone
 
     if entry.status == JournalStatus.POSTED:
         raise LedgerRuleViolation("That voucher is already posted.")
     if entry.status == JournalStatus.REVERSED:
         raise LedgerRuleViolation("That voucher has been reversed.")
+
+    if not bypass_period_check:
+        try:
+            require_open_period(db, entry.company_id, entry.entry_date)
+        except PeriodClosedError as e:
+            raise LedgerRuleViolation(str(e))
 
     if entry.total_debit != entry.total_credit:
         raise LedgerRuleViolation(

@@ -524,6 +524,107 @@ export interface Account {
   is_active: boolean
 }
 
+// ---- GL Types ----
+export interface GLType {
+  id: string
+  code: string
+  name: string
+  account_type: AccountType
+  is_active: boolean
+}
+
+// ---- Setup Lists (Nationality / Country / State / Area Code / Currency) ----
+export type SetupListType = 'nationality' | 'country' | 'state' | 'area_code' | 'currency'
+
+export interface SetupListItem {
+  id: string
+  list_type: SetupListType
+  code: string
+  name: string
+  parent_code: string | null
+  sort_order: number
+  is_active: boolean
+}
+
+// ---- Currency Rate Table ----
+export interface CurrencyRate {
+  id: string
+  currency_code: string
+  rate_to_base: number
+  effective_date: string
+  is_active: boolean
+}
+
+// ---- Bank Master File ----
+export interface BankAccount {
+  id: string
+  bank_name: string
+  account_name: string
+  account_number: string
+  branch: string | null
+  swift_code: string | null
+  currency_code: string
+  gl_account_id: string | null
+  is_active: boolean
+}
+
+// ---- Tax Type (Tax Code maintenance) ----
+export interface TaxCode {
+  id: string
+  code: string
+  name: string
+  rate_percent: number
+  is_active: boolean
+}
+
+// ---- Document Control ----
+export interface DocumentSequence {
+  id: string
+  doc_kind: string
+  prefix: string
+  year: number
+  last_number: number
+}
+
+// ---- Accounting Periods / Year-End Closing ----
+export type PeriodStatus = 'open' | 'closed'
+
+export interface AccountingPeriod {
+  id: string
+  fiscal_year: number
+  name: string
+  period_start: string
+  period_end: string
+  status: PeriodStatus
+  closed_at: string | null
+}
+
+export interface FiscalYearClosure {
+  id: string
+  fiscal_year: number
+  retained_earnings_account_id: string
+  closing_journal_entry_id: string
+  closed_at: string
+}
+
+// ---- GST Return ----
+export interface GSTReturnRow {
+  tax_code: string
+  net_sgd: number
+  tax_sgd: number
+  document_count: number
+}
+
+export interface GSTReturn {
+  period_start: string
+  period_end: string
+  output_rows: GSTReturnRow[]
+  input_rows: GSTReturnRow[]
+  total_output_tax_sgd: number
+  total_input_tax_sgd: number
+  net_gst_payable_sgd: number
+}
+
 // ---- General Ledger / vouchers ----
 export type VoucherType = 'journal' | 'receipt' | 'payment' | 'sales_invoice' | 'purchase_invoice'
 export type JournalStatus = 'draft' | 'posted' | 'reversed'
@@ -1252,4 +1353,115 @@ export const api = {
     requestBlob(`/reports/accounting/trial-balance/export.csv${qs({ as_at })}`),
   exportTrialBalanceReportExcel: (as_at?: string) =>
     requestBlob(`/reports/accounting/trial-balance/export.xlsx${qs({ as_at })}`),
+
+  reportGstReturn: (period_start: string, period_end: string) =>
+    request<GSTReturn>(`/reports/accounting/gst-return${qs({ period_start, period_end })}`),
+  exportGstReturnCsv: (period_start: string, period_end: string) =>
+    requestBlob(`/reports/accounting/gst-return/export.csv${qs({ period_start, period_end })}`),
+  exportGstReturnExcel: (period_start: string, period_end: string) =>
+    requestBlob(`/reports/accounting/gst-return/export.xlsx${qs({ period_start, period_end })}`),
+
+  // ---- Chart of Accounts export (Supporting Reports) ----
+  exportAccountsCsv: (filters: { include_inactive?: boolean; account_type?: string } = {}) =>
+    requestBlob(`/accounts/export.csv${qs(filters)}`),
+  exportAccountsExcel: (filters: { include_inactive?: boolean; account_type?: string } = {}) =>
+    requestBlob(`/accounts/export.xlsx${qs(filters)}`),
+
+  // ---- GL Types ----
+  listGLTypes: (includeInactive = false) =>
+    request<GLType[]>(`/gl-types${includeInactive ? '?include_inactive=true' : ''}`),
+  createGLType: (payload: { code: string; name: string; account_type: AccountType }) =>
+    request<GLType>('/gl-types', { method: 'POST', body: JSON.stringify(payload) }),
+  updateGLType: (id: string, payload: Partial<{ code: string; name: string; account_type: AccountType; is_active: boolean }>) =>
+    request<GLType>(`/gl-types/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  // ---- Setup Lists ----
+  listSetupItems: (filters: { list_type?: SetupListType; include_inactive?: boolean } = {}) =>
+    request<SetupListItem[]>(`/setup-lists${qs(filters)}`),
+  createSetupItem: (payload: {
+    list_type: SetupListType
+    code: string
+    name: string
+    parent_code?: string | null
+    sort_order?: number
+  }) => request<SetupListItem>('/setup-lists', { method: 'POST', body: JSON.stringify(payload) }),
+  updateSetupItem: (
+    id: string,
+    payload: Partial<{ code: string; name: string; parent_code: string | null; sort_order: number; is_active: boolean }>,
+  ) => request<SetupListItem>(`/setup-lists/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  exportSetupItemsCsv: (filters: { list_type?: SetupListType; include_inactive?: boolean } = {}) =>
+    requestBlob(`/setup-lists/export.csv${qs(filters)}`),
+  exportSetupItemsExcel: (filters: { list_type?: SetupListType; include_inactive?: boolean } = {}) =>
+    requestBlob(`/setup-lists/export.xlsx${qs(filters)}`),
+
+  // ---- Currency Rate Table ----
+  listCurrencyRates: (currency_code?: string) =>
+    request<CurrencyRate[]>(`/currency-rates${qs({ currency_code })}`),
+  createCurrencyRate: (payload: { currency_code: string; rate_to_base: number; effective_date: string }) =>
+    request<CurrencyRate>('/currency-rates', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCurrencyRate: (id: string, payload: Partial<{ rate_to_base: number; is_active: boolean }>) =>
+    request<CurrencyRate>(`/currency-rates/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  // ---- Bank Master File ----
+  listBankAccounts: (includeInactive = false) =>
+    request<BankAccount[]>(`/bank-accounts${includeInactive ? '?include_inactive=true' : ''}`),
+  createBankAccount: (payload: {
+    bank_name: string
+    account_name: string
+    account_number: string
+    branch?: string
+    swift_code?: string
+    currency_code?: string
+    gl_account_id?: string | null
+  }) => request<BankAccount>('/bank-accounts', { method: 'POST', body: JSON.stringify(payload) }),
+  updateBankAccount: (
+    id: string,
+    payload: Partial<{
+      bank_name: string
+      account_name: string
+      account_number: string
+      branch: string | null
+      swift_code: string | null
+      currency_code: string
+      gl_account_id: string | null
+      is_active: boolean
+    }>,
+  ) => request<BankAccount>(`/bank-accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  exportBankAccountsCsv: (includeInactive = false) =>
+    requestBlob(`/bank-accounts/export.csv${includeInactive ? '?include_inactive=true' : ''}`),
+  exportBankAccountsExcel: (includeInactive = false) =>
+    requestBlob(`/bank-accounts/export.xlsx${includeInactive ? '?include_inactive=true' : ''}`),
+
+  // ---- Tax Type (Tax Code maintenance) ----
+  listTaxCodes: (includeInactive = false) =>
+    request<TaxCode[]>(`/tax-codes${includeInactive ? '?include_inactive=true' : ''}`),
+  createTaxCode: (payload: { code: string; name: string; rate_percent: number }) =>
+    request<TaxCode>('/tax-codes', { method: 'POST', body: JSON.stringify(payload) }),
+  updateTaxCode: (id: string, payload: Partial<{ code: string; name: string; rate_percent: number; is_active: boolean }>) =>
+    request<TaxCode>(`/tax-codes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  exportTaxCodesCsv: (includeInactive = false) =>
+    requestBlob(`/tax-codes/export.csv${includeInactive ? '?include_inactive=true' : ''}`),
+  exportTaxCodesExcel: (includeInactive = false) =>
+    requestBlob(`/tax-codes/export.xlsx${includeInactive ? '?include_inactive=true' : ''}`),
+
+  // ---- Document Control ----
+  listDocumentSequences: () => request<DocumentSequence[]>('/document-control'),
+  updateDocumentSequence: (id: string, payload: { last_number: number; reason: string }) =>
+    request<DocumentSequence>(`/document-control/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  // ---- Accounting Periods / Year-End Closing ----
+  listAccountingPeriods: (fiscal_year?: number) =>
+    request<AccountingPeriod[]>(`/accounting-periods${qs({ fiscal_year })}`),
+  createAccountingPeriod: (payload: { fiscal_year: number; name: string; period_start: string; period_end: string }) =>
+    request<AccountingPeriod>('/accounting-periods', { method: 'POST', body: JSON.stringify(payload) }),
+  closeAccountingPeriod: (id: string) =>
+    request<AccountingPeriod>(`/accounting-periods/${id}/close`, { method: 'POST' }),
+  reopenAccountingPeriod: (id: string) =>
+    request<AccountingPeriod>(`/accounting-periods/${id}/reopen`, { method: 'POST' }),
+  listFiscalYearClosures: () => request<FiscalYearClosure[]>('/accounting-periods/closures'),
+  closeFiscalYear: (payload: { fiscal_year: number; retained_earnings_account_id: string }) =>
+    request<FiscalYearClosure>('/accounting-periods/close-fiscal-year', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 }

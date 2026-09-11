@@ -46,6 +46,27 @@ class AccountType(str, enum.Enum):
     EXPENSE = "expense"
 
 
+class GLType(Base):
+    """A finer classification within one of the 5 AccountType classes
+    (e.g. Asset -> "Bank", "Fixed Asset", "Current Asset") -- purely a
+    reporting/grouping label an account can optionally carry. Adding or
+    renaming a GL Type never touches account_type or the ledger itself."""
+
+    __tablename__ = "gl_types"
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_gl_type_code"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(20), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    account_type: Mapped[AccountType] = mapped_column(
+        Enum(AccountType, name="account_type"), nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class Account(Base):
     """One line of the chart of accounts."""
 
@@ -62,6 +83,9 @@ class Account(Base):
     account_type: Mapped[AccountType] = mapped_column(
         Enum(AccountType, name="account_type"), nullable=False
     )
+    # Optional finer classification (see GLType) -- purely additive, never
+    # required, so every existing account keeps working unclassified.
+    gl_type_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("gl_types.id"), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Retired rather than deleted -- an account that has been posted to
     # must remain for the history to stay readable.

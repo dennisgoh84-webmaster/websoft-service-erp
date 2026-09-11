@@ -258,6 +258,13 @@ sub-detail is called out explicitly).
 
 4b.1. **What is Webmaster's financial year end?** Needed before any
    period close, financial statements, or year-based reporting.
+   **Status: mechanism built, date still open.** Accounting Periods
+   (`app/models/periods.py`) are plain date ranges an owner/Finance
+   defines per company, with no calendar-year assumption baked into the
+   backend — so whatever FY end Dennis eventually confirms just becomes
+   a period row, not a code change. Confirmed 2026-09-11: until that's
+   decided, a date with no period defined at all is unrestricted
+   (periods are opt-in protection, not a retroactive block).
    *Arises in:* Finance / Accounting, Reporting.
 
 4b.2. **Which account does each transaction post to?** The chart of
@@ -280,7 +287,29 @@ sub-detail is called out explicitly).
 4b.4. **How are GST returns (F5) prepared and filed**, and over what
    accounting periods? Output tax is captured per invoice, but the return
    itself is not built.
+   **Status: partially addressed 2026-09-11.** Accounting Reports →
+   Analysis → GST Return now totals output tax (sales, by tax code) vs
+   input tax (purchases) for a chosen date range, tax point = invoice
+   date. It is read-only: it does not file anything with IRAS, does not
+   post to the GL, and does not attempt bad-debt relief on written-off
+   invoices (a separate IRAS scheme). The actual filing workflow is
+   still open.
    *Arises in:* Finance / Accounting, Integrations.
+
+4b.7. **Year-End Closing mechanics** (raised implicitly by 4b.1;
+   confirmed 2026-09-11 in response to an explicit scope question, since
+   "what does closing a year actually do" is exactly the kind of thing
+   never to assume): Year-End Closing posts one balanced journal entry
+   moving every Revenue/Expense account's *movement for the fiscal
+   year* (not its all-time balance) into an Equity account the owner
+   picks at the time — there is no hardcoded "Retained Earnings"
+   account name; the Chart of Accounts' `3100 Retained earnings` is
+   simply the obvious seeded choice. Owner-only. Requires every
+   Accounting Period tagged with that fiscal year to already be closed.
+   Reversible the same way any posted voucher is corrected (General
+   Ledger → Reverse) — there is deliberately no separate "unclose"
+   mechanism. See `app/services/periods.py` close_fiscal_year.
+   *Arises in:* Finance / Accounting.
 
 4b.5. **Does Webmaster ever invoice in a currency other than SGD?**
    Everything is SGD today; multi-currency has not been requested and is

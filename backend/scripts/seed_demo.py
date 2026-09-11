@@ -48,7 +48,9 @@ from app.models.customers import Branch, Contact, Customer, CustomerGroup, Custo
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
-from app.models.accounting import Account, AccountType
+from app.models.accounting import Account, AccountType, GLType
+from app.models.setup import SetupListItem, SetupListType
+from app.models.treasury import BankAccount, CurrencyRate
 from app.models.payables import (
     PurchaseOrder,
     PurchaseOrderStatus,
@@ -329,6 +331,100 @@ def seed_chart_of_accounts(db, company: Company):
     db.flush()
 
 
+# Global reference data (Setup Lists), shared by every company -- see
+# app/models/setup.py. A starting set, not an exhaustive world list;
+# more can be added from the Setup Lists screen as needed.
+SETUP_LIST_ITEMS = [
+    (SetupListType.COUNTRY, "SG", "Singapore", None),
+    (SetupListType.COUNTRY, "MY", "Malaysia", None),
+    (SetupListType.COUNTRY, "ID", "Indonesia", None),
+    (SetupListType.COUNTRY, "US", "United States", None),
+    (SetupListType.COUNTRY, "GB", "United Kingdom", None),
+    (SetupListType.COUNTRY, "AU", "Australia", None),
+    (SetupListType.COUNTRY, "CN", "China", None),
+    (SetupListType.STATE, "JHR", "Johor", "MY"),
+    (SetupListType.STATE, "SEL", "Selangor", "MY"),
+    (SetupListType.STATE, "KUL", "Kuala Lumpur", "MY"),
+    (SetupListType.NATIONALITY, "SGP", "Singaporean", None),
+    (SetupListType.NATIONALITY, "MYS", "Malaysian", None),
+    (SetupListType.NATIONALITY, "IDN", "Indonesian", None),
+    (SetupListType.NATIONALITY, "CHN", "Chinese", None),
+    (SetupListType.NATIONALITY, "IND", "Indian", None),
+    (SetupListType.AREA_CODE, "SG-CENTRAL", "Central Region", "SG"),
+    (SetupListType.AREA_CODE, "SG-EAST", "East Region", "SG"),
+    (SetupListType.AREA_CODE, "SG-WEST", "West Region", "SG"),
+    (SetupListType.AREA_CODE, "SG-NORTH", "North Region", "SG"),
+    (SetupListType.CURRENCY, "SGD", "Singapore Dollar", None),
+    (SetupListType.CURRENCY, "USD", "US Dollar", None),
+    (SetupListType.CURRENCY, "MYR", "Malaysian Ringgit", None),
+    (SetupListType.CURRENCY, "EUR", "Euro", None),
+    (SetupListType.CURRENCY, "GBP", "British Pound", None),
+    (SetupListType.CURRENCY, "CNY", "Chinese Yuan", None),
+    (SetupListType.CURRENCY, "AUD", "Australian Dollar", None),
+]
+
+
+def seed_setup_lists(db):
+    for i, (list_type, code, name, parent_code) in enumerate(SETUP_LIST_ITEMS):
+        db.add(
+            SetupListItem(
+                list_type=list_type, code=code, name=name, parent_code=parent_code, sort_order=i
+            )
+        )
+    db.flush()
+
+
+# A starting GL Type classification, matching the seeded Chart of
+# Accounts -- purely a reporting label (see app/models/accounting.py).
+GL_TYPES = [
+    ("BANK", "Bank", AccountType.ASSET),
+    ("CASH", "Cash", AccountType.ASSET),
+    ("CURR_AST", "Current Asset", AccountType.ASSET),
+    ("FIXED_AST", "Fixed Asset", AccountType.ASSET),
+    ("CURR_LIAB", "Current Liability", AccountType.LIABILITY),
+    ("EQUITY", "Equity", AccountType.EQUITY),
+    ("OP_REVENUE", "Operating Revenue", AccountType.REVENUE),
+    ("OP_EXPENSE", "Operating Expense", AccountType.EXPENSE),
+    ("PAYROLL", "Payroll Expense", AccountType.EXPENSE),
+]
+
+
+def seed_gl_types(db, company: Company) -> dict[str, GLType]:
+    gl_types = {}
+    for code, name, account_type in GL_TYPES:
+        gl_type = GLType(company_id=company.id, code=code, name=name, account_type=account_type)
+        db.add(gl_type)
+        gl_types[code] = gl_type
+    db.flush()
+    return gl_types
+
+
+def seed_treasury(db, company: Company, cash_account: Account | None):
+    """A demonstration Bank Master File entry and Currency Rate Table
+    row -- setup data only, see app/models/treasury.py."""
+    db.add(
+        BankAccount(
+            company_id=company.id,
+            bank_name="DBS Bank",
+            account_name=company.name,
+            account_number="003-9-123456",
+            branch="Raffles Place",
+            swift_code="DBSSSGSG",
+            currency_code="SGD",
+            gl_account_id=cash_account.id if cash_account else None,
+        )
+    )
+    db.add(
+        CurrencyRate(
+            company_id=company.id,
+            currency_code="USD",
+            rate_to_base=Decimal("1.35"),
+            effective_date=date.today(),
+        )
+    )
+    db.flush()
+
+
 def logo_data_uri(initials: str, bg: str = "#7a1f2e") -> str:
     """A simple placeholder logo in the company colours (maroon/white),
     stored the same way an uploaded one is: an image data URI on the
@@ -400,6 +496,13 @@ def main():
         seed_tax_codes(db, company2)
         seed_chart_of_accounts(db, company)
         seed_chart_of_accounts(db, company2)
+        seed_setup_lists(db)
+        seed_gl_types(db, company)
+        seed_gl_types(db, company2)
+        cash_account = (
+            db.query(Account).filter(Account.company_id == company.id, Account.code == "1000").first()
+        )
+        seed_treasury(db, company, cash_account)
         groups = seed_groups(db, company)
         groups2 = seed_groups(db, company2)
 

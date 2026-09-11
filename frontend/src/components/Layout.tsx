@@ -62,7 +62,12 @@ export default function Layout() {
             {can('accounts_payable') && <NavLink to="/accounts-payable">Accounts Payable</NavLink>}
             {can('accounts_payable') && <NavLink to="/payment-voucher">Payment Voucher</NavLink>}
             {can('finance_accounting') && <NavLink to="/chart-of-accounts">Chart of Accounts</NavLink>}
+            {can('finance_accounting') && <NavLink to="/gl-types">GL Types</NavLink>}
+            {can('finance_accounting') && <NavLink to="/tax-types">Tax Types</NavLink>}
+            {can('finance_accounting') && <NavLink to="/bank-accounts">Bank Master File</NavLink>}
+            {can('finance_accounting') && <NavLink to="/currency-rates">Currency Rate Table</NavLink>}
             {can('finance_accounting') && <NavLink to="/general-ledger">General Ledger</NavLink>}
+            {can('finance_accounting') && <NavLink to="/accounting-periods">Accounting Periods</NavLink>}
             {can('accounting_reports') && <NavLink to="/accounting-reports">Accounting Reports</NavLink>}
           </div>
 
@@ -74,6 +79,8 @@ export default function Layout() {
               {can('core_administration') && <NavLink to="/modules">Module Control</NavLink>}
               {can('core_administration') && <NavLink to="/groups">Group Authority</NavLink>}
               {can('sales') && <NavLink to="/product-catalog">Product Catalog</NavLink>}
+              {can('core_administration') && <NavLink to="/setup-lists">Setup Lists</NavLink>}
+              {can('core_administration') && <NavLink to="/document-control">Document Control</NavLink>}
               {can('event_logs') && <NavLink to="/event-logs">Event Logs</NavLink>}
             </div>
           )}

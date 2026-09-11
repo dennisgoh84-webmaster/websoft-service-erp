@@ -34,6 +34,8 @@ from app.schemas.schemas import (
     APAgingRow,
     AgingRow,
     ContractOut,
+    GSTReturn,
+    GSTReturnRow,
     JobOrderOut,
     ServiceRecordOut,
     TrialBalance,
@@ -560,4 +562,70 @@ def trial_balance_report_export_excel(
     return StreamingResponse(
         iter([data]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=trial-balance-report.xlsx"},
+    )
+
+
+# ---- GST Return (Analysis Reports) --------------------------------------
+
+
+def _gst_return(db: Session, company_id: uuid.UUID, period_start: date, period_end: date) -> GSTReturn:
+    data = reports_svc.gst_return_data(db, company_id, period_start, period_end)
+    return GSTReturn(
+        period_start=period_start,
+        period_end=period_end,
+        output_rows=[GSTReturnRow(tax_code=r["tax_code"], net_sgd=float(r["net_sgd"]), tax_sgd=float(r["tax_sgd"]), document_count=r["document_count"]) for r in data["output_rows"]],
+        input_rows=[GSTReturnRow(tax_code=r["tax_code"], net_sgd=float(r["net_sgd"]), tax_sgd=float(r["tax_sgd"]), document_count=r["document_count"]) for r in data["input_rows"]],
+        total_output_tax_sgd=float(data["total_output_tax_sgd"]),
+        total_input_tax_sgd=float(data["total_input_tax_sgd"]),
+        net_gst_payable_sgd=float(data["net_gst_payable_sgd"]),
+    )
+
+
+@router.get("/accounting/gst-return", response_model=GSTReturn)
+def gst_return_report(
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    return _gst_return(db, current_user.company_id, period_start, period_end)
+
+
+@router.get("/accounting/gst-return/export.csv")
+def gst_return_report_export_csv(
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    report = _gst_return(db, current_user.company_id, period_start, period_end)
+    fields = ["tax_code", "net_sgd", "tax_sgd", "document_count", "direction"]
+    rows = [dict(r.model_dump(), direction="output") for r in report.output_rows] + [
+        dict(r.model_dump(), direction="input") for r in report.input_rows
+    ]
+    _audit_export(db, current_user, "Accounting Report: GST Return", "csv", len(rows))
+    csv_text = exports.rows_to_csv(fields, rows)
+    return StreamingResponse(
+        iter([csv_text]), media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=gst-return.csv"},
+    )
+
+
+@router.get("/accounting/gst-return/export.xlsx")
+def gst_return_report_export_excel(
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    report = _gst_return(db, current_user.company_id, period_start, period_end)
+    fields = ["tax_code", "net_sgd", "tax_sgd", "document_count", "direction"]
+    rows = [dict(r.model_dump(), direction="output") for r in report.output_rows] + [
+        dict(r.model_dump(), direction="input") for r in report.input_rows
+    ]
+    _audit_export(db, current_user, "Accounting Report: GST Return", "excel", len(rows))
+    data = exports.rows_to_excel(fields, rows, sheet_name="GST Return")
+    return StreamingResponse(
+        iter([data]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=gst-return.xlsx"},
     )

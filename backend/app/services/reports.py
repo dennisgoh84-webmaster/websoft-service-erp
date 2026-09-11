@@ -210,3 +210,69 @@ def ap_aging_rows(db: Session, company_id: uuid.UUID, as_at: date | None = None)
     ]
     rows.sort(key=lambda r: r["total"], reverse=True)
     return rows
+
+
+# ---- GST Return (Analysis) ----------------------------------------------
+
+
+def gst_return_data(
+    db: Session, company_id: uuid.UUID, period_start: date, period_end: date
+) -> dict:
+    """Output tax (sales, by tax code) vs input tax (purchases) for a
+    date range, tax point = invoice date (confirmed default -- see
+    docs/open-business-decisions.md; bad-debt relief on written-off
+    invoices is a separate IRAS scheme this does not attempt). Purely a
+    read-only total: this does not file anything or post to the GL."""
+    invoices = (
+        db.query(Invoice)
+        .filter(
+            Invoice.company_id == company_id,
+            Invoice.issued_at >= period_start,
+            Invoice.issued_at <= period_end,
+        )
+        .all()
+    )
+    output_by_code: dict[str, dict] = {}
+    for inv in invoices:
+        row = output_by_code.setdefault(
+            inv.tax_code, {"net": Decimal("0.00"), "tax": Decimal("0.00"), "count": 0}
+        )
+        row["net"] += Decimal(inv.amount_sgd)
+        row["tax"] += Decimal(inv.gst_amount_sgd)
+        row["count"] += 1
+
+    bills = (
+        db.query(SupplierInvoice)
+        .filter(
+            SupplierInvoice.company_id == company_id,
+            SupplierInvoice.invoice_date >= period_start,
+            SupplierInvoice.invoice_date <= period_end,
+        )
+        .all()
+    )
+    # SupplierInvoice doesn't carry a tax_code (see app/models/payables.py)
+    # -- input tax is tracked as one total, not broken out per code.
+    input_row = {"net": Decimal("0.00"), "tax": Decimal("0.00"), "count": 0}
+    for bill in bills:
+        input_row["net"] += Decimal(bill.amount_sgd)
+        input_row["tax"] += Decimal(bill.gst_amount_sgd)
+        input_row["count"] += 1
+
+    output_rows = [
+        {"tax_code": code, "net_sgd": r["net"], "tax_sgd": r["tax"], "document_count": r["count"]}
+        for code, r in output_by_code.items()
+    ]
+    input_rows = (
+        [{"tax_code": "PURCHASES", "net_sgd": input_row["net"], "tax_sgd": input_row["tax"], "document_count": input_row["count"]}]
+        if input_row["count"]
+        else []
+    )
+    total_output = sum((r["tax_sgd"] for r in output_rows), Decimal("0.00"))
+    total_input = sum((r["tax_sgd"] for r in input_rows), Decimal("0.00"))
+    return {
+        "output_rows": output_rows,
+        "input_rows": input_rows,
+        "total_output_tax_sgd": total_output,
+        "total_input_tax_sgd": total_input,
+        "net_gst_payable_sgd": total_output - total_input,
+    }

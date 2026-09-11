@@ -20,6 +20,8 @@ from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrderPriority, JobOrderStatus
 from app.models.licensing import LicenseType
 from app.models.service_records import ServiceRecordOutcome, ServiceRecordStatus
+from app.models.setup import SetupListType
+from app.models.periods import PeriodStatus
 
 
 # ---- Auth ----
@@ -1144,3 +1146,199 @@ class SoftwareTaskOut(BaseModel):
     is_tested: bool
     tested_at: datetime | None
     created_at: datetime
+
+
+# ---- Setup Lists (Nationality / Country / State / Area Code / Currency) ----
+class SetupListItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    list_type: SetupListType
+    code: str
+    name: str
+    parent_code: str | None
+    sort_order: int
+    is_active: bool
+
+
+class SetupListItemCreate(BaseModel):
+    list_type: SetupListType
+    code: str = Field(min_length=1, max_length=20)
+    name: str = Field(min_length=1, max_length=150)
+    parent_code: str | None = None
+    sort_order: int = 0
+
+
+class SetupListItemUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    parent_code: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+# ---- GL Types ----
+class GLTypeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    code: str
+    name: str
+    account_type: AccountType
+    is_active: bool
+
+
+class GLTypeCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=20)
+    name: str = Field(min_length=1, max_length=100)
+    account_type: AccountType
+
+
+class GLTypeUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    account_type: AccountType | None = None
+    is_active: bool | None = None
+
+
+# ---- Currency Rate Table ----
+class CurrencyRateOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    currency_code: str
+    rate_to_base: float
+    effective_date: date
+    is_active: bool
+
+
+class CurrencyRateCreate(BaseModel):
+    currency_code: str = Field(min_length=3, max_length=3)
+    rate_to_base: float = Field(gt=0)
+    effective_date: date
+
+
+class CurrencyRateUpdate(BaseModel):
+    rate_to_base: float | None = Field(default=None, gt=0)
+    is_active: bool | None = None
+
+
+# ---- Bank Master File ----
+class BankAccountOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    bank_name: str
+    account_name: str
+    account_number: str
+    branch: str | None
+    swift_code: str | None
+    currency_code: str
+    gl_account_id: uuid.UUID | None
+    is_active: bool
+
+
+class BankAccountCreate(BaseModel):
+    bank_name: str = Field(min_length=1, max_length=150)
+    account_name: str = Field(min_length=1, max_length=150)
+    account_number: str = Field(min_length=1, max_length=50)
+    branch: str | None = None
+    swift_code: str | None = None
+    currency_code: str = Field(default="SGD", min_length=3, max_length=3)
+    gl_account_id: uuid.UUID | None = None
+
+
+class BankAccountUpdate(BaseModel):
+    bank_name: str | None = None
+    account_name: str | None = None
+    account_number: str | None = None
+    branch: str | None = None
+    swift_code: str | None = None
+    currency_code: str | None = None
+    gl_account_id: uuid.UUID | None = None
+    is_active: bool | None = None
+
+
+# ---- Tax Type (TaxCode maintenance) ----
+class TaxCodeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    code: str
+    name: str
+    rate_percent: float
+    is_active: bool
+
+
+class TaxCodeCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=10)
+    name: str = Field(min_length=1, max_length=100)
+    rate_percent: float = Field(ge=0, le=100)
+
+
+class TaxCodeUpdate(BaseModel):
+    code: str | None = None
+    name: str | None = None
+    rate_percent: float | None = Field(default=None, ge=0, le=100)
+    is_active: bool | None = None
+
+
+# ---- Document Control ----
+class DocumentSequenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    doc_kind: str
+    prefix: str
+    year: int
+    last_number: int
+
+
+class DocumentSequenceUpdate(BaseModel):
+    last_number: int = Field(ge=0)
+    reason: str = Field(min_length=1)
+
+
+# ---- Accounting Periods / Year-End Closing ----
+class AccountingPeriodOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    fiscal_year: int
+    name: str
+    period_start: date
+    period_end: date
+    status: PeriodStatus
+    closed_at: datetime | None
+
+
+class AccountingPeriodCreate(BaseModel):
+    fiscal_year: int
+    name: str = Field(min_length=1, max_length=50)
+    period_start: date
+    period_end: date
+
+
+class FiscalYearClosureOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    fiscal_year: int
+    retained_earnings_account_id: uuid.UUID
+    closing_journal_entry_id: uuid.UUID
+    closed_at: datetime
+
+
+class YearEndClosingRequest(BaseModel):
+    fiscal_year: int
+    retained_earnings_account_id: uuid.UUID
+
+
+# ---- GST Return (read-only, doesn't file or post anything) ----
+class GSTReturnRow(BaseModel):
+    tax_code: str
+    net_sgd: float
+    tax_sgd: float
+    document_count: int
+
+
+class GSTReturn(BaseModel):
+    period_start: date
+    period_end: date
+    output_rows: list[GSTReturnRow]  # sales -- output tax collected
+    input_rows: list[GSTReturnRow]  # purchases -- input tax paid
+    total_output_tax_sgd: float
+    total_input_tax_sgd: float
+    net_gst_payable_sgd: float  # output - input; negative means reclaimable
