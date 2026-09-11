@@ -91,9 +91,15 @@ a {
 .app-shell {
   display: flex;
   flex: 1;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
+/* Sidebar is a fixed-height column with three regions: brand-block
+   (top, fixed), .sidebar-nav (middle, scrolls independently once the
+   menu has more links than fit -- the nav is expected to keep growing
+   as modules are added), and .user-info (bottom, fixed). Only the
+   middle region scrolls, so the logo and sign-out stay put. */
 .sidebar {
   width: 248px;
   background: var(--surface);
@@ -102,6 +108,25 @@ a {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar .sidebar-nav {
+  flex: 1;
+  min-height: 0; /* required for a flex child to actually scroll instead of overflowing */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px; /* keep link text clear of the scrollbar */
+  margin-right: -4px;
+  scrollbar-width: thin;
+}
+.sidebar .sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar .sidebar-nav::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
 }
 
 /* Company logo, top-left, above the product name (it does not replace
@@ -167,7 +192,7 @@ a {
 }
 
 .sidebar .user-info {
-  margin-top: auto;
+  flex-shrink: 0;
   padding-top: 16px;
   border-top: 1px solid var(--border);
   font-size: 13px;
@@ -178,6 +203,8 @@ a {
   flex: 1;
   padding: 28px 36px;
   max-width: 1000px;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .main-topbar {
@@ -591,6 +618,10 @@ button:disabled {
   .main {
     padding: 0;
     max-width: none;
+    /* Undo the on-screen single-viewport scroll box so a printed page
+       isn't clipped to whatever was visible on screen. */
+    height: auto;
+    overflow: visible;
   }
   .invoice-sheet {
     border: none;
