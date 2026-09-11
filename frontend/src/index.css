@@ -569,10 +569,22 @@ button:disabled {
 .stat-value-text {
   font-size: 17px;
 }
+/* The headline number in a row of stat tiles (e.g. Ops Dashboard's
+   "Total tasks") -- bigger and in the brand accent colour so it reads
+   as the one to look at first, confirmed 2026-09-11. */
+.stat-value-total {
+  font-size: 40px;
+  color: var(--accent);
+}
 .stat-label {
   font-size: 13px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+.stat-label-total {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
 }
 
 .login-shell {

@@ -191,8 +191,8 @@ export default function OpsDashboardPage() {
 
       <div className="stat-grid">
         <div className="card stat-tile">
-          <div className="stat-value">{dashboard.total_tasks}</div>
-          <div className="stat-label">Total tasks</div>
+          <div className="stat-value stat-value-total">{dashboard.total_tasks}</div>
+          <div className="stat-label stat-label-total">Total tasks</div>
         </div>
         <div className="card stat-tile">
           <div className="stat-value">{dashboard.open_count}</div>
