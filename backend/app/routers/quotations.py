@@ -14,7 +14,7 @@ from app.models.customers import Customer
 from app.models.groups import AccessLevel
 from app.models.quotations import Quotation, QuotationLine, QuotationStatus
 from app.schemas.schemas import QuotationActionResult, QuotationCreate, QuotationOut
-from app.services import audit, docx_forms, exports
+from app.services import audit, docx_forms, document_email, exports
 from app.services import quotations as quotation_svc
 from app.services.authority import require_module_access
 from app.services.numbering import next_document_number
@@ -142,6 +142,52 @@ def export_quotation_docx(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename={quotation.quotation_number}.docx"},
     )
+
+
+@router.post("/{quotation_id}/email")
+def email_quotation(
+    quotation_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Email Sales Quotation (2026-09-12) -- same real-send pattern as
+    Purchase Order's Email button."""
+    quotation = _quotation_or_404(db, quotation_id, current_user.company_id)
+    customer = db.get(Customer, quotation.customer_id)
+    if not customer or not customer.billing_email:
+        raise HTTPException(
+            status_code=422,
+            detail="This customer has no email on file -- add one on the Company/Individual page first.",
+        )
+    company = db.get(Company, current_user.company_id)
+    docx_bytes = docx_forms.quotation_to_docx(quotation, customer, company)
+    body = (
+        f"Dear {customer.name},\n\n"
+        f"Please find attached Quotation {quotation.quotation_number} dated "
+        f"{quotation.quotation_date.isoformat()} for SGD {float(quotation.total_amount_sgd):.2f}.\n\n"
+        f"Regards,\n{company.name if company else ''}"
+    )
+    try:
+        document_email.send_document_email(
+            to_email=customer.billing_email,
+            subject=f"Quotation {quotation.quotation_number} - {company.name if company else ''}",
+            body_text=body,
+            docx_bytes=docx_bytes,
+            filename_stem=quotation.quotation_number,
+        )
+    except document_email.DocumentEmailError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+    audit.record(
+        db,
+        entity_type="quotation",
+        entity_id=quotation.id,
+        action="emailed",
+        actor_user_id=current_user.id,
+        details=f"{quotation.quotation_number} emailed to {customer.billing_email}",
+    )
+    db.commit()
+    return {"sent": True, "to": customer.billing_email}
 
 
 @router.post("", response_model=QuotationOut)

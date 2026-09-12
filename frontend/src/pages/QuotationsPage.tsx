@@ -5,6 +5,11 @@ import { api, downloadBlob, type Customer, type Product, type Quotation, type Qu
 
 const money = (n: number) => n.toFixed(2)
 
+// wa.me needs digits only (country code + number, no "+", spaces or dashes).
+function waNumber(phone: string): string {
+  return phone.replace(/[^0-9]/g, '')
+}
+
 const STATUS_BADGE: Record<QuotationStatus, string> = {
   draft: 'draft',
   sent: 'exceeded',
@@ -31,6 +36,7 @@ export default function QuotationsPage() {
   const [catalog, setCatalog] = useState<Product[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   const [filterStatus, setFilterStatus] = useState('')
   const [filterCustomer, setFilterCustomer] = useState('')
@@ -55,6 +61,7 @@ export default function QuotationsPage() {
   useEffect(refresh, [filterStatus, filterCustomer])
 
   const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? id.slice(0, 8)
+  const customerOf = (id: string) => customers.find((c) => c.id === id)
 
   function updateLine(index: number, patch: Partial<DraftLine>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)))
@@ -161,6 +168,31 @@ export default function QuotationsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject quotation')
     }
+  }
+
+  async function onEmail(q: Quotation) {
+    setError(null)
+    setMessage(null)
+    setBusyId(q.id)
+    try {
+      const result = await api.emailQuotation(q.id)
+      setMessage(`${q.quotation_number} emailed to ${result.to}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to email quotation')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function onWhatsApp(q: Quotation) {
+    setError(null)
+    const customer = customerOf(q.customer_id)
+    if (!customer?.phone) {
+      setError(`${customerName(q.customer_id)} has no phone number on file -- add one on the Company/Individual page first.`)
+      return
+    }
+    const text = `Quotation ${q.quotation_number}, SGD ${money(q.total_amount_sgd)}. PDF to follow.`
+    window.open(`https://wa.me/${waNumber(customer.phone)}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   return (
@@ -382,10 +414,26 @@ export default function QuotationsPage() {
                       </div>
                     )}
                   </td>
-                  <td style={{ display: 'flex', gap: 6 }}>
+                  <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <Link to={`/quotations/${q.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
                       Print
                     </Link>
+                    <button
+                      className="secondary"
+                      disabled={busyId === q.id || !customerOf(q.customer_id)?.billing_email}
+                      title={customerOf(q.customer_id)?.billing_email ? undefined : 'Add an email on the Company/Individual page first'}
+                      onClick={() => onEmail(q)}
+                    >
+                      Email
+                    </button>
+                    <button
+                      className="secondary"
+                      disabled={busyId === q.id || !customerOf(q.customer_id)?.phone}
+                      title={customerOf(q.customer_id)?.phone ? undefined : 'Add a phone number on the Company/Individual page first'}
+                      onClick={() => onWhatsApp(q)}
+                    >
+                      WhatsApp
+                    </button>
                     {q.status === 'draft' && (
                       <button className="secondary" onClick={() => onSend(q)}>
                         Send

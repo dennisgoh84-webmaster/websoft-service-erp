@@ -21,6 +21,8 @@ export default function InvoicesPage() {
   const [filterType, setFilterType] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [statementBusy, setStatementBusy] = useState(false)
+  const [busyInvoiceId, setBusyInvoiceId] = useState<string | null>(null)
 
   function refresh() {
     api.listInvoices({ customer_id: filterCustomer || undefined }).then(setInvoices)
@@ -39,6 +41,42 @@ export default function InvoicesPage() {
 
   function openStatement(customerIdToShow: string) {
     api.customerStatement(customerIdToShow).then(setStatement).catch((e) => setError(e.message))
+  }
+
+  async function onDownloadStatement() {
+    if (!statement) return
+    setError(null)
+    downloadBlob(
+      await api.exportCustomerStatementDocx(statement.customer_id),
+      `Statement-${statement.customer_name}-${statement.as_at}.docx`,
+    )
+  }
+
+  async function onEmailStatement() {
+    if (!statement) return
+    setError(null)
+    setMessage(null)
+    setStatementBusy(true)
+    try {
+      const result = await api.emailCustomerStatement(statement.customer_id)
+      setMessage(`Statement for ${statement.customer_name} emailed to ${result.to}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to email statement')
+    } finally {
+      setStatementBusy(false)
+    }
+  }
+
+  function onWhatsAppStatement() {
+    if (!statement) return
+    setError(null)
+    const customer = customers.find((c) => c.id === statement.customer_id)
+    if (!customer?.phone) {
+      setError(`${statement.customer_name} has no phone number on file -- add one on the Company/Individual page first.`)
+      return
+    }
+    const text = `Statement of Accounts as at ${statement.as_at}, total outstanding SGD ${money(statement.total_outstanding_sgd)}. PDF to follow.`
+    window.open(`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   async function onExport(format: string) {
@@ -91,6 +129,31 @@ export default function InvoicesPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update dispute flag')
     }
+  }
+
+  async function onEmailInvoice(invoice: Invoice) {
+    setError(null)
+    setMessage(null)
+    setBusyInvoiceId(invoice.id)
+    try {
+      const result = await api.emailInvoice(invoice.id)
+      setMessage(`${invoice.invoice_number} emailed to ${result.to}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to email invoice')
+    } finally {
+      setBusyInvoiceId(null)
+    }
+  }
+
+  function onWhatsAppInvoice(invoice: Invoice) {
+    setError(null)
+    const customer = customers.find((c) => c.id === invoice.customer_id)
+    if (!customer?.phone) {
+      setError(`${customerName(invoice.customer_id)} has no phone number on file -- add one on the Company/Individual page first.`)
+      return
+    }
+    const text = `Invoice ${invoice.invoice_number}, SGD ${invoice.total_amount_sgd.toFixed(2)}. PDF to follow.`
+    window.open(`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   return (
@@ -196,11 +259,40 @@ export default function InvoicesPage() {
 
       {statement && (
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
             <h2>Statement -- {statement.customer_name}</h2>
-            <button className="secondary" onClick={() => setStatement(null)}>
-              Close
-            </button>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button className="secondary" onClick={onDownloadStatement}>
+                Download (Word)
+              </button>
+              <button
+                className="secondary"
+                disabled={statementBusy || !customers.find((c) => c.id === statement.customer_id)?.billing_email}
+                title={
+                  customers.find((c) => c.id === statement.customer_id)?.billing_email
+                    ? undefined
+                    : 'Add an email on the Company/Individual page first'
+                }
+                onClick={onEmailStatement}
+              >
+                Email
+              </button>
+              <button
+                className="secondary"
+                disabled={statementBusy || !customers.find((c) => c.id === statement.customer_id)?.phone}
+                title={
+                  customers.find((c) => c.id === statement.customer_id)?.phone
+                    ? undefined
+                    : 'Add a phone number on the Company/Individual page first'
+                }
+                onClick={onWhatsAppStatement}
+              >
+                WhatsApp
+              </button>
+              <button className="secondary" onClick={() => setStatement(null)}>
+                Close
+              </button>
+            </div>
           </div>
           <p className="muted">
             As at {statement.as_at} &middot;{' '}
@@ -357,10 +449,34 @@ export default function InvoicesPage() {
                     </div>
                   )}
                 </td>
-                <td style={{ display: 'flex', gap: 6 }}>
+                <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <Link to={`/invoices/${inv.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
                     Print
                   </Link>
+                  <button
+                    className="secondary"
+                    disabled={busyInvoiceId === inv.id || !customers.find((c) => c.id === inv.customer_id)?.billing_email}
+                    title={
+                      customers.find((c) => c.id === inv.customer_id)?.billing_email
+                        ? undefined
+                        : 'Add an email on the Company/Individual page first'
+                    }
+                    onClick={() => onEmailInvoice(inv)}
+                  >
+                    Email
+                  </button>
+                  <button
+                    className="secondary"
+                    disabled={busyInvoiceId === inv.id || !customers.find((c) => c.id === inv.customer_id)?.phone}
+                    title={
+                      customers.find((c) => c.id === inv.customer_id)?.phone
+                        ? undefined
+                        : 'Add a phone number on the Company/Individual page first'
+                    }
+                    onClick={() => onWhatsAppInvoice(inv)}
+                  >
+                    WhatsApp
+                  </button>
                   <button className="secondary" onClick={() => onToggleDispute(inv)}>
                     {inv.is_disputed ? 'Clear dispute' : 'Flag dispute'}
                   </button>

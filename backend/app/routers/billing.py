@@ -10,7 +10,7 @@ from app.models.core import Company, User
 from app.models.customers import Customer
 from app.models.groups import AccessLevel
 from app.schemas.schemas import InvoiceOut
-from app.services import docx_forms
+from app.services import audit, docx_forms, document_email
 from app.services import exports
 from app.services.authority import require_module_access
 
@@ -129,3 +129,52 @@ def export_invoice_docx(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename={invoice.invoice_number}.docx"},
     )
+
+
+@router.post("/{invoice_id}/email")
+def email_invoice(
+    invoice_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Email Sales Invoice (2026-09-12) -- same real-send pattern as
+    Purchase Order's Email button."""
+    invoice = db.get(Invoice, invoice_id)
+    if not invoice or invoice.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    customer = db.get(Customer, invoice.customer_id)
+    if not customer or not customer.billing_email:
+        raise HTTPException(
+            status_code=422,
+            detail="This customer has no email on file -- add one on the Company/Individual page first.",
+        )
+    company = db.get(Company, current_user.company_id)
+    docx_bytes = docx_forms.invoice_to_docx(invoice, customer, company)
+    body = (
+        f"Dear {customer.name},\n\n"
+        f"Please find attached Invoice {invoice.invoice_number} for SGD "
+        f"{float(invoice.total_amount_sgd):.2f}"
+        + (f", due {invoice.due_date.isoformat()}.\n\n" if invoice.due_date else ".\n\n")
+        + f"Regards,\n{company.name if company else ''}"
+    )
+    try:
+        document_email.send_document_email(
+            to_email=customer.billing_email,
+            subject=f"Invoice {invoice.invoice_number} - {company.name if company else ''}",
+            body_text=body,
+            docx_bytes=docx_bytes,
+            filename_stem=invoice.invoice_number,
+        )
+    except document_email.DocumentEmailError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+    audit.record(
+        db,
+        entity_type="invoice",
+        entity_id=invoice.id,
+        action="emailed",
+        actor_user_id=current_user.id,
+        details=f"{invoice.invoice_number} emailed to {customer.billing_email}",
+    )
+    db.commit()
+    return {"sent": True, "to": customer.billing_email}

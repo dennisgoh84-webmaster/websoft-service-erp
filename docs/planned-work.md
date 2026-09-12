@@ -136,3 +136,130 @@ Directly go to Software Tasks" looks like as a routing UI, and whether
 assignment/reminder.
 
 **Not yet started.** No models, routes, or UI exist for this.
+
+---
+
+## 3. eSignature + eDocument attachments -- all operations and accounting documents (raised 2026-09-12, "put on the waiting list... at the end then we build it in")
+
+Requested as a capability spanning every document in the system (Job
+Orders, Service Records, Quotations, Invoices, Receipts, Payment
+Vouchers, Purchase Orders, Statements, etc.), explicitly deferred by
+Dennis to be built as one pass at the end, not per-document as each is
+touched.
+
+**Confirmed so far:**
+
+- **eSignature** on documents -- captured electronically rather than the
+  current "Signature & Company Stamp: ___" blank line printed forms
+  leave for a physical pen signature. Overlaps with the Support Staff
+  mobile app's company-chop-photo + signature workflow (item 1 above),
+  which is a specific, more detailed instance of this same need for
+  Service Records -- the two should be designed together, not
+  separately, when this is picked up.
+- **eDocument attachments** -- the ability to attach supporting files
+  (photos, PDFs, scanned documents, etc.) to a document record. No
+  document type in this system can carry an attachment today; every doc
+  is data-only.
+- Scope is **every** operations and accounting document, not a specific
+  one -- this is a platform capability, not a one-off feature on a
+  single form.
+
+**Not yet started -- no models, storage, or UI exist for this.** Real
+open questions once this is picked up (not resolved here, just flagged):
+what "signing" actually means (drawn signature, typed name + timestamp,
+third-party eSign provider like DocuSign, or the mobile app's own
+photo-based chop capture), where attachment files are stored (this app
+currently only inlines small base64 images for logos -- real file/object
+storage is a different scale), size/type/count limits per document, and
+whether attachments and signatures follow the same never-delete/
+soft-delete posture as every other record here (almost certainly yes,
+but not assumed).
+
+---
+
+## 4. eApproval Master -- authority-based, value-gated, multi-staff approvals across documents (raised 2026-09-12)
+
+Requested as a generic approval framework to eventually replace the
+one-off approval logic that exists today (Service Record approval,
+built specifically and only for Service Records -- see
+app/routers/service_records.py / ServiceRecordApprovalPage.tsx) with a
+single configurable authority system covering multiple document types.
+
+**Confirmed so far:**
+
+- **Specific authority for specific approvals** -- e.g. Purchase Order
+  approval above a certain value requiring an eSignature (this already
+  exists in a narrow form as PUR-001's value threshold + owner
+  approval, see docs/open-business-decisions.md #4.4 -- eApproval Master
+  would generalise that pattern rather than replace its business rule).
+- **Payment Voucher preparation approval based on "Bank Authority"** -- a
+  new authority concept, distinct from Group Authority (module-level
+  CRUD access): who is allowed to prepare/approve a payment against a
+  given bank account. Not yet modelled anywhere in this system.
+- **Can be more than one staff** -- an authority (e.g. Bank Authority for
+  a given account, or PO approval above a threshold) can be assigned to
+  multiple people, not just a single approver.
+- **Folds in Service Record approval** -- when eApproval Master is
+  built, Dennis wants Service Record approval brought into the same
+  module rather than staying as its own separate, hard-coded mechanism.
+  This is a migration of existing behaviour, not new business rules for
+  Service Records themselves (SRV-004 approver-role logic, deduction
+  minutes, etc. stay as already confirmed).
+- **The approval screen itself, once generic, must:**
+  - Show any **attachments** on the document being approved (depends on
+    item 3 above existing first).
+  - **Never make an approved/rejected item disappear** from the screen
+    once acted on -- the approver (and others) must be able to see
+    clearly, after the fact, what was **approved**, **rejected**, or is
+    still **for review**, with the status visibly distinguishing the
+    three states. (Today's Service Record Approval page only lists
+    *pending* records -- approved ones drop off the list entirely, since
+    that page was built narrowly for the one-time decision. eApproval
+    Master's screen is a different, retained-history view.)
+
+**Not yet started -- no models, routes, or UI exist for this.** Depends
+on item 3 (attachments) for the "show attachments" requirement to be
+meaningful. Real open questions once this is picked up: how an
+"authority" is modelled (a new table distinct from Group/GroupModuleAuthority,
+or an extension of it), how Bank Authority relates to the existing
+BankAccount model (app/models/treasury.py), whether approval is
+single-approver-sufficient or requires all assigned approvers, and
+exactly which document types move onto this framework first.
+
+---
+
+## 5. Product "Is Stock" flag + Stock Master item selection -- pending Websoft Stock Distribution ERP (raised 2026-09-12)
+
+Requested as: define on the Product Master whether an item is stock-
+tracked, ahead of a separate Websoft Stock Distribution ERP project
+(a different GitHub repository) that will define the actual stock
+inventory flow and documents. Recorded, not built -- the request was
+explicitly to "record that" this needs defining, since the logic it
+depends on doesn't exist yet.
+
+**Confirmed so far:**
+
+- Product Master needs an **"Is Stock"** flag: ticked means the item's
+  quantity needs to be monitored as stock inventory; unticked means it
+  doesn't (e.g. a service line item, as most of this catalog is today --
+  see app/models/catalog.py `Product`, which has no such flag yet).
+- Once Dennis finishes the **Websoft Stock Distribution ERP** (a
+  separate project), this system will need to **follow that project's
+  Stock Inventory Flow and Documents logic** -- i.e. this app's stock
+  handling is meant to mirror/integrate with that other system's design,
+  not invent its own.
+- **Item selection in documents changes**: once stock exists, choosing a
+  line item on a document -- starting with Quotation -- will pick from a
+  **Stock Master** instead of today's Product Master, for stock-tracked
+  items at least. Whether non-stock (service) items keep using Product
+  Master, or everything moves to one merged master, is not stated.
+
+**Not yet started -- no field, model, or UI change made.** Deliberately
+so: the Websoft Stock Distribution ERP's own logic doesn't exist yet to
+follow, so building against a guessed version of it would very likely
+have to be redone. Real open questions once that other project is far
+enough along to reference: exact Stock Master field set, how it relates
+to (or replaces) today's Product/ProductType model, whether Quotation
+Lines/Invoice Lines/PO lines all switch together or one document at a
+time, and how stock quantity movements themselves get recorded in this
+system (received, issued, adjusted) versus in the Stock Distribution ERP.

@@ -5,7 +5,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.core import User
+from app.models.core import Company, User
+from app.models.customers import Customer
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrder
 from app.models.service_records import ServiceRecord, ServiceRecordStatus
@@ -15,7 +16,7 @@ from app.schemas.schemas import (
     ServiceRecordCreate,
     ServiceRecordOut,
 )
-from app.services import exports
+from app.services import audit, docx_forms, document_email, exports
 from app.services import service_records as service_record_svc
 from app.services.authority import require_module_access
 
@@ -137,6 +138,13 @@ def list_service_records(
     return _filter_service_records(db, current_user.company_id, job_order_id, employee_user_id, status)
 
 
+def _record_or_404(db: Session, record_id: uuid.UUID, company_id: uuid.UUID) -> ServiceRecord:
+    r = db.get(ServiceRecord, record_id)
+    if not r or r.company_id != company_id:
+        raise HTTPException(status_code=404, detail="Service record not found")
+    return r
+
+
 def _service_record_row(r: ServiceRecord, job_order_subject: str, employee_name: str) -> dict:
     return {
         "service_record_number": r.service_record_number,
@@ -206,6 +214,81 @@ def export_service_records_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=service-records.xlsx"},
     )
+
+
+@router.get("/{record_id}", response_model=ServiceRecordOut)
+def get_service_record(
+    record_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    return _record_or_404(db, record_id, current_user.company_id)
+
+
+@router.get("/{record_id}/export.docx")
+def export_service_record_docx(
+    record_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    record = _record_or_404(db, record_id, current_user.company_id)
+    job_order = db.get(JobOrder, record.job_order_id)
+    customer = db.get(Customer, job_order.customer_id) if job_order else None
+    company = db.get(Company, current_user.company_id)
+    data = docx_forms.service_record_to_docx(record, job_order, customer, company)
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={record.service_record_number}.docx"},
+    )
+
+
+@router.post("/{record_id}/email")
+def email_service_record(
+    record_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Email Service Record (2026-09-12) -- same real-send pattern as
+    Purchase Order's Email button. Goes to the customer on the Job
+    Order this record was logged against."""
+    record = _record_or_404(db, record_id, current_user.company_id)
+    job_order = db.get(JobOrder, record.job_order_id)
+    customer = db.get(Customer, job_order.customer_id) if job_order else None
+    if not customer or not customer.billing_email:
+        raise HTTPException(
+            status_code=422,
+            detail="This customer has no email on file -- add one on the Company/Individual page first.",
+        )
+    company = db.get(Company, current_user.company_id)
+    docx_bytes = docx_forms.service_record_to_docx(record, job_order, customer, company)
+    body = (
+        f"Dear {customer.name},\n\n"
+        f"Please find attached Service Record {record.service_record_number} for Job Order "
+        f"{job_order.job_order_number} ({job_order.subject}), dated {record.work_date.isoformat()}.\n\n"
+        f"Regards,\n{company.name if company else ''}"
+    )
+    try:
+        document_email.send_document_email(
+            to_email=customer.billing_email,
+            subject=f"Service Record {record.service_record_number} - {company.name if company else ''}",
+            body_text=body,
+            docx_bytes=docx_bytes,
+            filename_stem=record.service_record_number,
+        )
+    except document_email.DocumentEmailError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+    audit.record(
+        db,
+        entity_type="service_record",
+        entity_id=record.id,
+        action="emailed",
+        actor_user_id=current_user.id,
+        details=f"{record.service_record_number} emailed to {customer.billing_email}",
+    )
+    db.commit()
+    return {"sent": True, "to": customer.billing_email}
 
 
 @router.post("/{record_id}/approve", response_model=ServiceRecordOut)

@@ -20,6 +20,7 @@ export default function ReceiptsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   // Record payment form
   const [customerId, setCustomerId] = useState('')
@@ -94,6 +95,31 @@ export default function ReceiptsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to allocate payment')
     }
+  }
+
+  async function onEmail(p: Payment) {
+    setError(null)
+    setMessage(null)
+    setBusyId(p.id)
+    try {
+      const result = await api.emailReceipt(p.id)
+      setMessage(`${p.voucher_number} emailed to ${result.to}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to email receipt')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function onWhatsApp(p: Payment) {
+    setError(null)
+    const customer = customers.find((c) => c.id === p.customer_id)
+    if (!customer?.phone) {
+      setError(`${customerName(p.customer_id)} has no phone number on file -- add one on the Company/Individual page first.`)
+      return
+    }
+    const text = `Receipt ${p.voucher_number}, SGD ${money(p.amount_sgd)}. PDF to follow.`
+    window.open(`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   return (
@@ -253,9 +279,35 @@ export default function ReceiptsPage() {
                     )}
                   </td>
                   <td>
-                    <Link to={`/receipts/${p.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
-                      Print
-                    </Link>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <Link to={`/receipts/${p.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
+                        Print
+                      </Link>
+                      <button
+                        className="secondary"
+                        disabled={busyId === p.id || !customers.find((c) => c.id === p.customer_id)?.billing_email}
+                        title={
+                          customers.find((c) => c.id === p.customer_id)?.billing_email
+                            ? undefined
+                            : 'Add an email on the Company/Individual page first'
+                        }
+                        onClick={() => onEmail(p)}
+                      >
+                        Email
+                      </button>
+                      <button
+                        className="secondary"
+                        disabled={busyId === p.id || !customers.find((c) => c.id === p.customer_id)?.phone}
+                        title={
+                          customers.find((c) => c.id === p.customer_id)?.phone
+                            ? undefined
+                            : 'Add a phone number on the Company/Individual page first'
+                        }
+                        onClick={() => onWhatsApp(p)}
+                      >
+                        WhatsApp
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )

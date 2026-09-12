@@ -1104,6 +1104,82 @@ and also email out to supplier, do u have also whatsapp out the PO."
 
 ---
 
+## 23. Supplier consolidated into Company/Individual -- no separate master (raised 2026-09-12)
+
+Requested as: "when talking about supplier, remember to use the same
+company/individual file, do not add or reinvent a new one again" --
+directly reversing the previous session's own `Supplier` table (added
+under item 22) rather than an open question, so recorded as **DECIDED**
+straight away.
+
+23.1. **DECIDED.** The standalone `suppliers` table and `Supplier` model
+   are removed. A supplier is now a `Customer` (Company/Individual)
+   record with `is_supplier=True` -- a new role flag alongside the
+   existing (now also explicit) `is_customer` flag, so one record can be
+   a customer, a supplier, or both. Suppliers are created/edited on the
+   Company/Individual page (or its detail page), never on Accounts
+   Payable or Purchase Order, which now only *read* that same list
+   filtered to `is_supplier=true`.
+   Migrated the one seeded supplier (CloudHost Infrastructure) into
+   `customers` **keeping its original id**, so every existing
+   `purchase_orders`/`supplier_invoices`/`supplier_payments.supplier_id`
+   value kept working unchanged -- only the foreign key's target table
+   moved, from `suppliers` to `customers` (migration `e2f33975e091`).
+   Finance Team's `customer_management` Group Authority was raised from
+   VIEW to FULL (seed_demo.py), since onboarding a new supplier now
+   needs edit rights on Company/Individual, matching what
+   `accounts_payable: FULL` implied before the merge.
+   *Where implemented:* `app/models/customers.py` (`is_customer`,
+   `is_supplier`), `app/models/payables.py` module docstring, `app/routers/customers.py`
+   (`is_supplier` filter), `app/routers/payables.py` (`_supplier_or_404`),
+   `frontend/src/pages/CustomersPage.tsx` / `CustomerDetailPage.tsx`
+   ("Is Supplier" checkbox + Roles column), `PurchaseOrdersPage.tsx`,
+   `AccountsPayablePage.tsx`, `PaymentVoucherPage.tsx`.
+
+23.2. **Found and fixed while touching this code, DECIDED by
+   implementation (bug, not a decision):** `GET /purchase-orders/{po_id}`
+   had been registered (previous session) before the static
+   `/purchase-orders/export.csv` and `/export.xlsx` routes, so FastAPI
+   matched `export.csv` as a `po_id` path parameter first and failed
+   UUID parsing -- the Purchase Order CSV/Excel export buttons were
+   silently broken. Reordered so static routes are registered before the
+   `{po_id}` ones, the routing convention every other router in this
+   codebase already follows.
+
+---
+
+## 24. Email/WhatsApp rolled out to 6 more document types (raised 2026-09-12)
+
+Requested as: "once done for PO, please do the same for Operation
+Service Rec, Acct Sales Quote, Sales Invoice, Receipt, Payment, Acct
+Report Statement of Accounts." Same pattern as item 22.4/22.5 (real SMTP
+send with a PDF attached via `app/services/document_email.py`, a shared
+helper factored out of the PO-specific code; `wa.me` links for WhatsApp)
+applied to: Service Records, Sales Quotation, Sales Invoice, Receipt
+Voucher, Payment Voucher, and Statement of Accounts.
+
+24.1. **Service Record and Statement of Accounts had no print/export
+   form at all before this, DECIDED by implementation.** Both needed a
+   new `docx_forms.py` template built from scratch (`service_record_to_docx`,
+   `statement_to_docx`) plus, for Service Record, a new print page
+   (`ServiceRecordPrintPage.tsx`) and `GET /service-records/{id}` (no
+   single-record fetch existed either). Statement of Accounts has no
+   dedicated print page -- its existing inline panel (on
+   `InvoicesPage.tsx`, opened via "Statement" from the AR Aging table)
+   gained "Download (Word)" / "Email" / "WhatsApp" buttons directly,
+   rather than adding a whole new route, since that panel already shows
+   exactly what the document contains.
+
+24.2. **Who receives it, DECIDED by implementation.** Sales
+   Quotation/Invoice/Receipt/Statement email the Customer on the
+   document. Payment Voucher emails the supplier (a Customer with
+   `is_supplier=true`, item 23). Service Record emails the customer on
+   the Job Order the record was logged against (`job_order.customer_id`)
+   -- there being no more specific "who to notify" concept on a Service
+   Record itself.
+
+---
+
 ## How to use this document
 
 - Do not start detailed schema or workflow design for an area until the

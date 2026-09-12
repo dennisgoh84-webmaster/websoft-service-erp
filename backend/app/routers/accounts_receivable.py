@@ -31,7 +31,7 @@ from app.schemas.schemas import (
     StatementLine,
 )
 from app.services import accounts_receivable as ar_svc
-from app.services import audit, docx_forms, exports
+from app.services import audit, docx_forms, document_email, exports
 from app.services.authority import require_module_access
 from app.services.numbering import next_document_number
 from app.services.periods import PeriodClosedError, require_open_period
@@ -246,6 +246,52 @@ def export_payment_docx(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename={payment.voucher_number}.docx"},
     )
+
+
+@router.post("/payments/{payment_id}/email")
+def email_receipt(
+    payment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Email Receipt Voucher (2026-09-12) -- same real-send pattern as
+    Purchase Order's Email button."""
+    payment = _payment_or_404(db, payment_id, current_user.company_id)
+    customer = db.get(Customer, payment.customer_id)
+    if not customer or not customer.billing_email:
+        raise HTTPException(
+            status_code=422,
+            detail="This customer has no email on file -- add one on the Company/Individual page first.",
+        )
+    company = db.get(Company, current_user.company_id)
+    docx_bytes = docx_forms.receipt_to_docx(payment, customer, company, _invoice_numbers(db, current_user.company_id))
+    body = (
+        f"Dear {customer.name},\n\n"
+        f"Please find attached Receipt {payment.voucher_number} dated {payment.payment_date.isoformat()} "
+        f"for SGD {float(payment.amount_sgd):.2f}.\n\n"
+        f"Regards,\n{company.name if company else ''}"
+    )
+    try:
+        document_email.send_document_email(
+            to_email=customer.billing_email,
+            subject=f"Receipt {payment.voucher_number} - {company.name if company else ''}",
+            body_text=body,
+            docx_bytes=docx_bytes,
+            filename_stem=payment.voucher_number,
+        )
+    except document_email.DocumentEmailError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+    audit.record(
+        db,
+        entity_type="payment",
+        entity_id=payment.id,
+        action="emailed",
+        actor_user_id=current_user.id,
+        details=f"{payment.voucher_number} emailed to {customer.billing_email}",
+    )
+    db.commit()
+    return {"sent": True, "to": customer.billing_email}
 
 
 @router.post("/payments/{payment_id}/allocate", response_model=PaymentOut)
@@ -463,25 +509,18 @@ def export_ar_aging_excel(
     )
 
 
-@router.get("/statement/{customer_id}", response_model=CustomerStatement)
-def customer_statement(
-    customer_id: uuid.UUID,
-    as_at: date | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
-):
-    """Everything this customer currently owes, plus any receipt money
-    still sitting unallocated on their account."""
+def _build_customer_statement(
+    db: Session, customer: Customer, company_id: uuid.UUID, as_at: date | None
+) -> CustomerStatement:
+    """Shared by the JSON endpoint below and the docx/email export --
+    "export what's on screen" always matches (2026-09-12)."""
     as_at = as_at or date.today()
-    customer = db.get(Customer, customer_id)
-    if not customer or customer.company_id != current_user.company_id:
-        raise HTTPException(status_code=404, detail="Customer not found")
 
     invoices = (
         db.query(Invoice)
         .filter(
-            Invoice.company_id == current_user.company_id,
-            Invoice.customer_id == customer_id,
+            Invoice.company_id == company_id,
+            Invoice.customer_id == customer.id,
             Invoice.status != InvoiceStatus.PAID,
         )
         .order_by(Invoice.issued_at)
@@ -510,7 +549,7 @@ def customer_statement(
     payments = (
         db.query(Payment)
         .options(selectinload(Payment.allocations))
-        .filter(Payment.company_id == current_user.company_id, Payment.customer_id == customer_id)
+        .filter(Payment.company_id == company_id, Payment.customer_id == customer.id)
         .all()
     )
     unallocated = sum((p.unallocated_sgd for p in payments), start=Decimal("0.00"))
@@ -524,3 +563,89 @@ def customer_statement(
         total_outstanding_sgd=float(sum(Decimal(str(l.outstanding_sgd)) for l in lines)),
         unallocated_credit_sgd=float(unallocated),
     )
+
+
+@router.get("/statement/{customer_id}", response_model=CustomerStatement)
+def customer_statement(
+    customer_id: uuid.UUID,
+    as_at: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    """Everything this customer currently owes, plus any receipt money
+    still sitting unallocated on their account."""
+    customer = db.get(Customer, customer_id)
+    if not customer or customer.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return _build_customer_statement(db, customer, current_user.company_id, as_at)
+
+
+@router.get("/statement/{customer_id}/export.docx")
+def export_customer_statement_docx(
+    customer_id: uuid.UUID,
+    as_at: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    customer = db.get(Customer, customer_id)
+    if not customer or customer.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    statement = _build_customer_statement(db, customer, current_user.company_id, as_at)
+    company = db.get(Company, current_user.company_id)
+    data = docx_forms.statement_to_docx(statement, customer, company)
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f"attachment; filename=Statement-{customer.name}-{statement.as_at}.docx"
+        },
+    )
+
+
+@router.post("/statement/{customer_id}/email")
+def email_customer_statement(
+    customer_id: uuid.UUID,
+    as_at: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Email Statement of Accounts (2026-09-12) -- same real-send pattern
+    as Purchase Order's Email button."""
+    customer = db.get(Customer, customer_id)
+    if not customer or customer.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    if not customer.billing_email:
+        raise HTTPException(
+            status_code=422,
+            detail="This customer has no email on file -- add one on the Company/Individual page first.",
+        )
+    statement = _build_customer_statement(db, customer, current_user.company_id, as_at)
+    company = db.get(Company, current_user.company_id)
+    docx_bytes = docx_forms.statement_to_docx(statement, customer, company)
+    body = (
+        f"Dear {customer.name},\n\n"
+        f"Please find attached your Statement of Accounts as at {statement.as_at.isoformat()}, "
+        f"total outstanding SGD {statement.total_outstanding_sgd:.2f}.\n\n"
+        f"Regards,\n{company.name if company else ''}"
+    )
+    try:
+        document_email.send_document_email(
+            to_email=customer.billing_email,
+            subject=f"Statement of Accounts as at {statement.as_at.isoformat()} - {company.name if company else ''}",
+            body_text=body,
+            docx_bytes=docx_bytes,
+            filename_stem=f"Statement-{customer.name}-{statement.as_at}",
+        )
+    except document_email.DocumentEmailError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+    audit.record(
+        db,
+        entity_type="customer",
+        entity_id=customer.id,
+        action="statement_emailed",
+        actor_user_id=current_user.id,
+        details=f"Statement as at {statement.as_at} emailed to {customer.billing_email}",
+    )
+    db.commit()
+    return {"sent": True, "to": customer.billing_email}

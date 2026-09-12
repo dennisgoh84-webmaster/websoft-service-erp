@@ -16,12 +16,13 @@ planning are deferred for now (see
 - Node.js 20+
 - PostgreSQL 16 (local install or any reachable instance)
 - LibreOffice Writer, headless-capable (`apt install libreoffice-writer` on
-  Debian/Ubuntu) -- only needed for "Email PO" (see Purchase Order below),
-  which converts the generated .docx to PDF via `soffice --headless
-  --convert-to pdf`. `libreoffice-core`/`-common` alone is NOT enough --
-  without the `-writer` package the conversion fails with "source file
-  could not be loaded" (no Writer document filter installed). Everything
-  else (Print, Word export, WhatsApp) works without this.
+  Debian/Ubuntu) -- only needed for the "Email" button (see Email /
+  WhatsApp below), which converts the generated .docx to PDF via
+  `soffice --headless --convert-to pdf`. `libreoffice-core`/`-common`
+  alone is NOT enough -- without the `-writer` package the conversion
+  fails with "source file could not be loaded" (no Writer document
+  filter installed). Everything else (Print, Word export, WhatsApp)
+  works without this.
 
 ## Database
 
@@ -67,18 +68,23 @@ Demo logins (all password `demo1234`, after running `seed_demo.py`):
 | cherish@websoft.local | sales_manager (Cherish -- SRV-011 backup reviewer) |
 | weiling@websoft.local | support_engineer |
 
-## Purchase Order: Email / WhatsApp
+## Email / WhatsApp on documents
 
-The Purchase Order page (above Accounts Payable in the nav) can Print,
-export Word, "Import to AP" (confirm + create the matching bill in one
-click), Email, and WhatsApp a PO to its supplier.
+Purchase Order, Service Records, Sales Quotation, Sales Invoice, Receipt
+Voucher, Payment Voucher, and Statement of Accounts (on the Sales
+Invoice page) can all Email or WhatsApp themselves to the relevant
+Company/Individual record -- the customer on the document, or the
+supplier for a Purchase Order/Payment Voucher (a supplier is just a
+Company/Individual flagged "Is Supplier", not a separate file -- see
+docs/open-business-decisions.md #23).
 
-- **Email** sends for real over SMTP, with the PO as a PDF attachment
-  (converted from the same .docx as the Word export -- see
-  `app/services/pdf_convert.py`). It is unconfigured by default: until
-  `backend/.env` carries real settings, the button fails with a clear
-  "Email sending is not configured yet" error instead of pretending to
-  send. Add to `backend/.env`:
+- **Email** sends for real over SMTP, with the document as a PDF
+  attachment (converted from the same .docx used for its Word export --
+  see `app/services/pdf_convert.py` and `app/services/document_email.py`,
+  the shared helper every document type's Email button calls). It is
+  unconfigured by default: until `backend/.env` carries real settings,
+  the button fails with a clear "Email sending is not configured yet"
+  error instead of pretending to send. Add to `backend/.env`:
 
   ```
   smtp_host=smtp.office365.com
@@ -93,7 +99,7 @@ click), Email, and WhatsApp a PO to its supplier.
   commit real credentials -- `.env` is gitignored.
 - **WhatsApp** opens a `wa.me` chat link pre-filled with a short message
   (no API/account needed) -- you attach the PDF yourself in the chat.
-  Needs the supplier's phone number set on the Accounts Payable page.
+  Needs a phone number set on the relevant Company/Individual record.
 
 ## Demo video
 
