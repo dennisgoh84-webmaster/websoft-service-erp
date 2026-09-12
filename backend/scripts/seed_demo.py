@@ -52,6 +52,7 @@ from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
 from app.models.accounting import Account, AccountType, GLType
 from app.models.setup import SetupListItem, SetupListType
+from app.models.announcements import AdBannerSettings, Announcement
 from app.models.treasury import BankAccount, CurrencyRate
 from app.models.payables import (
     PurchaseOrder,
@@ -402,6 +403,28 @@ def seed_setup_lists(db):
     db.flush()
 
 
+# The ad banner's default content (2026-09-12) -- global, not company-
+# scoped (see app/models/announcements.py), so this is reseeded here
+# alongside the other global catalogs (Setup Lists, Module catalog)
+# rather than per-company. Matches whatever migration b3c4d5e6f7a8
+# seeded, so a demo reseed restores the same starting point Dennis can
+# then edit from the new Announcements admin screen.
+DEFAULT_AD_VIDEO_URL = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+
+DEFAULT_ANNOUNCEMENTS = [
+    ("New", "Reference Monitor: break one Chart of Accounts code into named sub-codes for Sales Quotation lines."),
+    ("Add-on", "Print/Email/WhatsApp actions are now icon buttons across every document list."),
+    ("Update", 'Company/Individual replaces the old "Customer" naming throughout the app.'),
+]
+
+
+def seed_announcements(db):
+    db.add(AdBannerSettings(id=1, video_url=DEFAULT_AD_VIDEO_URL))
+    for i, (tag, text) in enumerate(DEFAULT_ANNOUNCEMENTS):
+        db.add(Announcement(tag=tag, text=text, sort_order=i))
+    db.flush()
+
+
 # A starting GL Type classification, matching the seeded Chart of
 # Accounts -- purely a reporting label (see app/models/accounting.py).
 GL_TYPES = [
@@ -573,6 +596,7 @@ def main():
         seed_chart_of_accounts(db, company)
         seed_chart_of_accounts(db, company2)
         seed_setup_lists(db)
+        seed_announcements(db)
         seed_gl_types(db, company)
         seed_gl_types(db, company2)
         cash_account = (

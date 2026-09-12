@@ -704,8 +704,12 @@ a.icon-button:hover {
   object-fit: contain;
   margin-bottom: 16px;
 }
-/* Promotions video panel (see components/PromoVideoPanel.tsx) -- two
-   sizes share the same video/caption markup and classes:
+/* Promotions video panel (see components/PromoVideoPanel.tsx), content
+   admin-editable from the Announcements screen under Maintenance
+   (2026-09-12: "is there a place for me to set all these
+   advertisements or latest updates and push publish") -- Save there is
+   live immediately. Two sizes share the same video/items markup and
+   classes:
    - .login-promo: a narrow, tall column beside the login card
      (2026-09-12: "empty place to publish promotions..."; later changed
      to video -- "the right advert panel sample picture can change to
@@ -739,16 +743,46 @@ a.icon-button:hover {
   display: block;
   background: #000;
 }
-.promo-caption {
-  margin: 0;
+.promo-items {
+  overflow-y: auto;
+  min-height: 0;
   padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.promo-item {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+.promo-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.promo-item-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  padding: 2px 6px;
+  margin-bottom: 5px;
+  color: #fff;
+}
+.promo-item p {
+  margin: 0;
   color: #fff;
   font-size: 12px;
   line-height: 1.4;
   opacity: 0.9;
 }
-.app-ad-banner .promo-caption {
+.app-ad-banner .promo-items {
   padding: 10px 12px;
+  gap: 10px;
+}
+.app-ad-banner .promo-item p {
   font-size: 11px;
 }
 

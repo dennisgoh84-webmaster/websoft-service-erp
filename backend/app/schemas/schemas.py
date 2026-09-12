@@ -1730,3 +1730,49 @@ class OpsDashboardOut(BaseModel):
     done_count: int
     my_job_orders: list[OpsRollupJobOrderOut]
     my_software_tasks: list[OpsRollupSoftwareTaskOut]
+
+
+# ---- Announcements / ad banner (2026-09-12: "is there a place for me to
+# set all these advertisements or latest updates and push publish") --
+# see app/models/announcements.py.
+class AnnouncementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    tag: str | None
+    text: str
+    sort_order: int
+    is_active: bool
+    created_at: datetime
+
+
+class AnnouncementCreate(BaseModel):
+    tag: str | None = Field(default=None, max_length=30)
+    text: str = Field(min_length=1, max_length=500)
+    sort_order: int = 0
+
+
+class AnnouncementUpdate(BaseModel):
+    tag: str | None = Field(default=None, max_length=30)
+    text: str | None = Field(default=None, min_length=1, max_length=500)
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class AdBannerSettingsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    video_url: str | None
+
+
+class AdBannerSettingsUpdate(BaseModel):
+    video_url: str | None = Field(default=None, max_length=1000)
+
+
+class PublicAdBanner(BaseModel):
+    """Unauthenticated shape read by the Login page and by the app-wide
+    ad banner alike (see PromoVideoPanel.tsx) -- the video URL plus only
+    the ACTIVE announcements, already ordered. Deliberately the same
+    endpoint for both: the content is identical and non-sensitive
+    either way, so there is no separate "authenticated" copy of it."""
+
+    video_url: str | None
+    items: list[AnnouncementOut]

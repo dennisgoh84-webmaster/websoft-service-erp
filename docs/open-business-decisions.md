@@ -1446,6 +1446,44 @@ then have smaller tall banner on the right for advertisement video."
    sidebar and topbar -- a printed invoice/receipt/etc. must never
    carry it.
 
+## 30. Announcements & Ad Banner admin screen (raised 2026-09-12)
+
+Requested as: "Is there a place for me to set all these advertisements
+or latest updates and push publish?" -- following #28.3/#29.2, where
+the promo video and "What's New" items were still hardcoded in
+`PromoVideoPanel.tsx`.
+
+30.1. **DECIDED with Dennis, built.** Save = live immediately, no
+   separate draft/publish step -- matches every other admin screen in
+   this system (Company Setup, Module Control, Tax Types, ...). A new
+   **Announcements & Ad Banner** screen under Maintenance
+   (`core_administration`, FULL access) lets Dennis set the video URL
+   and add/edit/reorder/hide/delete the "What's New" items; both are
+   global (`Announcement`, `AdBannerSettings`), not company-scoped --
+   see app/models/announcements.py's docstring for why (these are
+   announcements about the software itself, and the Login page shows
+   them before any company is even selected). `GET /api/announcements/
+   public` is the one unauthenticated read both the Login page and the
+   signed-in ad banner use.
+
+30.2. **DECIDED by implementation.** The video field takes a URL, not
+   an upload -- consistent with #28.3's reasoning (a video is too large
+   to hold inline, and this system has no video-hosting
+   infrastructure). "What's New" items support a real delete (not just
+   the usual soft-delete/is_active pattern), since these are marketing
+   blurbs with no downstream references, not audited business/
+   financial records; `is_active` is still offered as a quick hide/
+   show without losing the text.
+
+30.3. **Known limitation, not raised as a question:** "push publish"
+   takes effect on the next time the panel loads (a fresh visit, login,
+   or page refresh) -- there is no live-push mechanism in this system
+   (no websockets/polling infrastructure anywhere), so a tab that is
+   already open when a change is saved won't update until it reloads.
+   Flagged in the admin screen's own help text rather than treated as
+   a gap to close, since nothing else in this system live-updates an
+   open tab either.
+
 ---
 
 ## How to use this document

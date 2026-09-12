@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.routers import (
     accounts,
+    announcements,
     bank_accounts,
     payables,
     catalog,
@@ -79,6 +80,7 @@ async def audit_request_context_middleware(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(companies.router)
+app.include_router(announcements.router)
 app.include_router(groups.router)
 app.include_router(modules.router)
 app.include_router(event_logs.router)

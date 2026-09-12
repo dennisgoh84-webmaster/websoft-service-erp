@@ -163,6 +163,26 @@ export interface PublicBranding {
   logo: string | null
 }
 
+// ---- Announcements / ad banner (2026-09-12: "is there a place for me
+// to set all these advertisements or latest updates and push
+// publish") -- see PromoVideoPanel.tsx and AnnouncementsPage.tsx.
+// Save = live immediately, no separate publish step.
+export interface Announcement {
+  id: string
+  tag: string | null
+  text: string
+  sort_order: number
+  is_active: boolean
+  created_at: string
+}
+
+/** Read by the Login page and the app-wide ad banner alike -- the one
+ * unauthenticated view (only active announcements, already ordered). */
+export interface PublicAdBanner {
+  video_url: string | null
+  items: Announcement[]
+}
+
 // ---- Company Setup / multi-company ----
 export interface Company {
   id: string
@@ -1125,6 +1145,25 @@ export const api = {
   /** Login page logo/name (2026-09-12) -- the only unauthenticated call
    * in this client; works before signing in. */
   getPublicBranding: () => request<PublicBranding>('/companies/public-branding'),
+
+  // Announcements / ad banner -- getPublicAdBanner is the only
+  // unauthenticated call here (used by both the Login page and the
+  // app-wide banner); the rest back the Announcements admin screen.
+  getPublicAdBanner: () => request<PublicAdBanner>('/announcements/public'),
+  getAdBannerSettings: () => request<{ video_url: string | null }>('/announcements/settings'),
+  updateAdBannerSettings: (videoUrl: string | null) =>
+    request<{ video_url: string | null }>('/announcements/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ video_url: videoUrl }),
+    }),
+  listAnnouncements: () => request<Announcement[]>('/announcements'),
+  createAnnouncement: (payload: { tag?: string | null; text: string; sort_order?: number }) =>
+    request<Announcement>('/announcements', { method: 'POST', body: JSON.stringify(payload) }),
+  updateAnnouncement: (
+    id: string,
+    payload: Partial<{ tag: string | null; text: string; sort_order: number; is_active: boolean }>,
+  ) => request<Announcement>(`/announcements/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteAnnouncement: (id: string) => request<void>(`/announcements/${id}`, { method: 'DELETE' }),
   createCompany: (payload: {
     name: string
     country?: string

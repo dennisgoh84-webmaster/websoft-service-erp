@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './lib/AuthContext'
 import { ThemeProvider } from './lib/ThemeContext'
 import AccountingPeriodsPage from './pages/AccountingPeriodsPage'
 import AccountingReportsPage from './pages/AccountingReportsPage'
+import AnnouncementsPage from './pages/AnnouncementsPage'
 import AccountsPayablePage from './pages/AccountsPayablePage'
 import BankAccountsPage from './pages/BankAccountsPage'
 import ChartOfAccountsPage from './pages/ChartOfAccountsPage'
@@ -108,6 +109,7 @@ function AppRoutes() {
         <Route path="/accounting-reports" element={<AccountingReportsPage />} />
         <Route path="/company-setup" element={<CompanySetupPage />} />
         <Route path="/modules" element={<ModulesPage />} />
+        <Route path="/announcements" element={<AnnouncementsPage />} />
         <Route path="/staff" element={<StaffMasterPage />} />
         <Route path="/staff/:id" element={<StaffDetailPage />} />
         <Route path="/groups" element={<GroupsPage />} />

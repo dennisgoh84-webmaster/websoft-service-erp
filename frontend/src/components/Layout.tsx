@@ -129,6 +129,12 @@ export default function Layout() {
 
   const maintenanceItems: NavItem[] = [
     { key: 'company-setup', path: '/company-setup', label: 'Company Setup', visible: can('core_administration') },
+    {
+      key: 'announcements',
+      path: '/announcements',
+      label: 'Announcements & Ad Banner',
+      visible: can('core_administration'),
+    },
     { key: 'staff', path: '/staff', label: 'Staff Master', visible: can('core_administration') },
     { key: 'modules', path: '/modules', label: 'Module Control', visible: can('core_administration') },
     { key: 'groups', path: '/groups', label: 'Group Authority', visible: can('core_administration') },

@@ -73,3 +73,4 @@ from app.models.setup import SetupListItem, SetupListType  # noqa: F401
 from app.models.treasury import BankAccount, CurrencyRate  # noqa: F401
 from app.models.periods import AccountingPeriod, FiscalYearClosure, PeriodStatus  # noqa: F401
 from app.models.ops_tasks import OpsTask, OpsTaskCategory, OpsTaskStatus  # noqa: F401
+from app.models.announcements import AdBannerSettings, Announcement  # noqa: F401
