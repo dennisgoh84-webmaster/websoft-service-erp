@@ -694,6 +694,16 @@ a.icon-button:hover {
 .login-card {
   width: 340px;
 }
+/* Company logo (2026-09-12): sits above the title, same branding a
+   signed-in user sees in the sidebar (see .sidebar .company-logo) --
+   capped narrower/shorter here since the login card itself is narrow. */
+.login-logo {
+  display: block;
+  max-width: 160px;
+  max-height: 64px;
+  object-fit: contain;
+  margin-bottom: 16px;
+}
 /* Promotions panel (2026-09-12: "empty place to publish promotions --
    add-on features, new updates, latest news"): a narrow, tall column
    beside the login card, sample content for now -- see Login.tsx's

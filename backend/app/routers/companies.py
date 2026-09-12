@@ -22,7 +22,7 @@ from app.core.deps import get_current_user
 from app.models.core import Company, User, UserCompanyAccess, UserRole
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.licensing import CompanyModule, LicenseType, Module
-from app.schemas.schemas import CompanyCreate, CompanyOut, CompanyUpdate
+from app.schemas.schemas import CompanyCreate, CompanyOut, CompanyUpdate, PublicBrandingOut
 from app.services import audit
 from app.services.authority import require_module_access
 
@@ -57,6 +57,27 @@ def _accessible_company_ids(db: Session, user: User) -> set[uuid.UUID]:
         return {c.id for c in db.query(Company.id).all()}
     rows = db.query(UserCompanyAccess).filter(UserCompanyAccess.user_id == user.id).all()
     return {r.company_id for r in rows} | {user.company_id}
+
+
+@router.get("/public-branding", response_model=PublicBrandingOut)
+def public_branding(db: Session = Depends(get_db)):
+    """The Login page's logo/name (2026-09-12) -- deliberately the only
+    unauthenticated endpoint in this router. Nobody has signed in yet at
+    that point, so there is no `current_user.company_id` to brand with;
+    this shows the oldest active company (the primary tenant this
+    deployment was set up for -- Web Master Consultancy Pte Ltd today)
+    rather than guessing which of several companies the person signing
+    in belongs to. Returns no logo (never an error) if no company has
+    one set yet."""
+    company = (
+        db.query(Company)
+        .filter(Company.is_active)
+        .order_by(Company.created_at)
+        .first()
+    )
+    if not company:
+        return PublicBrandingOut(name="Websoft Service ERP", logo=None)
+    return PublicBrandingOut(name=company.name, logo=company.logo)
 
 
 @router.get("", response_model=list[CompanyOut])

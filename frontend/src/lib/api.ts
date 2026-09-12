@@ -128,6 +128,14 @@ export interface CurrentUser {
   company_id: string | null
 }
 
+/** Login page branding (2026-09-12) -- deliberately just these two
+ * fields, returned by the one unauthenticated company endpoint so
+ * nothing sensitive (address, UEN, GST no.) is ever exposed pre-login. */
+export interface PublicBranding {
+  name: string
+  logo: string | null
+}
+
 // ---- Company Setup / multi-company ----
 export interface Company {
   id: string
@@ -1084,6 +1092,9 @@ export const api = {
 
   // Company Setup / multi-company
   listMyCompanies: () => request<Company[]>('/companies'),
+  /** Login page logo/name (2026-09-12) -- the only unauthenticated call
+   * in this client; works before signing in. */
+  getPublicBranding: () => request<PublicBranding>('/companies/public-branding'),
   createCompany: (payload: {
     name: string
     country?: string

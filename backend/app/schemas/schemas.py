@@ -100,6 +100,17 @@ class CompanyOut(BaseModel):
     created_at: datetime
 
 
+class PublicBrandingOut(BaseModel):
+    """Shown on the Login page, before anyone is signed in -- deliberately
+    a minimal, separate shape from CompanyOut so nothing sensitive
+    (address, UEN, GST no., approval thresholds) is ever exposed on an
+    unauthenticated endpoint. See app/routers/companies.py's
+    /public-branding."""
+
+    name: str
+    logo: str | None
+
+
 class CompanyCreate(BaseModel):
     name: str = Field(min_length=1)
     country: str = "Singapore"

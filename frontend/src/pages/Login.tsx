@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
-import { changePassword, verifyOtp } from '../lib/api'
-import type { LoginResult } from '../lib/api'
+import { api, changePassword, verifyOtp } from '../lib/api'
+import type { LoginResult, PublicBranding } from '../lib/api'
 
 // Promotions panel (2026-09-12: "empty place to publish promotions --
 // add-on features, new updates, latest news"). Sample content for now,
@@ -46,6 +46,16 @@ export default function Login() {
 
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Company logo (2026-09-12): shown above the title, same branding a
+  // signed-in user sees in the sidebar. No one is signed in yet at this
+  // point, so this comes from the one unauthenticated company endpoint
+  // -- see api.getPublicBranding. Failing quietly (no logo) beats
+  // blocking the login form on a branding call.
+  const [branding, setBranding] = useState<PublicBranding | null>(null)
+  useEffect(() => {
+    api.getPublicBranding().then(setBranding).catch(() => setBranding(null))
+  }, [])
 
   /** Common tail of every step: "ok" signs the user in, otherwise move
    * to whichever step the backend says is next. */
@@ -112,6 +122,9 @@ export default function Login() {
     <div className="login-shell">
       <div className="login-layout">
         <div className="card login-card">
+          {branding?.logo && (
+            <img className="login-logo" src={branding.logo} alt={`${branding.name} logo`} />
+          )}
           <h1>Websoft Service ERP</h1>
           <p className="muted" style={{ marginBottom: 18 }}>
             Service Operations core -- demo build
