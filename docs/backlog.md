@@ -10,9 +10,12 @@ shipped and when.
 
 ## Waiting on Dennis to pick up (deferred 2026-09-12)
 
-- [ ] **GL Transactions / multi-currency** -- GL debit/credit ledger
-  view, default ledger codes per document header/line, and original +
-  base (SGD) currency amounts on AR/AP/JV. The largest item here.
+- [x] **GL Transactions / multi-currency** -- GL debit/credit ledger
+  view built 2026-09-12: account-level transaction ledger with running
+  balance, date filters, CSV/Excel export. Trial balance rows are now
+  clickable drill-downs. Default ledger codes per document header/line
+  and multi-currency (original + base SGD) are still waiting on Dennis
+  (open items 4b.2 auto-posting accounts and 4b.5 multi-currency).
 - [ ] **Bank Portal / ZSOFT HP Agency** -- still needs Dennis to say
   what this actually is (an in-app record + Send button, vs. literal
   automation of a real bank's website) before it can be started safely.
@@ -68,4 +71,4 @@ shipped and when.
   → [open-business-decisions.md #7-8](open-business-decisions.md#7-projects)
 
 ---
-Last updated: 2026-09-12
+Last updated: 2026-09-12 (GL Transactions ledger view built)

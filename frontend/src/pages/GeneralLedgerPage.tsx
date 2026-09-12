@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type Account, type JournalEntry, type TrialBalance } from '../lib/api'
 import { formatMoney as money } from '../lib/format'
@@ -170,7 +171,9 @@ export default function GeneralLedgerPage() {
               {trialBalance.rows.map((r) => (
                 <tr key={r.account_id}>
                   <td>{r.code}</td>
-                  <td>{r.name}</td>
+                  <td>
+                    <Link to={`/gl-transactions?account=${r.account_id}`}>{r.name}</Link>
+                  </td>
                   <td>{r.account_type}</td>
                   <td>{money(r.debit_sgd)}</td>
                   <td>{money(r.credit_sgd)}</td>

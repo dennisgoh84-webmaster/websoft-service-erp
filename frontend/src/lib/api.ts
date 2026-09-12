@@ -1173,6 +1173,32 @@ export interface TrialBalance {
   is_balanced: boolean
 }
 
+export interface GLTransactionRow {
+  line_id: string
+  entry_id: string
+  voucher_number: string
+  voucher_type: string
+  entry_date: string
+  narration: string
+  line_description: string | null
+  debit_sgd: number
+  credit_sgd: number
+  balance_sgd: number
+}
+
+export interface GLTransactions {
+  account_id: string
+  account_code: string
+  account_name: string
+  account_type: string
+  date_from: string | null
+  date_to: string | null
+  rows: GLTransactionRow[]
+  total_debit: number
+  total_credit: number
+  closing_balance: number
+}
+
 // ---- Accounts Payable ----
 export type PurchaseOrderStatus = 'draft' | 'pending_approval' | 'approved' | 'cancelled'
 export type BillMatchStatus = 'not_matched' | 'matched' | 'exception'
@@ -2027,6 +2053,14 @@ export const api = {
   trialBalance: (as_at?: string) => request<TrialBalance>(`/ledger/trial-balance${qs({ as_at })}`),
   exportTrialBalanceCsv: (as_at?: string) => requestBlob(`/ledger/trial-balance/export.csv${qs({ as_at })}`),
   exportTrialBalanceExcel: (as_at?: string) => requestBlob(`/ledger/trial-balance/export.xlsx${qs({ as_at })}`),
+
+  // GL Transaction Ledger (account drill-down)
+  glTransactions: (accountId: string, filters: { date_from?: string; date_to?: string } = {}) =>
+    request<GLTransactions>(`/ledger/transactions/${accountId}${qs(filters)}`),
+  exportGlTransactionsCsv: (accountId: string, filters: { date_from?: string; date_to?: string } = {}) =>
+    requestBlob(`/ledger/transactions/${accountId}/export.csv${qs(filters)}`),
+  exportGlTransactionsExcel: (accountId: string, filters: { date_from?: string; date_to?: string } = {}) =>
+    requestBlob(`/ledger/transactions/${accountId}/export.xlsx${qs(filters)}`),
 
   // Accounts Payable -- suppliers are managed via listCompanyIndividuals/
   // createCompanyIndividual/updateCompanyIndividual above (is_supplier=true), not here.

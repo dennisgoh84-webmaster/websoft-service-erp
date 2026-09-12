@@ -123,6 +123,7 @@ export default function Layout() {
     { key: 'accounts-payable', path: '/accounts-payable', label: 'Accounts Payable', visible: can('accounts_payable') },
     { key: 'payment-voucher', path: '/payment-voucher', label: 'Payment Voucher', visible: can('accounts_payable') },
     { key: 'general-ledger', path: '/general-ledger', label: 'Journal Voucher', visible: can('finance_accounting') },
+    { key: 'gl-transactions', path: '/gl-transactions', label: 'GL Transactions', visible: can('finance_accounting') },
     { key: 'chart-of-accounts', path: '/chart-of-accounts', label: 'Chart of Accounts', visible: can('finance_accounting') },
     { key: 'accounting-periods', path: '/accounting-periods', label: 'GST and Account Period', visible: can('finance_accounting') },
     { key: 'year-end-closing', path: '/year-end-closing', label: 'Year-End Closing', visible: can('finance_accounting') },

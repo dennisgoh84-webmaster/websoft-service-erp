@@ -16,6 +16,7 @@ import ChartOfAccountsPage from './pages/ChartOfAccountsPage'
 import CurrencyRatesPage from './pages/CurrencyRatesPage'
 import DocumentControlPage from './pages/DocumentControlPage'
 import GeneralLedgerPage from './pages/GeneralLedgerPage'
+import GLTransactionsPage from './pages/GLTransactionsPage'
 import GLTypesPage from './pages/GLTypesPage'
 import CompanySetupPage from './pages/CompanySetupPage'
 import ContractDetailPage from './pages/ContractDetailPage'
@@ -116,6 +117,7 @@ function AppRoutes() {
         <Route path="/accounting-periods" element={<AccountingPeriodsPage />} />
         <Route path="/year-end-closing" element={<YearEndClosingPage />} />
         <Route path="/general-ledger" element={<GeneralLedgerPage />} />
+        <Route path="/gl-transactions" element={<GLTransactionsPage />} />
         <Route path="/accounting-reports" element={<AccountingReportsPage />} />
         <Route path="/commission-payouts" element={<CommissionPayoutsPage />} />
         <Route path="/company-setup" element={<CompanySetupPage />} />

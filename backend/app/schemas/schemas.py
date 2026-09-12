@@ -1110,6 +1110,34 @@ class TrialBalance(BaseModel):
     is_balanced: bool
 
 
+class GLTransactionRow(BaseModel):
+    """One posted journal line touching a given account."""
+    line_id: uuid.UUID
+    entry_id: uuid.UUID
+    voucher_number: str
+    voucher_type: str
+    entry_date: date
+    narration: str
+    line_description: str | None
+    debit_sgd: float
+    credit_sgd: float
+    balance_sgd: float
+
+
+class GLTransactions(BaseModel):
+    """Account-level GL transaction ledger."""
+    account_id: uuid.UUID
+    account_code: str
+    account_name: str
+    account_type: str
+    date_from: date | None
+    date_to: date | None
+    rows: list[GLTransactionRow]
+    total_debit: float
+    total_credit: float
+    closing_balance: float
+
+
 # ---- Accounts Payable ----
 # Supplier CRUD schemas were removed 2026-09-12: a supplier is a CompanyIndividual
 # (Company/Individual) record flagged is_supplier=True -- see
