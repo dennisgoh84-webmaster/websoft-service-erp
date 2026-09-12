@@ -421,6 +421,34 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Small square icon-only buttons (2026-09-12: Print/Email/WhatsApp on
+   every document list) -- same .secondary look, just square padding
+   around a 16px glyph instead of a text label, so a row of several
+   fits without wrapping. Always pair with a `title` (tooltip) and
+   `aria-label`, since there is no visible text. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+a.icon-button {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+}
+a.icon-button:hover {
+  background: var(--bg);
+}
+
 .badge {
   display: inline-block;
   padding: 2px 8px;

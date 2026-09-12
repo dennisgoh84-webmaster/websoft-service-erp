@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type AgingReport, type Customer, type CustomerStatement, type Invoice, type InvoiceStatus } from '../lib/api'
 
@@ -266,28 +267,30 @@ export default function InvoicesPage() {
                 Download (Word)
               </button>
               <button
-                className="secondary"
+                className="secondary icon-button"
                 disabled={statementBusy || !customers.find((c) => c.id === statement.customer_id)?.billing_email}
                 title={
                   customers.find((c) => c.id === statement.customer_id)?.billing_email
-                    ? undefined
+                    ? 'Email'
                     : 'Add an email on the Company/Individual page first'
                 }
+                aria-label="Email"
                 onClick={onEmailStatement}
               >
-                Email
+                <EmailIcon />
               </button>
               <button
-                className="secondary"
+                className="secondary icon-button"
                 disabled={statementBusy || !customers.find((c) => c.id === statement.customer_id)?.phone}
                 title={
                   customers.find((c) => c.id === statement.customer_id)?.phone
-                    ? undefined
+                    ? 'WhatsApp'
                     : 'Add a phone number on the Company/Individual page first'
                 }
+                aria-label="WhatsApp"
                 onClick={onWhatsAppStatement}
               >
-                WhatsApp
+                <WhatsAppIcon />
               </button>
               <button className="secondary" onClick={() => setStatement(null)}>
                 Close
@@ -450,32 +453,34 @@ export default function InvoicesPage() {
                   )}
                 </td>
                 <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <Link to={`/invoices/${inv.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
-                    Print
+                  <Link to={`/invoices/${inv.id}/print`} className="secondary icon-button" title="Print" aria-label="Print">
+                    <PrintIcon />
                   </Link>
                   <button
-                    className="secondary"
+                    className="secondary icon-button"
                     disabled={busyInvoiceId === inv.id || !customers.find((c) => c.id === inv.customer_id)?.billing_email}
                     title={
                       customers.find((c) => c.id === inv.customer_id)?.billing_email
-                        ? undefined
+                        ? 'Email'
                         : 'Add an email on the Company/Individual page first'
                     }
+                    aria-label="Email"
                     onClick={() => onEmailInvoice(inv)}
                   >
-                    Email
+                    <EmailIcon />
                   </button>
                   <button
-                    className="secondary"
+                    className="secondary icon-button"
                     disabled={busyInvoiceId === inv.id || !customers.find((c) => c.id === inv.customer_id)?.phone}
                     title={
                       customers.find((c) => c.id === inv.customer_id)?.phone
-                        ? undefined
+                        ? 'WhatsApp'
                         : 'Add a phone number on the Company/Individual page first'
                     }
+                    aria-label="WhatsApp"
                     onClick={() => onWhatsAppInvoice(inv)}
                   >
-                    WhatsApp
+                    <WhatsAppIcon />
                   </button>
                   <button className="secondary" onClick={() => onToggleDispute(inv)}>
                     {inv.is_disputed ? 'Clear dispute' : 'Flag dispute'}

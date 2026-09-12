@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type Customer, type SupplierInvoice, type SupplierPayment } from '../lib/api'
 
@@ -196,24 +197,26 @@ export default function PaymentVoucherPage() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <Link to={`/payment-voucher/${p.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
-                        Print
+                      <Link to={`/payment-voucher/${p.id}/print`} className="secondary icon-button" title="Print" aria-label="Print">
+                        <PrintIcon />
                       </Link>
                       <button
-                        className="secondary"
+                        className="secondary icon-button"
                         disabled={busyId === p.id || !supplierOf(p.supplier_id)?.billing_email}
-                        title={supplierOf(p.supplier_id)?.billing_email ? undefined : 'Add an email on the Company/Individual page first'}
+                        title={supplierOf(p.supplier_id)?.billing_email ? 'Email' : 'Add an email on the Company/Individual page first'}
+                        aria-label="Email"
                         onClick={() => onEmail(p)}
                       >
-                        Email
+                        <EmailIcon />
                       </button>
                       <button
-                        className="secondary"
+                        className="secondary icon-button"
                         disabled={busyId === p.id || !supplierOf(p.supplier_id)?.phone}
-                        title={supplierOf(p.supplier_id)?.phone ? undefined : 'Add a phone number on the Company/Individual page first'}
+                        title={supplierOf(p.supplier_id)?.phone ? 'WhatsApp' : 'Add a phone number on the Company/Individual page first'}
+                        aria-label="WhatsApp"
                         onClick={() => onWhatsApp(p)}
                       >
-                        WhatsApp
+                        <WhatsAppIcon />
                       </button>
                     </div>
                   </td>

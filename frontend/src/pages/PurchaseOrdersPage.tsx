@@ -6,6 +6,7 @@
 // purchase order" form; add/edit suppliers on the Company/Individual page.
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type Customer, type PurchaseOrder } from '../lib/api'
 
@@ -207,24 +208,26 @@ export default function PurchaseOrdersPage() {
                             Imported &rarr; {po.imported_bill_number}
                           </span>
                         )}
-                        <Link to={`/purchase-orders/${po.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
-                          Print
+                        <Link to={`/purchase-orders/${po.id}/print`} className="secondary icon-button" title="Print" aria-label="Print">
+                          <PrintIcon />
                         </Link>
                         <button
-                          className="secondary"
+                          className="secondary icon-button"
                           disabled={busyId === po.id || !supplier?.billing_email}
-                          title={supplier?.billing_email ? undefined : 'Add an email on the Company/Individual page first'}
+                          title={supplier?.billing_email ? 'Email' : 'Add an email on the Company/Individual page first'}
+                          aria-label="Email"
                           onClick={() => onEmailPO(po)}
                         >
-                          Email
+                          <EmailIcon />
                         </button>
                         <button
-                          className="secondary"
+                          className="secondary icon-button"
                           disabled={busyId === po.id || !supplier?.phone}
-                          title={supplier?.phone ? undefined : 'Add a phone number on the Company/Individual page first'}
+                          title={supplier?.phone ? 'WhatsApp' : 'Add a phone number on the Company/Individual page first'}
+                          aria-label="WhatsApp"
                           onClick={() => onWhatsAppPO(po)}
                         >
-                          WhatsApp
+                          <WhatsAppIcon />
                         </button>
                       </div>
                     </td>

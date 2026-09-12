@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type Customer, type CurrentUser, type JobOrder, type ServiceRecord } from '../lib/api'
 
@@ -178,24 +179,26 @@ export default function ServiceRecordsPage() {
                   <td>{r.outcome}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      <Link to={`/service-records/${r.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
-                        Print
+                      <Link to={`/service-records/${r.id}/print`} className="secondary icon-button" title="Print" aria-label="Print">
+                        <PrintIcon />
                       </Link>
                       <button
-                        className="secondary"
+                        className="secondary icon-button"
                         disabled={busyId === r.id || !customer?.billing_email}
-                        title={customer?.billing_email ? undefined : 'Add an email on the Company/Individual page first'}
+                        title={customer?.billing_email ? 'Email' : 'Add an email on the Company/Individual page first'}
+                        aria-label="Email"
                         onClick={() => onEmail(r)}
                       >
-                        Email
+                        <EmailIcon />
                       </button>
                       <button
-                        className="secondary"
+                        className="secondary icon-button"
                         disabled={busyId === r.id || !customer?.phone}
-                        title={customer?.phone ? undefined : 'Add a phone number on the Company/Individual page first'}
+                        title={customer?.phone ? 'WhatsApp' : 'Add a phone number on the Company/Individual page first'}
+                        aria-label="WhatsApp"
                         onClick={() => onWhatsApp(r)}
                       >
-                        WhatsApp
+                        <WhatsAppIcon />
                       </button>
                     </div>
                   </td>
