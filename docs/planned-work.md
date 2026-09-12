@@ -263,3 +263,67 @@ to (or replaces) today's Product/ProductType model, whether Quotation
 Lines/Invoice Lines/PO lines all switch together or one document at a
 time, and how stock quantity movements themselves get recorded in this
 system (received, issued, adjusted) versus in the Stock Distribution ERP.
+
+---
+
+## 6. Odoo migration program -- Contacts, Subscriptions, Timesheets, Sales Quotations/Invoices/Receipts, Chart of Accounts (raised 2026-09-12)
+
+Requested as: eventually build a migration program to transfer data out
+of the existing Odoo system and into this one, mapping Odoo's records
+onto this system's equivalent (and differently-named) entities. Recorded
+per Dennis's request ("record this that we will eventually also need
+a migration program") -- explicitly a future need, not to be built now.
+
+**Confirmed mapping, as given (Odoo source -> Websoft Service ERP target):**
+
+| Odoo | Websoft Service ERP |
+|---|---|
+| Contacts | Company/Individual (`app/models/customers.py` `Customer`) |
+| Subscriptions | Contracts (`app/models/contracts.py` `ServiceContract`) |
+| Timesheets | Service Records (`app/models/service_records.py`) |
+| Sales Quotations | Sales Quote (`app/models/quotations.py` `Quotation`) |
+| Sales Invoices | Sales Invoice (`app/models/invoices.py` `Invoice`) |
+| (Sales) Receipts | Receipt(s) (`app/models/payments.py` `Payment`, the Receipt Voucher) |
+| Chart of Accounts | Chart of Accounts (`app/models/accounting.py` `Account`) |
+
+This aligns with CLAUDE.md's already-approved Odoo replacement strategy
+(phased, module-by-module, with a parallel-run period and no big-bang
+migration) and its note that "important historical data will eventually
+be migrated" -- this item is the concrete migration-program request for
+that strategy, scoped to the record types above.
+
+**Not yet started -- no migration scripts, field-mapping tables, or
+import tooling exist.** Real open questions once this is picked up (not
+resolved here, just flagged, per CLAUDE.md's "never assume a business
+rule when requirements have not been provided"):
+
+1. **Access to Odoo data** -- direct DB access to Odoo's PostgreSQL
+   instance, or via Odoo's XML-RPC/JSON-RPC API? Read-only, one-off
+   extract, or a repeatable/re-runnable sync during the parallel-run
+   period?
+2. **Field-level mapping** -- each Odoo model above has many fields;
+   which map 1:1 to this system's equivalent model, which need
+   transformation (e.g. Odoo's Subscription recurrence/billing fields
+   against this system's ServiceContract hours-bucket model, which has
+   no direct Odoo equivalent), and which have no target field at all yet.
+3. **Identity/reference mapping** -- how an Odoo record's ID is
+   correlated with the newly-created Websoft record afterward (for
+   re-runs, verification, and so linked records -- e.g. an Invoice's
+   Contact -- resolve correctly), and whether that mapping table itself
+   needs to be a permanent audit record per this project's "never
+   permanently delete" / audit-trail rules.
+4. **Historical vs. operational data** -- CLAUDE.md already notes older
+   Odoo data "may be archived rather than fully operational"; which of
+   the record types above (if any) get imported as read-only/archived
+   history versus fully live, editable records.
+5. **Numbering/sequence collisions** -- this system generates its own
+   document numbers (e.g. `SQ-` quote numbers, `INV-` invoice numbers)
+   via `DocumentSequence`; how imported Odoo records get numbered
+   (keep Odoo's original reference as a separate field, or renumber into
+   this system's sequences) is undecided.
+6. **Cut-over sequencing** -- given the phased, parallel-run strategy,
+   whether all seven record types migrate together or Company/Individual
+   (Contacts) and Chart of Accounts migrate first as foundational/
+   reference data, with the transactional documents (Contracts,
+   Service Records, Quotes, Invoices, Receipts) following once their
+   linked Company/Individual and account records already exist here.
