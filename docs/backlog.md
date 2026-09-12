@@ -48,6 +48,11 @@ shipped and when.
   provisioning a WhatsApp Business API account (Twilio/Meta); email OTP
   already works today.
   → [planned-work.md #7](planned-work.md#7-whatsapp-otp-as-a-second-login-factor-raised-2026-09-12-deferred)
+- [ ] **Server Company Central Command** -- separate app/repo. Pushes
+  ads/banners and license enforcement directly into each client's
+  PostgreSQL. This ERP's `module_controls` and `announcements` tables
+  are the schema contract. 6 open questions flagged.
+  → [planned-work.md #8](planned-work.md#8-server-company-central-command----remote-adbanner-push--license-enforcement-raised-2026-09-12)
 
 ## Partially open
 

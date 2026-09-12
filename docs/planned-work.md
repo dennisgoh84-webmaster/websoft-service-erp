@@ -295,3 +295,77 @@ rule when requirements have not been provided"):
    reference data, with the transactional documents (Contracts,
    Service Records, Quotes, Invoices, Receipts) following once their
    linked Company/Individual and account records already exist here.
+
+---
+
+## 8. Server Company Central Command -- remote ad/banner push + license enforcement (raised 2026-09-12)
+
+Requested as: a **separate application** (its own repository and
+deployment) that Web Master Consultancy operates to manage all client
+company ERP deployments from one place. Two confirmed capabilities:
+
+### 8a. Advertisement / banner push
+
+Instead of each client company managing their own announcements locally,
+Central Command pushes advertisements and banners **directly into each
+client's PostgreSQL database**. Different client companies can see
+different ads -- the selection is made at Central Command, not at the
+client side.
+
+This ERP already has an Announcements module (`app/models/announcements.py`,
+`AnnouncementsPage.tsx`) which Central Command would likely write into.
+The client-side schema is the contract Central Command depends on.
+
+### 8b. License enforcement
+
+Non-paying customers have their module licenses expired remotely. Central
+Command writes directly to the client's database to disable/expire module
+access (the existing `module_controls` table is the likely target -- it
+already has `is_active` and `expires_at` fields per module per company).
+
+### Confirmed architecture decisions
+
+| Decision | Answer |
+|---|---|
+| Central Command vs. this repo | **Separate app/repo** -- its own standalone application |
+| Communication model | **Direct DB push** -- Central Command connects to each client's PostgreSQL |
+| Client deployment model | **Separate per client** -- each client has its own Docker stack + database |
+
+### What this means for this ERP repo (client side)
+
+- The existing `module_controls` and `announcements` tables become a
+  **schema contract** -- Central Command depends on their structure.
+  Breaking changes to these tables need to be coordinated with the
+  Central Command app.
+- No new code in this repo yet -- the client ERP already reads from
+  these tables. Central Command is the new writer.
+- The client ERP may eventually need a **registration/heartbeat**
+  mechanism so Central Command knows which client databases exist and
+  how to connect to them, but that's a Central Command concern.
+
+### Open questions (not resolved, flagged for when this is picked up)
+
+1. **Client DB connection registry** -- how does Central Command
+   discover and store connection details (host, port, credentials) for
+   each client's PostgreSQL? A config file, a Central Command database
+   of registered clients, or something else?
+2. **Network access** -- each client runs its own Docker stack; is
+   PostgreSQL exposed to the internet (with TLS + auth), or is Central
+   Command on the same private network / VPN as the clients?
+3. **Schema versioning** -- when this ERP's migrations change the
+   `module_controls` or `announcements` schema, how does Central
+   Command stay compatible? Does it check schema version before writing?
+4. **Ad targeting rules** -- what criteria determine which client sees
+   which ad? Per-company manual selection, by industry, by
+   subscription tier, by region?
+5. **Audit trail** -- should Central Command's writes to client DBs be
+   logged in the client's Event Logs (the existing audit system), or
+   only in Central Command's own logs?
+6. **Scope beyond ads and licenses** -- will Central Command eventually
+   push other things (system announcements, configuration updates,
+   software update notifications)?
+
+**Not yet started.** This is a separate repo to be built; no code
+changes needed in this ERP repo at this stage. Recorded here because the
+client-side schema contract (the tables Central Command writes to) lives
+in this codebase.
