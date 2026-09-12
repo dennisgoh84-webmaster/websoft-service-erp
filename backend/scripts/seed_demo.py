@@ -56,7 +56,6 @@ from app.models.treasury import BankAccount, CurrencyRate
 from app.models.payables import (
     PurchaseOrder,
     PurchaseOrderStatus,
-    Supplier,
     SupplierInvoice,
     SupplierPayment,
 )
@@ -200,7 +199,12 @@ GROUP_CATALOG = {
             "purchasing": FULL,
             "finance_accounting": FULL,
             "service_contracts": VIEW,
-            "customer_management": VIEW,
+            # FULL, not VIEW (2026-09-12): suppliers are now Company/
+            # Individual records (is_supplier=True) rather than a
+            # separate AP-only master, so onboarding a new supplier
+            # needs edit rights here, same as accounts_payable FULL
+            # implied before the merge.
+            "customer_management": FULL,
             "sales": VIEW,
             "accounting_reports": FULL,
             "service_operations": NONE,
@@ -1075,9 +1079,12 @@ def main():
         # --- Accounts Payable demo: a supplier, a PO, a matched bill,
         # and a payment voucher settling it -- proves the 2-way match
         # (PUR-002) auto-approves for payment (PUR-003) end to end.
-        supplier = Supplier(
+        # 2026-09-12: a supplier is a Customer (Company/Individual)
+        # record flagged is_supplier=True, not a separate master.
+        supplier = Customer(
             company_id=company.id, name="CloudHost Infrastructure Pte Ltd",
-            email="billing@cloudhost.test", phone="+65 6100 2200", payment_terms_days=30,
+            customer_type=CustomerType.company, is_customer=False, is_supplier=True,
+            billing_email="billing@cloudhost.test", phone="+65 6100 2200", payment_terms_days=30,
         )
         db.add(supplier)
         db.flush()

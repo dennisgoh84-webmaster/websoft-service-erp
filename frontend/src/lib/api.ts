@@ -227,6 +227,11 @@ export interface Customer {
   billing_notes: string | null
   /** Days from invoice date. Terms vary per customer; null = not agreed yet. */
   payment_terms_days: number | null
+  /** Role flags (2026-09-12): a record can be a customer, a supplier, or
+   * both -- Purchase Order/Accounts Payable pick from is_supplier=true
+   * records here rather than a separate supplier file. */
+  is_customer: boolean
+  is_supplier: boolean
   is_active: boolean
   created_at: string
 }
@@ -298,6 +303,8 @@ export type CustomerFields = Partial<{
   memo: string | null
   billing_notes: string | null
   payment_terms_days: number | null
+  is_customer: boolean
+  is_supplier: boolean
 }>
 
 export type ContractStatus = 'draft' | 'active' | 'exceeded' | 'expired' | 'renewed'
@@ -853,16 +860,10 @@ export type PurchaseOrderStatus = 'draft' | 'pending_approval' | 'approved' | 'c
 export type BillMatchStatus = 'not_matched' | 'matched' | 'exception'
 export type BillStatus = 'awaiting_match' | 'exception' | 'approved' | 'partially_paid' | 'paid'
 
-export interface Supplier {
-  id: string
-  name: string
-  email: string | null
-  phone: string | null
-  address: string | null
-  gst_registration_no: string | null
-  payment_terms_days: number | null
-  is_active: boolean
-}
+// Supplier is NOT a separate type (2026-09-12): a supplier is a Customer
+// (Company/Individual) record flagged is_supplier=true -- see the
+// Customer interface below. PurchaseOrder/SupplierInvoice/SupplierPayment
+// keep the field name `supplier_id`, but it's a Customer id.
 
 export interface PurchaseOrder {
   id: string
@@ -1118,7 +1119,15 @@ export const api = {
   // (confirmed 2026-09-11: customer grouping by industry); includeInactive
   // reveals deactivated customers.
   listCustomers: (
-    filters: { q?: string; customer_group_id?: string; industry_code?: string; include_inactive?: boolean } = {},
+    filters: {
+      q?: string
+      customer_group_id?: string
+      industry_code?: string
+      include_inactive?: boolean
+      /** 2026-09-12: Purchase Order/AP pick suppliers from this same
+       * Company/Individual list, filtered to is_supplier=true. */
+      is_supplier?: boolean
+    } = {},
   ) =>
     request<Customer[]>(
       `/customers${qs({
@@ -1126,6 +1135,7 @@ export const api = {
         customer_group_id: filters.customer_group_id,
         industry_code: filters.industry_code,
         include_inactive: filters.include_inactive ? 'true' : undefined,
+        is_supplier: filters.is_supplier === undefined ? undefined : filters.is_supplier ? 'true' : 'false',
       })}`,
     ),
   exportCustomersCsv: (
@@ -1390,6 +1400,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ deducted_minutes }),
     }),
+  getServiceRecord: (id: string) => request<ServiceRecord>(`/service-records/${id}`),
+  exportServiceRecordDocx: (id: string) => requestBlob(`/service-records/${id}/export.docx`),
+  emailServiceRecord: (id: string) =>
+    request<{ sent: boolean; to: string }>(`/service-records/${id}/email`, { method: 'POST' }),
 
   listExcessUsage: (pendingOnly = false) =>
     request<ExcessUsageRecord[]>(`/excess-usage${pendingOnly ? '?pending_only=true' : ''}`),
@@ -1411,6 +1425,7 @@ export const api = {
   exportInvoicesExcel: (filters: { customer_id?: string; contract_id?: string } = {}) =>
     requestBlob(`/invoices/export.xlsx${qs(filters)}`),
   exportInvoiceDocx: (id: string) => requestBlob(`/invoices/${id}/export.docx`),
+  emailInvoice: (id: string) => request<{ sent: boolean; to: string }>(`/invoices/${id}/email`, { method: 'POST' }),
 
   // Accounts Receivable
   listPayments: (filters: { customer_id?: string; unallocated_only?: boolean } = {}) =>
@@ -1449,6 +1464,8 @@ export const api = {
     ),
   getPayment: (id: string) => request<Payment>(`/accounts-receivable/payments/${id}`),
   exportPaymentDocx: (id: string) => requestBlob(`/accounts-receivable/payments/${id}/export.docx`),
+  emailReceipt: (id: string) =>
+    request<{ sent: boolean; to: string }>(`/accounts-receivable/payments/${id}/email`, { method: 'POST' }),
   allocatePayment: (id: string, allocations: { invoice_id: string; amount_sgd: number }[]) =>
     request<Payment>(`/accounts-receivable/payments/${id}/allocate`, {
       method: 'POST',
@@ -1478,34 +1495,8 @@ export const api = {
   exportTrialBalanceCsv: (as_at?: string) => requestBlob(`/ledger/trial-balance/export.csv${qs({ as_at })}`),
   exportTrialBalanceExcel: (as_at?: string) => requestBlob(`/ledger/trial-balance/export.xlsx${qs({ as_at })}`),
 
-  // Accounts Payable
-  listSuppliers: (includeInactive = false) =>
-    request<Supplier[]>(`/accounts-payable/suppliers${qs({ include_inactive: includeInactive ? 'true' : undefined })}`),
-  exportSuppliersCsv: (includeInactive = false) =>
-    requestBlob(`/accounts-payable/suppliers/export.csv${qs({ include_inactive: includeInactive ? 'true' : undefined })}`),
-  exportSuppliersExcel: (includeInactive = false) =>
-    requestBlob(`/accounts-payable/suppliers/export.xlsx${qs({ include_inactive: includeInactive ? 'true' : undefined })}`),
-  createSupplier: (payload: {
-    name: string
-    email?: string
-    phone?: string
-    address?: string
-    gst_registration_no?: string
-    payment_terms_days?: number | null
-  }) => request<Supplier>('/accounts-payable/suppliers', { method: 'POST', body: JSON.stringify(payload) }),
-  updateSupplier: (
-    id: string,
-    payload: Partial<{
-      name: string
-      email: string | null
-      phone: string | null
-      address: string | null
-      gst_registration_no: string | null
-      payment_terms_days: number | null
-      is_active: boolean
-    }>,
-  ) => request<Supplier>(`/accounts-payable/suppliers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
-
+  // Accounts Payable -- suppliers are managed via listCustomers/
+  // createCustomer/updateCustomer above (is_supplier=true), not here.
   listPurchaseOrders: (filters: { supplier_id?: string; status?: string } = {}) =>
     request<PurchaseOrder[]>(`/accounts-payable/purchase-orders${qs(filters)}`),
   getPurchaseOrder: (id: string) => request<PurchaseOrder>(`/accounts-payable/purchase-orders/${id}`),
@@ -1551,6 +1542,8 @@ export const api = {
     requestBlob(`/accounts-payable/payments/export.xlsx${qs({ supplier_id: supplierId })}`),
   getSupplierPayment: (id: string) => request<SupplierPayment>(`/accounts-payable/payments/${id}`),
   exportSupplierPaymentDocx: (id: string) => requestBlob(`/accounts-payable/payments/${id}/export.docx`),
+  emailSupplierPayment: (id: string) =>
+    request<{ sent: boolean; to: string }>(`/accounts-payable/payments/${id}/email`, { method: 'POST' }),
   recordSupplierPayment: (payload: {
     supplier_id: string
     payment_date: string
@@ -1602,6 +1595,10 @@ export const api = {
   exportArAgingExcel: (as_at?: string) => requestBlob(`/accounts-receivable/aging/export.xlsx${qs({ as_at })}`),
   customerStatement: (customerId: string) =>
     request<CustomerStatement>(`/accounts-receivable/statement/${customerId}`),
+  exportCustomerStatementDocx: (customerId: string) =>
+    requestBlob(`/accounts-receivable/statement/${customerId}/export.docx`),
+  emailCustomerStatement: (customerId: string) =>
+    request<{ sent: boolean; to: string }>(`/accounts-receivable/statement/${customerId}/email`, { method: 'POST' }),
   writeOffInvoice: (invoiceId: string, reason: string) =>
     request<Invoice>(`/accounts-receivable/invoices/${invoiceId}/write-off`, {
       method: 'POST',
@@ -1662,6 +1659,7 @@ export const api = {
     requestBlob(`/quotations/export.xlsx${qs(filters)}`),
   getQuotation: (id: string) => request<Quotation>(`/quotations/${id}`),
   exportQuotationDocx: (id: string) => requestBlob(`/quotations/${id}/export.docx`),
+  emailQuotation: (id: string) => request<{ sent: boolean; to: string }>(`/quotations/${id}/email`, { method: 'POST' }),
   createQuotation: (payload: {
     customer_id: string
     quotation_date: string

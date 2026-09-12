@@ -145,6 +145,18 @@ class Customer(Base):
     # not been agreed yet, and the invoice carries no due date rather
     # than the system inventing one.
     payment_terms_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Role flags (2026-09-12: "when talking about supplier, remember to
+    # use the same company/individual file, do not add or reinvent a new
+    # one again") -- one Company/Individual master now covers both roles
+    # instead of a separate Supplier table. A record can be either, or
+    # both (a contact who is both a customer and a vendor). Existing
+    # records default to is_customer=True (that is what this table held
+    # before suppliers were merged in); is_supplier is opt-in per record,
+    # ticked on the ones migrated from the old suppliers table.
+    is_customer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_supplier: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

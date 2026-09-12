@@ -226,15 +226,18 @@ def _filter_customers(
     customer_group_id: uuid.UUID | None,
     include_inactive: bool,
     industry_code: str | None = None,
+    is_supplier: bool | None = None,
 ):
     """Dynamic filter for the Customer master: free-text `q` matches
     across name/email/phone/mobile/UEN/legacy code/tags,
     `customer_group_id` narrows to one group of companies at a time --
     so you can search for a particular customer or pull up a whole
     group together -- and `industry_code` narrows to one industry
-    (confirmed 2026-09-11: customer grouping by industry). Shared by
-    list_customers and the export endpoints so "export what I'm
-    looking at" always matches what's on screen."""
+    (confirmed 2026-09-11: customer grouping by industry). `is_supplier`
+    narrows to records flagged as a supplier (2026-09-12: Purchase
+    Order/AP pick from this same file rather than a separate list).
+    Shared by list_customers and the export endpoints so "export what
+    I'm looking at" always matches what's on screen."""
     query = db.query(Customer).filter(Customer.company_id == company_id)
     if not include_inactive:
         query = query.filter(Customer.is_active)
@@ -242,6 +245,8 @@ def _filter_customers(
         query = query.filter(Customer.customer_group_id == customer_group_id)
     if industry_code:
         query = query.filter(Customer.industry_code == industry_code)
+    if is_supplier is not None:
+        query = query.filter(Customer.is_supplier == is_supplier)
     if q:
         like = f"%{q}%"
         query = query.filter(
@@ -265,11 +270,12 @@ def list_customers(
     customer_group_id: uuid.UUID | None = None,
     industry_code: str | None = None,
     include_inactive: bool = False,
+    is_supplier: bool | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     return _filter_customers(
-        db, current_user.company_id, q, customer_group_id, include_inactive, industry_code
+        db, current_user.company_id, q, customer_group_id, include_inactive, industry_code, is_supplier
     )
 
 

@@ -1,6 +1,9 @@
 """
-Accounts Payable API -- suppliers, purchase orders, supplier invoices
-(2-way matched per PUR-002) and Payment Vouchers.
+Accounts Payable API -- purchase orders, supplier invoices (2-way
+matched per PUR-002) and Payment Vouchers. The supplier party itself is
+a Customer (Company/Individual) record flagged is_supplier=True -- see
+app/models/payables.py's module docstring and app/routers/customers.py
+for supplier CRUD, which lives there, not here (2026-09-12).
 
 See app/services/payables.py for the rules themselves.
 """
@@ -14,12 +17,12 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.models.core import Company, User
+from app.models.customers import Customer
 from app.models.groups import AccessLevel
 from app.models.payables import (
     BillStatus,
     PurchaseOrder,
     PurchaseOrderStatus,
-    Supplier,
     SupplierInvoice,
     SupplierPayment,
 )
@@ -29,28 +32,22 @@ from app.schemas.schemas import (
     PurchaseOrderCreate,
     PurchaseOrderOut,
     SupplierAllocateRequest,
-    SupplierCreate,
     SupplierInvoiceCreate,
     SupplierInvoiceOut,
-    SupplierOut,
     SupplierPaymentCreate,
     SupplierPaymentOut,
-    SupplierUpdate,
 )
-from app.services import audit, docx_forms, exports
-from app.services import mailer
+from app.services import audit, docx_forms, document_email, exports
 from app.services import payables as ap_svc
 from app.services.accounts_receivable import aging_bucket_for
 from app.services.authority import require_module_access
 from app.services.numbering import next_document_number
-from app.services.pdf_convert import PdfConversionError, docx_bytes_to_pdf
 from app.services.periods import PeriodClosedError, require_open_period
 from app.services.tax import apply_gst
 
 router = APIRouter(prefix="/api/accounts-payable", tags=["accounts-payable"])
 MODULE = "accounts_payable"
 
-SUPPLIER_EXPORT_FIELDS = ["name", "email", "address", "gst_registration_no", "payment_terms_days", "is_active"]
 PURCHASE_ORDER_EXPORT_FIELDS = [
     "po_number", "supplier_name", "order_date", "description", "amount_sgd",
     "gst_amount_sgd", "total_amount_sgd", "status",
@@ -69,10 +66,18 @@ AP_AGING_EXPORT_FIELDS = [
 ]
 
 
-def _supplier_or_404(db: Session, supplier_id: uuid.UUID, company_id: uuid.UUID) -> Supplier:
-    s = db.get(Supplier, supplier_id)
-    if not s or s.company_id != company_id:
-        raise HTTPException(status_code=404, detail="Supplier not found")
+def _supplier_or_404(db: Session, supplier_id: uuid.UUID, company_id: uuid.UUID) -> Customer:
+    """A "supplier" is a Customer (Company/Individual) record flagged
+    is_supplier=True (2026-09-12) -- not a separate master. Manage the
+    flag itself on the Accounts Payable/Company-Individual page; this
+    only accepts records already ticked, so a PO/bill/payment can never
+    be raised against a party nobody has marked as a supplier yet."""
+    s = db.get(Customer, supplier_id)
+    if not s or s.company_id != company_id or not s.is_supplier:
+        raise HTTPException(
+            status_code=404,
+            detail="Supplier not found -- check it exists and is marked 'Is Supplier' on the Company/Individual page.",
+        )
     return s
 
 
@@ -88,127 +93,6 @@ def _po_or_404(db: Session, po_id: uuid.UUID, company_id: uuid.UUID) -> Purchase
     if not po or po.company_id != company_id:
         raise HTTPException(status_code=404, detail="Purchase order not found")
     return po
-
-
-# ---- Suppliers ------------------------------------------------------
-
-
-def _filter_suppliers(db: Session, company_id: uuid.UUID, include_inactive: bool) -> list[Supplier]:
-    q = db.query(Supplier).filter(Supplier.company_id == company_id)
-    if not include_inactive:
-        q = q.filter(Supplier.is_active)
-    return q.order_by(Supplier.name).all()
-
-
-@router.get("/suppliers", response_model=list[SupplierOut])
-def list_suppliers(
-    include_inactive: bool = False,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
-):
-    return _filter_suppliers(db, current_user.company_id, include_inactive)
-
-
-def _supplier_row(s: Supplier) -> dict:
-    return {
-        "name": s.name,
-        "email": s.email or "",
-        "address": s.address or "",
-        "gst_registration_no": s.gst_registration_no or "",
-        "payment_terms_days": s.payment_terms_days if s.payment_terms_days is not None else "",
-        "is_active": s.is_active,
-    }
-
-
-@router.get("/suppliers/export.csv")
-def export_suppliers_csv(
-    include_inactive: bool = False,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
-):
-    rows = [_supplier_row(s) for s in _filter_suppliers(db, current_user.company_id, include_inactive)]
-    csv_text = exports.rows_to_csv(SUPPLIER_EXPORT_FIELDS, rows)
-    return StreamingResponse(
-        iter([csv_text]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=suppliers.csv"},
-    )
-
-
-@router.get("/suppliers/export.xlsx")
-def export_suppliers_excel(
-    include_inactive: bool = False,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
-):
-    rows = [_supplier_row(s) for s in _filter_suppliers(db, current_user.company_id, include_inactive)]
-    data = exports.rows_to_excel(SUPPLIER_EXPORT_FIELDS, rows, sheet_name="Suppliers")
-    return StreamingResponse(
-        iter([data]),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=suppliers.xlsx"},
-    )
-
-
-@router.post("/suppliers", response_model=SupplierOut)
-def create_supplier(
-    payload: SupplierCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
-):
-    supplier = Supplier(
-        company_id=current_user.company_id,
-        name=payload.name,
-        email=payload.email,
-        address=payload.address,
-        gst_registration_no=payload.gst_registration_no,
-        payment_terms_days=payload.payment_terms_days,
-    )
-    db.add(supplier)
-    db.flush()
-    audit.record(
-        db,
-        entity_type="supplier",
-        entity_id=supplier.id,
-        action="created",
-        actor_user_id=current_user.id,
-        details=f"name={payload.name}",
-        new_value={"name": payload.name, "payment_terms_days": payload.payment_terms_days},
-    )
-    db.commit()
-    db.refresh(supplier)
-    return supplier
-
-
-@router.patch("/suppliers/{supplier_id}", response_model=SupplierOut)
-def update_supplier(
-    supplier_id: uuid.UUID,
-    payload: SupplierUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
-):
-    supplier = _supplier_or_404(db, supplier_id, current_user.company_id)
-    fields = payload.model_dump(exclude_unset=True)
-    old_value: dict[str, object] = {}
-    new_value: dict[str, object] = {}
-    for field in ("name", "email", "address", "gst_registration_no", "payment_terms_days", "is_active"):
-        if field not in fields or getattr(supplier, field) == fields[field]:
-            continue
-        old_value[field] = getattr(supplier, field)
-        new_value[field] = fields[field]
-        setattr(supplier, field, fields[field])
-    audit.record(
-        db,
-        entity_type="supplier",
-        entity_id=supplier.id,
-        action="updated",
-        actor_user_id=current_user.id,
-        old_value=old_value or None,
-        new_value=new_value or None,
-    )
-    db.commit()
-    db.refresh(supplier)
-    return supplier
 
 
 # ---- Purchase orders ------------------------------------------------
@@ -239,16 +123,6 @@ def list_purchase_orders(
     return [PurchaseOrderOut.from_model(po) for po in orders]
 
 
-@router.get("/purchase-orders/{po_id}", response_model=PurchaseOrderOut)
-def get_purchase_order(
-    po_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
-):
-    po = _po_or_404(db, po_id, current_user.company_id)
-    return PurchaseOrderOut.from_model(po)
-
-
 def _purchase_order_row(po: PurchaseOrder, supplier_name: str) -> dict:
     return {
         "po_number": po.po_number,
@@ -270,7 +144,7 @@ def export_purchase_orders_csv(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     orders = _filter_purchase_orders(db, current_user.company_id, supplier_id, status)
-    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
     rows = [_purchase_order_row(po, suppliers.get(po.supplier_id, "")) for po in orders]
     csv_text = exports.rows_to_csv(PURCHASE_ORDER_EXPORT_FIELDS, rows)
     return StreamingResponse(
@@ -288,7 +162,7 @@ def export_purchase_orders_excel(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     orders = _filter_purchase_orders(db, current_user.company_id, supplier_id, status)
-    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
     rows = [_purchase_order_row(po, suppliers.get(po.supplier_id, "")) for po in orders]
     data = exports.rows_to_excel(PURCHASE_ORDER_EXPORT_FIELDS, rows, sheet_name="Purchase Orders")
     return StreamingResponse(
@@ -296,6 +170,16 @@ def export_purchase_orders_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=purchase-orders.xlsx"},
     )
+
+
+@router.get("/purchase-orders/{po_id}", response_model=PurchaseOrderOut)
+def get_purchase_order(
+    po_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    po = _po_or_404(db, po_id, current_user.company_id)
+    return PurchaseOrderOut.from_model(po)
 
 
 @router.post("/purchase-orders", response_model=PurchaseOrderOut)
@@ -450,19 +334,14 @@ def email_purchase_order(
     converted via LibreOffice headless -- see services/pdf_convert.py."""
     po = _po_or_404(db, po_id, current_user.company_id)
     supplier = _supplier_or_404(db, po.supplier_id, current_user.company_id)
-    if not supplier.email:
+    if not supplier.billing_email:
         raise HTTPException(
             status_code=422,
-            detail=f"{supplier.name} has no email on file -- add one on the Accounts Payable page first.",
+            detail=f"{supplier.name} has no email on file -- add one on the Company/Individual page first.",
         )
     company = db.get(Company, current_user.company_id)
 
     docx_bytes = docx_forms.purchase_order_to_docx(po, supplier, company)
-    try:
-        pdf_bytes = docx_bytes_to_pdf(docx_bytes)
-    except PdfConversionError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
     body = (
         f"Dear {supplier.name},\n\n"
         f"Please find attached Purchase Order {po.po_number} dated {po.order_date.isoformat()} "
@@ -471,17 +350,15 @@ def email_purchase_order(
         f"Regards,\n{company.name if company else ''}"
     )
     try:
-        mailer.send_email(
-            to_email=supplier.email,
+        document_email.send_document_email(
+            to_email=supplier.billing_email,
             subject=f"Purchase Order {po.po_number} - {company.name if company else ''}",
             body_text=body,
-            attachment_filename=f"{po.po_number}.pdf",
-            attachment_bytes=pdf_bytes,
+            docx_bytes=docx_bytes,
+            filename_stem=po.po_number,
         )
-    except mailer.MailerNotConfigured as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except mailer.MailerError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+    except document_email.DocumentEmailError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
 
     audit.record(
         db,
@@ -489,10 +366,10 @@ def email_purchase_order(
         entity_id=po.id,
         action="emailed",
         actor_user_id=current_user.id,
-        details=f"{po.po_number} emailed to {supplier.email}",
+        details=f"{po.po_number} emailed to {supplier.billing_email}",
     )
     db.commit()
-    return {"sent": True, "to": supplier.email}
+    return {"sent": True, "to": supplier.billing_email}
 
 
 # ---- Supplier invoices (bills) --------------------------------------
@@ -548,7 +425,7 @@ def export_bills_csv(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     bills = _filter_bills(db, current_user.company_id, supplier_id, status)
-    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
     rows = [_bill_row(b, suppliers.get(b.supplier_id, "")) for b in bills]
     csv_text = exports.rows_to_csv(BILL_EXPORT_FIELDS, rows)
     return StreamingResponse(
@@ -566,7 +443,7 @@ def export_bills_excel(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     bills = _filter_bills(db, current_user.company_id, supplier_id, status)
-    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
     rows = [_bill_row(b, suppliers.get(b.supplier_id, "")) for b in bills]
     data = exports.rows_to_excel(BILL_EXPORT_FIELDS, rows, sheet_name="Bills")
     return StreamingResponse(
@@ -689,7 +566,7 @@ def export_supplier_payments_csv(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     payments = _filter_supplier_payments(db, current_user.company_id, supplier_id)
-    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
     rows = [_payment_row(p, suppliers.get(p.supplier_id, "")) for p in payments]
     csv_text = exports.rows_to_csv(PAYMENT_EXPORT_FIELDS, rows)
     return StreamingResponse(
@@ -706,7 +583,7 @@ def export_supplier_payments_excel(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     payments = _filter_supplier_payments(db, current_user.company_id, supplier_id)
-    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
     rows = [_payment_row(p, suppliers.get(p.supplier_id, "")) for p in payments]
     data = exports.rows_to_excel(PAYMENT_EXPORT_FIELDS, rows, sheet_name="Payment Vouchers")
     return StreamingResponse(
@@ -764,6 +641,63 @@ def export_supplier_payment_docx(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename={payment.voucher_number}.docx"},
     )
+
+
+@router.post("/payments/{payment_id}/email")
+def email_supplier_payment(
+    payment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Email PV (2026-09-12) -- same real-send pattern as Purchase Order."""
+    payment = (
+        db.query(SupplierPayment)
+        .options(selectinload(SupplierPayment.allocations))
+        .filter(
+            SupplierPayment.id == payment_id,
+            SupplierPayment.company_id == current_user.company_id,
+        )
+        .first()
+    )
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment voucher not found")
+    supplier = _supplier_or_404(db, payment.supplier_id, current_user.company_id)
+    if not supplier.billing_email:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{supplier.name} has no email on file -- add one on the Company/Individual page first.",
+        )
+    company = db.get(Company, current_user.company_id)
+    docx_bytes = docx_forms.payment_voucher_to_docx(
+        payment, supplier, company, _bill_numbers(db, current_user.company_id)
+    )
+    body = (
+        f"Dear {supplier.name},\n\n"
+        f"Please find attached Payment Voucher {payment.voucher_number} dated "
+        f"{payment.payment_date.isoformat()} for SGD {float(payment.amount_sgd):.2f}.\n\n"
+        f"Regards,\n{company.name if company else ''}"
+    )
+    try:
+        document_email.send_document_email(
+            to_email=supplier.billing_email,
+            subject=f"Payment Voucher {payment.voucher_number} - {company.name if company else ''}",
+            body_text=body,
+            docx_bytes=docx_bytes,
+            filename_stem=payment.voucher_number,
+        )
+    except document_email.DocumentEmailError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
+    audit.record(
+        db,
+        entity_type="supplier_payment",
+        entity_id=payment.id,
+        action="emailed",
+        actor_user_id=current_user.id,
+        details=f"{payment.voucher_number} emailed to {supplier.billing_email}",
+    )
+    db.commit()
+    return {"sent": True, "to": supplier.billing_email}
 
 
 @router.post("/payments", response_model=SupplierPaymentOut)
@@ -875,7 +809,7 @@ def _ap_aging_rows(db: Session, company_id: uuid.UUID, as_at: date | None) -> tu
     )
     suppliers = {
         s.id: s.name
-        for s in db.query(Supplier).filter(Supplier.company_id == company_id).all()
+        for s in db.query(Customer).filter(Customer.company_id == company_id).all()
     }
 
     buckets: dict[uuid.UUID, dict[str, Decimal]] = {}

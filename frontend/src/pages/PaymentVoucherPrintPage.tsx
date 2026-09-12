@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Supplier, type SupplierPayment } from '../lib/api'
+import { api, downloadBlob, type Customer, type SupplierPayment } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
 const money = (n: number) => n.toFixed(2)
@@ -12,16 +12,14 @@ export default function PaymentVoucherPrintPage() {
   const { id } = useParams<{ id: string }>()
   const { activeCompany } = useAuth()
   const [payment, setPayment] = useState<SupplierPayment | null>(null)
-  const [supplier, setSupplier] = useState<Supplier | null>(null)
+  const [supplier, setSupplier] = useState<Customer | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
     api.getSupplierPayment(id).then((p) => {
       setPayment(p)
-      api.listSuppliers(true).then((suppliers) => {
-        setSupplier(suppliers.find((s) => s.id === p.supplier_id) ?? null)
-      })
+      api.getCustomer(p.supplier_id).then(setSupplier)
     })
   }, [id])
 

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type PurchaseOrder, type Supplier } from '../lib/api'
+import { api, downloadBlob, type Customer, type PurchaseOrder } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
 const money = (n: number) => n.toFixed(2)
@@ -14,16 +14,14 @@ export default function PurchaseOrderPrintPage() {
   const { id } = useParams<{ id: string }>()
   const { activeCompany } = useAuth()
   const [po, setPo] = useState<PurchaseOrder | null>(null)
-  const [supplier, setSupplier] = useState<Supplier | null>(null)
+  const [supplier, setSupplier] = useState<Customer | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
     api.getPurchaseOrder(id).then((p) => {
       setPo(p)
-      api.listSuppliers(true).then((suppliers) => {
-        setSupplier(suppliers.find((s) => s.id === p.supplier_id) ?? null)
-      })
+      api.getCustomer(p.supplier_id).then(setSupplier)
     })
   }, [id])
 
@@ -37,6 +35,15 @@ export default function PurchaseOrderPrintPage() {
   }
 
   if (!po || !supplier) return <p>Loading...</p>
+
+  const supplierAddress = [
+    supplier.address_line1,
+    supplier.address_line2,
+    supplier.address_city,
+    supplier.address_country,
+  ]
+    .filter(Boolean)
+    .join(', ')
 
   return (
     <div className="invoice-sheet">
@@ -67,11 +74,11 @@ export default function PurchaseOrderPrintPage() {
       <div className="form-meta">
         <div>
           <div className="form-customer-name">{supplier.name}</div>
-          {supplier.address && <div>{supplier.address}</div>}
-          {supplier.email && (
+          {supplierAddress && <div>{supplierAddress}</div>}
+          {supplier.billing_email && (
             <div className="form-meta-row">
               <span className="muted">Email</span>
-              <span>: {supplier.email}</span>
+              <span>: {supplier.billing_email}</span>
             </div>
           )}
           {supplier.phone && (

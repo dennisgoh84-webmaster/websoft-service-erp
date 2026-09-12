@@ -14,9 +14,11 @@ from docx.shared import Pt
 from app.models.billing import Invoice
 from app.models.core import Company
 from app.models.customers import Customer
-from app.models.payables import PurchaseOrder, Supplier, SupplierPayment
+from app.models.job_orders import JobOrder
+from app.models.payables import PurchaseOrder, SupplierPayment
 from app.models.payments import Payment
 from app.models.quotations import Quotation
+from app.models.service_records import ServiceRecord
 
 
 def invoice_to_docx(invoice: Invoice, customer: Customer, company: Company) -> bytes:
@@ -249,7 +251,7 @@ def receipt_to_docx(
     return buf.getvalue()
 
 
-def purchase_order_to_docx(po: PurchaseOrder, supplier: Supplier, company: Company) -> bytes:
+def purchase_order_to_docx(po: PurchaseOrder, supplier: Customer, company: Company) -> bytes:
     """Same layout as frontend/src/pages/PurchaseOrderPrintPage.tsx --
     also what "Email PO" (2026-09-12) converts to PDF and attaches."""
     doc = Document()
@@ -281,12 +283,15 @@ def purchase_order_to_docx(po: PurchaseOrder, supplier: Supplier, company: Compa
     to_p.add_run(supplier.name + "\n").bold = True
     if supplier.gst_registration_no:
         to_p.add_run(f"GST Reg# {supplier.gst_registration_no}\n")
-    if supplier.email:
-        to_p.add_run(f"Email: {supplier.email}\n")
+    if supplier.billing_email:
+        to_p.add_run(f"Email: {supplier.billing_email}\n")
     if supplier.phone:
         to_p.add_run(f"Tel: {supplier.phone}\n")
-    if supplier.address:
-        to_p.add_run(supplier.address)
+    address = ", ".join(
+        filter(None, [supplier.address_line1, supplier.address_line2, supplier.address_city, supplier.address_country])
+    )
+    if address:
+        to_p.add_run(address)
 
     table = doc.add_table(rows=1, cols=2)
     table.style = "Light Grid Accent 1"
@@ -326,7 +331,7 @@ def purchase_order_to_docx(po: PurchaseOrder, supplier: Supplier, company: Compa
 
 
 def payment_voucher_to_docx(
-    payment: SupplierPayment, supplier: Supplier, company: Company, bill_numbers: dict
+    payment: SupplierPayment, supplier: Customer, company: Company, bill_numbers: dict
 ) -> bytes:
     doc = Document()
 
@@ -378,6 +383,114 @@ def payment_voucher_to_docx(
     if unallocated > 0:
         doc.add_paragraph()
         doc.add_paragraph(f"Unallocated: SGD {unallocated:.2f}")
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def service_record_to_docx(record: ServiceRecord, job_order: JobOrder, customer: Customer, company: Company) -> bytes:
+    """Same layout as frontend/src/pages/ServiceRecordPrintPage.tsx --
+    also what "Email" (2026-09-12) converts to PDF and attaches."""
+    doc = Document()
+
+    header = doc.add_paragraph()
+    header.add_run(company.name).bold = True
+    if company.address:
+        doc.add_paragraph(company.address)
+    if company.phone:
+        doc.add_paragraph(f"Tel: {company.phone}")
+
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = title.add_run("SERVICE RECORD")
+    run.bold = True
+    run.font.size = Pt(16)
+
+    meta = doc.add_paragraph()
+    meta.add_run(f"{record.service_record_number}\n").bold = True
+    meta.add_run(f"Job Order: {job_order.job_order_number} -- {job_order.subject}\n")
+    meta.add_run(f"Work Date: {record.work_date.isoformat()}\n")
+    meta.add_run(f"Status: {record.status.value.title()}\n")
+
+    doc.add_paragraph().add_run("Customer").italic = True
+    to_p = doc.add_paragraph()
+    to_p.add_run(customer.name)
+
+    table = doc.add_table(rows=1, cols=2)
+    table.style = "Light Grid Accent 1"
+    hdr = table.rows[0].cells
+    hdr[0].text = "Field"
+    hdr[1].text = "Value"
+    rows_data = [
+        ("Time logged (raw)", f"{record.raw_minutes} min"),
+        ("Time logged (rounded, SRV-007)", f"{record.rounded_minutes} min"),
+        ("Completion", "Completed" if record.completion_status.value == "C" else "Not yet completed -- another visit expected"),
+        ("After hours / weekend / holiday", "Yes" if record.is_after_hours else "No"),
+    ]
+    if record.deducted_minutes is not None:
+        rows_data.append(("Minutes deducted from contract", f"{record.deducted_minutes} min"))
+    for label, value in rows_data:
+        row = table.add_row().cells
+        row[0].text = label
+        row[1].text = value
+
+    doc.add_paragraph()
+    doc.add_paragraph("Signature & Company Stamp: ______________________________")
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def statement_to_docx(statement, customer: Customer, company: Company) -> bytes:
+    """`statement` is a CustomerStatement (see app/schemas/schemas.py) --
+    accepted duck-typed rather than imported, so this services module
+    doesn't take a dependency on the API schema layer. Same layout as
+    frontend/src/pages/StatementPrintPage.tsx; also what "Email" converts
+    to PDF and attaches (2026-09-12)."""
+    doc = Document()
+
+    header = doc.add_paragraph()
+    header.add_run(company.name).bold = True
+    if company.address:
+        doc.add_paragraph(company.address)
+    if company.gst_registration_no:
+        doc.add_paragraph(f"GST Reg# {company.gst_registration_no}")
+
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = title.add_run("STATEMENT OF ACCOUNTS")
+    run.bold = True
+    run.font.size = Pt(16)
+
+    meta = doc.add_paragraph()
+    meta.add_run(f"{customer.name}\n").bold = True
+    meta.add_run(f"As at: {statement.as_at.isoformat()}\n")
+    if statement.payment_terms_days is not None:
+        meta.add_run(f"Payment terms: Net {statement.payment_terms_days} days\n")
+
+    table = doc.add_table(rows=1, cols=5)
+    table.style = "Light Grid Accent 1"
+    hdr = table.rows[0].cells
+    hdr[0].text = "Invoice"
+    hdr[1].text = "Issued"
+    hdr[2].text = "Due"
+    hdr[3].text = "Total ($)"
+    hdr[4].text = "Outstanding ($)"
+    for line in statement.lines:
+        row = table.add_row().cells
+        row[0].text = line.invoice_number + (" (disputed)" if line.is_disputed else "")
+        row[1].text = line.issued_on.isoformat()
+        row[2].text = line.due_date.isoformat() if line.due_date else "-"
+        row[3].text = f"{line.total_amount_sgd:.2f}"
+        row[4].text = f"{line.outstanding_sgd:.2f}"
+
+    doc.add_paragraph()
+    totals = doc.add_paragraph()
+    totals.add_run(f"Total Outstanding: SGD {statement.total_outstanding_sgd:.2f}").bold = True
+    if statement.unallocated_credit_sgd > 0:
+        doc.add_paragraph(f"Unallocated credit on account: SGD {statement.unallocated_credit_sgd:.2f}")
 
     buf = io.BytesIO()
     doc.save(buf)

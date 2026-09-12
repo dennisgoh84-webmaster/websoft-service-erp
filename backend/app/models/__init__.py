@@ -13,7 +13,6 @@ from app.models.payables import (  # noqa: F401
     BillStatus,
     PurchaseOrder,
     PurchaseOrderStatus,
-    Supplier,
     SupplierInvoice,
     SupplierPayment,
     SupplierPaymentAllocation,

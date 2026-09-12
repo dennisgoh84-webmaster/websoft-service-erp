@@ -80,6 +80,11 @@ export default function CustomerDetailPage() {
 
   const [form, setForm] = useState(emptyForm())
   const [excludeAutoSent, setExcludeAutoSent] = useState(false)
+  // Role flags (2026-09-12): a record can be a customer, a supplier, or
+  // both -- ticking "Is Supplier" is what makes this record selectable
+  // on Purchase Order / Accounts Payable, instead of a separate file.
+  const [isCustomer, setIsCustomer] = useState(true)
+  const [isSupplier, setIsSupplier] = useState(false)
 
   // New-contact form
   const [contactName, setContactName] = useState('')
@@ -132,6 +137,8 @@ export default function CustomerDetailPage() {
           payment_terms_days: c.payment_terms_days === null ? '' : String(c.payment_terms_days),
         })
         setExcludeAutoSent(c.exclude_auto_sent)
+        setIsCustomer(c.is_customer)
+        setIsSupplier(c.is_supplier)
       })
       .catch(() => setNotFound(true))
     api.listContacts(id, true).then(setContacts).catch((e) => setError(e.message))
@@ -187,6 +194,8 @@ export default function CustomerDetailPage() {
         address_country: form.address_country || null,
         tags: form.tags || null,
         exclude_auto_sent: excludeAutoSent,
+        is_customer: isCustomer,
+        is_supplier: isSupplier,
         terms_and_conditions: form.terms_and_conditions || null,
         memo: form.memo || null,
         billing_notes: form.billing_notes || null,
@@ -373,6 +382,33 @@ export default function CustomerDetailPage() {
               <option value="individual">Individual</option>
             </select>
           </div>
+          <div className="form-row">
+            <label>Roles</label>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={isCustomer}
+                  onChange={(e) => setIsCustomer(e.target.checked)}
+                  style={{ width: 'auto' }}
+                />
+                Is Customer
+              </label>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={isSupplier}
+                  onChange={(e) => setIsSupplier(e.target.checked)}
+                  style={{ width: 'auto' }}
+                />
+                Is Supplier
+              </label>
+            </div>
+          </div>
+          <p className="muted" style={{ marginTop: -8 }}>
+            Tick "Is Supplier" to make this record selectable on Purchase Order / Accounts
+            Payable -- a record can be either, or both.
+          </p>
           <div className="form-row">
             <label>Name</label>
             <input {...field('name')} required />

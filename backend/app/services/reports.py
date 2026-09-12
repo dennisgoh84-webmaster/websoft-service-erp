@@ -24,7 +24,8 @@ from app.models.catalog import Product
 from app.models.contracts import Contract, ContractKind, ContractProduct, ContractStatus
 from app.models.customers import Customer
 from app.models.job_orders import JobOrder, JobOrderStatus
-from app.models.payables import BillStatus, Supplier, SupplierInvoice
+from app.models.customers import Customer
+from app.models.payables import BillStatus, SupplierInvoice
 from app.models.service_records import ServiceRecord, ServiceRecordOutcome, ServiceRecordStatus
 from app.models.setup import SetupListItem, SetupListType
 from app.services.accounts_receivable import aging_bucket_for
@@ -243,7 +244,7 @@ def ap_aging_rows(db: Session, company_id: uuid.UUID, as_at: date | None = None)
         .filter(SupplierInvoice.company_id == company_id, SupplierInvoice.status != BillStatus.PAID)
         .all()
     )
-    suppliers = {s.id: s.name for s in db.query(Supplier).filter(Supplier.company_id == company_id)}
+    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == company_id)}
 
     buckets: dict[uuid.UUID, dict[str, Decimal]] = {}
     for bill in bills:

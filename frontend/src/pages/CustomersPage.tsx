@@ -19,6 +19,7 @@ export default function CustomersPage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [terms, setTerms] = useState('')
+  const [isSupplier, setIsSupplier] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Dynamic filter -- search for a particular customer, pull up a
@@ -89,12 +90,14 @@ export default function CustomersPage() {
         billing_email: email || undefined,
         phone: phone || undefined,
         payment_terms_days: terms === '' ? null : parseInt(terms, 10),
+        is_supplier: isSupplier,
       })
       setName('')
       setCustomerType('company')
       setEmail('')
       setPhone('')
       setTerms('')
+      setIsSupplier(false)
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create customer')
@@ -105,10 +108,11 @@ export default function CustomersPage() {
     <div>
       <h1>Company / Individual</h1>
       <p className="muted">
-        Company / Individual records (Customer Management) -- the account each contract, job order, and
-        invoice belongs to. Use Relationships (on a record's own page) to link it to another Company /
-        Individual, a specific Contact there, or note it also acts as a supplier or dealer -- Suppliers
-        for Accounts Payable purposes are still managed separately under Accounts Payable.
+        Company / Individual records (Customer Management) -- the account each contract, job order,
+        and invoice belongs to. A record can also be ticked "Is Supplier" (here, or on its own page)
+        to make it selectable on Purchase Order / Accounts Payable -- there is no separate supplier
+        file. Use Relationships (on a record's own page) to link it to another Company / Individual
+        or a specific Contact there.
       </p>
 
       <div className="card" style={{ marginTop: 20 }}>
@@ -146,6 +150,17 @@ export default function CustomersPage() {
               onChange={(e) => setTerms(e.target.value)}
               placeholder="e.g. 30 -- leave blank if not yet agreed"
             />
+          </div>
+          <div className="form-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={isSupplier}
+                onChange={(e) => setIsSupplier(e.target.checked)}
+                style={{ width: 'auto', marginRight: 8 }}
+              />
+              Is Supplier (selectable on Purchase Order / Accounts Payable)
+            </label>
           </div>
           {error && <div className="error-banner">{error}</div>}
           <button type="submit">Add customer</button>
@@ -209,6 +224,7 @@ export default function CustomersPage() {
               <th>Group</th>
               <th>Industry</th>
               <th>Type</th>
+              <th>Roles</th>
               <th>Email</th>
               <th>Phone</th>
               <th>Address</th>
@@ -226,6 +242,9 @@ export default function CustomersPage() {
                 <td className="muted">{groupName(c.customer_group_id) ?? '-'}</td>
                 <td className="muted">{industryName(c.industry_code) ?? '-'}</td>
                 <td className="muted">{c.customer_type === 'individual' ? 'Individual' : 'Company'}</td>
+                <td className="muted">
+                  {[c.is_customer && 'Customer', c.is_supplier && 'Supplier'].filter(Boolean).join(' + ') || '-'}
+                </td>
                 <td>{c.billing_email ?? '-'}</td>
                 <td>{c.phone ?? '-'}</td>
                 <td className="muted">
@@ -251,7 +270,7 @@ export default function CustomersPage() {
             ))}
             {customers.length === 0 && (
               <tr>
-                <td colSpan={10} className="muted">
+                <td colSpan={11} className="muted">
                   No customers match these filters.
                 </td>
               </tr>

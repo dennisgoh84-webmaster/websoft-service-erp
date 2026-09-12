@@ -265,6 +265,12 @@ class CustomerCreate(BaseModel):
     # 2026-09-10); null means not yet agreed, and invoices carry no due
     # date until they are.
     payment_terms_days: int | None = Field(default=None, ge=0)
+    # Role flags (2026-09-12): a record can be a customer, a supplier, or
+    # both -- see Customer model docstring. is_customer defaults True
+    # since that's the page's usual purpose; tick is_supplier to also
+    # make this record selectable on Purchase Order / AP.
+    is_customer: bool = True
+    is_supplier: bool = False
 
 
 class CustomerUpdate(BaseModel):
@@ -292,6 +298,8 @@ class CustomerUpdate(BaseModel):
     memo: str | None = None
     billing_notes: str | None = None
     payment_terms_days: int | None = Field(default=None, ge=0)
+    is_customer: bool | None = None
+    is_supplier: bool | None = None
 
 
 class CustomerOut(BaseModel):
@@ -321,6 +329,8 @@ class CustomerOut(BaseModel):
     memo: str | None
     billing_notes: str | None
     payment_terms_days: int | None
+    is_customer: bool
+    is_supplier: bool
     is_active: bool
     created_at: datetime
 
@@ -905,37 +915,10 @@ class TrialBalance(BaseModel):
 
 
 # ---- Accounts Payable ----
-class SupplierOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: uuid.UUID
-    name: str
-    email: str | None
-    phone: str | None
-    address: str | None
-    gst_registration_no: str | None
-    payment_terms_days: int | None
-    is_active: bool
-
-
-class SupplierCreate(BaseModel):
-    name: str = Field(min_length=1)
-    email: str | None = None
-    phone: str | None = None
-    address: str | None = None
-    gst_registration_no: str | None = None
-    payment_terms_days: int | None = Field(default=None, ge=0)
-
-
-class SupplierUpdate(BaseModel):
-    name: str | None = None
-    email: str | None = None
-    phone: str | None = None
-    address: str | None = None
-    gst_registration_no: str | None = None
-    payment_terms_days: int | None = Field(default=None, ge=0)
-    is_active: bool | None = None
-
-
+# Supplier CRUD schemas were removed 2026-09-12: a supplier is a Customer
+# (Company/Individual) record flagged is_supplier=True -- see
+# CustomerCreate/CustomerUpdate/CustomerOut above, and
+# app/models/payables.py's module docstring.
 class PurchaseOrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

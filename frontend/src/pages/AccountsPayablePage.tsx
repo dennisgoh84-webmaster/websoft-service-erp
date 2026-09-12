@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type APAgingReport, type PurchaseOrder, type Supplier, type SupplierInvoice } from '../lib/api'
+import { api, downloadBlob, type APAgingReport, type Customer, type PurchaseOrder, type SupplierInvoice } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -14,18 +14,12 @@ const BILL_BADGE: Record<string, string> = {
 }
 
 export default function AccountsPayablePage() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [suppliers, setSuppliers] = useState<Customer[]>([])
   const [pos, setPos] = useState<PurchaseOrder[]>([])
   const [bills, setBills] = useState<SupplierInvoice[]>([])
   const [aging, setAging] = useState<APAgingReport | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-
-  // New supplier
-  const [supName, setSupName] = useState('')
-  const [supEmail, setSupEmail] = useState('')
-  const [supPhone, setSupPhone] = useState('')
-  const [supTerms, setSupTerms] = useState('')
 
   // New bill
   const [billSupplier, setBillSupplier] = useState('')
@@ -36,7 +30,9 @@ export default function AccountsPayablePage() {
   const [billRef, setBillRef] = useState('')
 
   function refresh() {
-    api.listSuppliers().then(setSuppliers).catch((e) => setError(e.message))
+    // 2026-09-12: a supplier is a Company/Individual record flagged
+    // is_supplier=true -- managed on that page, just read here.
+    api.listCustomers({ is_supplier: true }).then(setSuppliers).catch((e) => setError(e.message))
     api.listPurchaseOrders().then(setPos).catch((e) => setError(e.message))
     api.listBills().then(setBills).catch((e) => setError(e.message))
     api.apAging().then(setAging).catch((e) => setError(e.message))
@@ -45,26 +41,6 @@ export default function AccountsPayablePage() {
   useEffect(refresh, [])
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? id.slice(0, 8)
-
-  async function onAddSupplier(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    try {
-      await api.createSupplier({
-        name: supName,
-        email: supEmail || undefined,
-        phone: supPhone || undefined,
-        payment_terms_days: supTerms === '' ? null : parseInt(supTerms, 10),
-      })
-      setSupName('')
-      setSupEmail('')
-      setSupPhone('')
-      setSupTerms('')
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add supplier')
-    }
-  }
 
   async function onCreateBill(e: FormEvent) {
     e.preventDefault()
@@ -100,15 +76,6 @@ export default function AccountsPayablePage() {
       downloadBlob(await api.exportApAgingCsv(), 'ap-aging.csv')
     } else {
       downloadBlob(await api.exportApAgingExcel(), 'ap-aging.xlsx')
-    }
-  }
-
-  async function onExportSuppliers(format: string) {
-    setError(null)
-    if (format === 'csv') {
-      downloadBlob(await api.exportSuppliersCsv(), 'suppliers.csv')
-    } else {
-      downloadBlob(await api.exportSuppliersExcel(), 'suppliers.xlsx')
     }
   }
 
@@ -191,15 +158,12 @@ export default function AccountsPayablePage() {
       <div className="card">
         <div className="filter-bar">
           <h2 style={{ margin: 0 }}>Suppliers ({suppliers.length})</h2>
-          <ExportControl
-            formats={[
-              { value: 'csv', label: 'CSV' },
-              { value: 'excel', label: 'Excel' },
-            ]}
-            onExport={onExportSuppliers}
-            onError={setError}
-          />
         </div>
+        <p className="muted">
+          A supplier is a <Link to="/customers">Company / Individual</Link> record ticked "Is
+          Supplier" there -- add or edit suppliers (including email and phone, used by Purchase
+          Order's Email/WhatsApp) on that page, not here.
+        </p>
         <table>
           <thead>
             <tr>
@@ -213,7 +177,7 @@ export default function AccountsPayablePage() {
             {suppliers.map((s) => (
               <tr key={s.id}>
                 <td>{s.name}</td>
-                <td>{s.email ?? '-'}</td>
+                <td>{s.billing_email ?? '-'}</td>
                 <td>{s.phone ?? '-'}</td>
                 <td>
                   {s.payment_terms_days === null ? (
@@ -227,44 +191,12 @@ export default function AccountsPayablePage() {
             {suppliers.length === 0 && (
               <tr>
                 <td colSpan={4} className="muted">
-                  No suppliers yet.
+                  No suppliers yet -- tick "Is Supplier" on a Company/Individual record.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-        <h2 style={{ marginTop: 18 }}>Add supplier</h2>
-        <form onSubmit={onAddSupplier}>
-          <div className="form-row">
-            <label>Name</label>
-            <input value={supName} onChange={(e) => setSupName(e.target.value)} required />
-          </div>
-          <div className="form-row">
-            <label>Email</label>
-            <input type="email" value={supEmail} onChange={(e) => setSupEmail(e.target.value)} />
-          </div>
-          <div className="form-row">
-            <label>Phone</label>
-            <input
-              value={supPhone}
-              onChange={(e) => setSupPhone(e.target.value)}
-              placeholder="e.g. +65 9123 4567 -- used for WhatsApp"
-            />
-          </div>
-          <div className="form-row">
-            <label>Payment terms (days)</label>
-            <input
-              type="number"
-              min={0}
-              value={supTerms}
-              onChange={(e) => setSupTerms(e.target.value)}
-              placeholder="Leave blank if not yet agreed"
-            />
-          </div>
-          <button type="submit" disabled={!supName}>
-            Add supplier
-          </button>
-        </form>
       </div>
 
       <p className="muted">

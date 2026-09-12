@@ -1,6 +1,14 @@
 """
-Accounts Payable -- suppliers, purchase orders, supplier invoices (bills)
-and supplier payments.
+Accounts Payable -- purchase orders, supplier invoices (bills) and
+supplier payments. The supplier itself is NOT modelled here: 2026-09-12
+("when talking about supplier, remember to use the same company/
+individual file, do not add or reinvent a new one again") folded the
+former standalone Supplier table into Customer (app/models/customers.py)
+as a role flag -- `Customer.is_supplier`. Every `supplier_id` column
+below is a foreign key to `customers.id`; the name is kept as
+`supplier_id`/`supplier` throughout this module (not renamed to
+`customer_id`) purely so the AP-specific meaning stays obvious in this
+file's own code, without implying a second, separate master record.
 
 Confirmed rules this supports:
 - PUR-001: purchase order approval is value-based. Below the company's
@@ -20,45 +28,19 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean,
     Date,
     DateTime,
     Enum,
     ForeignKey,
-    Integer,
     Numeric,
     String,
-    Text,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-
-
-class Supplier(Base):
-    """A vendor Webmaster buys from."""
-
-    __tablename__ = "suppliers"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # Free-text as entered (e.g. "+65 9123 4567") -- WhatsApp-out strips
-    # non-digits at send time rather than forcing a strict format here.
-    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    address: Mapped[str | None] = mapped_column(Text, nullable=True)
-    gst_registration_no: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    # Days from the supplier's invoice date. Null means terms not agreed,
-    # so a bill gets no due date rather than an invented one -- the same
-    # treatment customers get.
-    payment_terms_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+from app.models.customers import Customer  # noqa: F401 -- used in string type hints below
 
 
 class PurchaseOrderStatus(str, enum.Enum):
@@ -78,7 +60,7 @@ class PurchaseOrder(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
-    supplier_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
+    supplier_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
     po_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     order_date: Mapped[date] = mapped_column(Date, nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -97,7 +79,7 @@ class PurchaseOrder(Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    supplier: Mapped["Supplier"] = relationship()
+    supplier: Mapped["Customer"] = relationship()
     # Bills raised against this PO -- "confirm and import to AP" (2026-09-12)
     # checks this to stop a PO being imported into AP twice.
     bills: Mapped[list["SupplierInvoice"]] = relationship(back_populates="purchase_order")
@@ -128,7 +110,7 @@ class SupplierInvoice(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
-    supplier_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
+    supplier_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
     purchase_order_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("purchase_orders.id"), nullable=True
     )
@@ -158,7 +140,7 @@ class SupplierInvoice(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    supplier: Mapped["Supplier"] = relationship()
+    supplier: Mapped["Customer"] = relationship()
     purchase_order: Mapped["PurchaseOrder | None"] = relationship(back_populates="bills")
 
     @property
@@ -177,7 +159,7 @@ class SupplierPayment(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
-    supplier_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
+    supplier_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
     voucher_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
 
     payment_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -191,7 +173,7 @@ class SupplierPayment(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    supplier: Mapped["Supplier"] = relationship()
+    supplier: Mapped["Customer"] = relationship()
     allocations: Mapped[list["SupplierPaymentAllocation"]] = relationship(
         back_populates="payment", cascade="all, delete-orphan"
     )

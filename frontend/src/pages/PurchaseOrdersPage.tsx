@@ -1,12 +1,13 @@
 // Split out of AccountsPayablePage.tsx (2026-09-12) into its own nav
 // item, directly above Accounts Payable: "confirm and import to AP" plus
-// Print/Email/WhatsApp needed enough room of its own. Suppliers are still
-// managed on the Accounts Payable page -- this page only reads that list
-// to populate the "Raise a purchase order" form.
+// Print/Email/WhatsApp needed enough room of its own. A supplier is a
+// Company/Individual record flagged is_supplier=true (not a separate
+// master) -- this page only reads that list to populate the "Raise a
+// purchase order" form; add/edit suppliers on the Company/Individual page.
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type PurchaseOrder, type Supplier } from '../lib/api'
+import { api, downloadBlob, type Customer, type PurchaseOrder } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -23,7 +24,7 @@ function waNumber(phone: string): string {
 }
 
 export default function PurchaseOrdersPage() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [suppliers, setSuppliers] = useState<Customer[]>([])
   const [pos, setPos] = useState<PurchaseOrder[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -35,7 +36,7 @@ export default function PurchaseOrdersPage() {
   const [poAmount, setPoAmount] = useState('')
 
   function refresh() {
-    api.listSuppliers().then(setSuppliers).catch((e) => setError(e.message))
+    api.listCustomers({ is_supplier: true }).then(setSuppliers).catch((e) => setError(e.message))
     api.listPurchaseOrders().then(setPos).catch((e) => setError(e.message))
   }
 
@@ -113,7 +114,7 @@ export default function PurchaseOrdersPage() {
     setError(null)
     const supplier = supplierOf(po.supplier_id)
     if (!supplier?.phone) {
-      setError(`${supplierName(po.supplier_id)} has no phone number on file -- add one on the Accounts Payable page first.`)
+      setError(`${supplierName(po.supplier_id)} has no phone number on file -- add one on the Company/Individual page first.`)
       return
     }
     const text = `Purchase Order ${po.po_number}, SGD ${money(po.total_amount_sgd)} -- ${po.description}. PDF to follow.`
@@ -136,8 +137,9 @@ export default function PurchaseOrdersPage() {
         PUR-001: purchase orders above the threshold set in Company Setup need the owner's
         approval -- with none set, every PO does. Once approved, "Import to AP" turns a PO
         straight into its matching bill (2-way matched, PUR-002/003) instead of re-typing it on
-        the <Link to="/accounts-payable">Accounts Payable</Link> page. Suppliers (including their
-        email and phone for Email/WhatsApp) are also managed there.
+        the <Link to="/accounts-payable">Accounts Payable</Link> page. A supplier is a{' '}
+        <Link to="/customers">Company / Individual</Link> record ticked "Is Supplier" there --
+        add or edit suppliers (including email and phone for Email/WhatsApp) on that page.
       </p>
       {error && <div className="error-banner">{error}</div>}
       {message && (
@@ -210,8 +212,8 @@ export default function PurchaseOrdersPage() {
                         </Link>
                         <button
                           className="secondary"
-                          disabled={busyId === po.id || !supplier?.email}
-                          title={supplier?.email ? undefined : 'Add an email on the Accounts Payable page first'}
+                          disabled={busyId === po.id || !supplier?.billing_email}
+                          title={supplier?.billing_email ? undefined : 'Add an email on the Company/Individual page first'}
                           onClick={() => onEmailPO(po)}
                         >
                           Email
@@ -219,7 +221,7 @@ export default function PurchaseOrdersPage() {
                         <button
                           className="secondary"
                           disabled={busyId === po.id || !supplier?.phone}
-                          title={supplier?.phone ? undefined : 'Add a phone number on the Accounts Payable page first'}
+                          title={supplier?.phone ? undefined : 'Add a phone number on the Company/Individual page first'}
                           onClick={() => onWhatsAppPO(po)}
                         >
                           WhatsApp

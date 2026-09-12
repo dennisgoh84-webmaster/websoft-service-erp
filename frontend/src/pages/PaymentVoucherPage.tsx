@@ -1,16 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Supplier, type SupplierInvoice, type SupplierPayment } from '../lib/api'
+import { api, downloadBlob, type Customer, type SupplierInvoice, type SupplierPayment } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
 export default function PaymentVoucherPage() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [suppliers, setSuppliers] = useState<Customer[]>([])
   const [bills, setBills] = useState<SupplierInvoice[]>([])
   const [payments, setPayments] = useState<SupplierPayment[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   const [paySupplier, setPaySupplier] = useState('')
   const [payAmount, setPayAmount] = useState('')
@@ -19,7 +20,7 @@ export default function PaymentVoucherPage() {
   const [allocFor, setAllocFor] = useState<Record<string, { billId: string; amount: string }>>({})
 
   function refresh() {
-    api.listSuppliers().then(setSuppliers).catch((e) => setError(e.message))
+    api.listCustomers({ is_supplier: true }).then(setSuppliers).catch((e) => setError(e.message))
     api.listBills().then(setBills).catch((e) => setError(e.message))
     api.listSupplierPayments().then(setPayments).catch((e) => setError(e.message))
   }
@@ -27,6 +28,7 @@ export default function PaymentVoucherPage() {
   useEffect(refresh, [])
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? id.slice(0, 8)
+  const supplierOf = (id: string) => suppliers.find((s) => s.id === id)
   const openBills = bills.filter((b) => b.outstanding_sgd > 0)
 
   async function onRecordPayment(e: FormEvent) {
@@ -74,6 +76,31 @@ export default function PaymentVoucherPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to allocate payment')
     }
+  }
+
+  async function onEmail(p: SupplierPayment) {
+    setError(null)
+    setMessage(null)
+    setBusyId(p.id)
+    try {
+      const result = await api.emailSupplierPayment(p.id)
+      setMessage(`${p.voucher_number} emailed to ${result.to}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to email payment voucher')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function onWhatsApp(p: SupplierPayment) {
+    setError(null)
+    const supplier = supplierOf(p.supplier_id)
+    if (!supplier?.phone) {
+      setError(`${supplierName(p.supplier_id)} has no phone number on file -- add one on the Company/Individual page first.`)
+      return
+    }
+    const text = `Payment Voucher ${p.voucher_number}, SGD ${money(p.amount_sgd)}. PDF to follow.`
+    window.open(`https://wa.me/${supplier.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   return (
@@ -168,9 +195,27 @@ export default function PaymentVoucherPage() {
                     )}
                   </td>
                   <td>
-                    <Link to={`/payment-voucher/${p.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
-                      Print
-                    </Link>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <Link to={`/payment-voucher/${p.id}/print`} className="secondary" style={{ padding: '6px 10px' }}>
+                        Print
+                      </Link>
+                      <button
+                        className="secondary"
+                        disabled={busyId === p.id || !supplierOf(p.supplier_id)?.billing_email}
+                        title={supplierOf(p.supplier_id)?.billing_email ? undefined : 'Add an email on the Company/Individual page first'}
+                        onClick={() => onEmail(p)}
+                      >
+                        Email
+                      </button>
+                      <button
+                        className="secondary"
+                        disabled={busyId === p.id || !supplierOf(p.supplier_id)?.phone}
+                        title={supplierOf(p.supplier_id)?.phone ? undefined : 'Add a phone number on the Company/Individual page first'}
+                        onClick={() => onWhatsApp(p)}
+                      >
+                        WhatsApp
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )
