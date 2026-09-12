@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import advertisements, auth, clients, config_updates, dashboard, licenses
+from app.routers import advertisements, auth, clients, config_updates, dashboard, licenses, versions, staff
 
 app = FastAPI(title=settings.app_name)
 
@@ -27,6 +27,8 @@ app.include_router(clients.router)
 app.include_router(advertisements.router)
 app.include_router(licenses.router)
 app.include_router(config_updates.router)
+app.include_router(versions.router)
+app.include_router(staff.router)
 
 
 @app.get("/api/health")

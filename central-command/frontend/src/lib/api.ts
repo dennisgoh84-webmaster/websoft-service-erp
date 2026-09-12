@@ -33,7 +33,10 @@ export interface AdminUser {
   id: string
   username: string
   full_name: string
+  email: string | null
+  role: string
   is_active: boolean
+  created_at: string | null
 }
 
 export interface Client {
@@ -142,6 +145,55 @@ export interface PushResult {
   results: { client: string; success: boolean; error?: string; count?: number }[]
 }
 
+// ── Version Control ──────────────────────────────────────────────
+export interface ERPVersion {
+  id: string
+  version_number: string
+  alembic_head: string
+  release_notes: string | null
+  status: string
+  is_latest: boolean
+  released_at: string | null
+  created_at: string
+}
+
+export interface ClientVersionInfo {
+  client_id: string
+  client_name: string
+  client_code: string
+  current_alembic_head: string | null
+  current_version: string | null
+  latest_version: string | null
+  is_up_to_date: boolean
+  status: string
+}
+
+export interface UpgradeLog {
+  id: string
+  client_id: string
+  from_version: string | null
+  to_version: string
+  to_alembic_head: string
+  success: boolean
+  error_message: string | null
+  upgraded_at: string
+  upgraded_by: string | null
+}
+
+// ── Staff / Support Logins ───────────────────────────────────────
+export interface SupportLogin {
+  id: string
+  admin_user_id: string
+  client_id: string
+  login_email: string
+  client_user_id: string | null
+  status: string
+  reason: string | null
+  pushed_at: string
+  pushed_by: string | null
+  revoked_at: string | null
+}
+
 // ── API methods ──────────────────────────────────────────────────────
 
 export const api = {
@@ -208,4 +260,41 @@ export const api = {
     request<PushResult & { total: number; successes: number }>(`/config-updates/${id}/push`, { method: 'POST' }),
   pushConfigToClient: (updateId: string, clientId: string) =>
     request<{ success: boolean }>(`/config-updates/${updateId}/push/${clientId}`, { method: 'POST' }),
+
+  // Version Control
+  listVersions: () => request<ERPVersion[]>('/versions/'),
+  createVersion: (data: { version_number: string; alembic_head: string; release_notes?: string }) =>
+    request<ERPVersion>('/versions/', { method: 'POST', body: JSON.stringify(data) }),
+  updateVersion: (id: string, data: Partial<ERPVersion>) =>
+    request<ERPVersion>(`/versions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteVersion: (id: string) =>
+    request<void>(`/versions/${id}`, { method: 'DELETE' }),
+  getClientVersions: () => request<ClientVersionInfo[]>('/versions/clients'),
+  upgradeClient: (clientId: string, versionId: string) =>
+    request<{ success: boolean; client: string; to_version: string }>(`/versions/clients/${clientId}/upgrade`, {
+      method: 'POST',
+      body: JSON.stringify({ version_id: versionId }),
+    }),
+  getUpgradeLogs: (clientId?: string) =>
+    request<UpgradeLog[]>(`/versions/upgrade-logs${clientId ? `?client_id=${clientId}` : ''}`),
+
+  // Staff Management
+  listStaff: () => request<AdminUser[]>('/staff/'),
+  createStaff: (data: { username: string; full_name: string; email?: string; password: string; role: string }) =>
+    request<AdminUser>('/staff/', { method: 'POST', body: JSON.stringify(data) }),
+  updateStaff: (id: string, data: Partial<{ full_name: string; email: string; role: string; is_active: boolean; password: string }>) =>
+    request<AdminUser>(`/staff/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteStaff: (id: string) =>
+    request<void>(`/staff/${id}`, { method: 'DELETE' }),
+
+  // Support Logins
+  listSupportLogins: (clientId?: string) =>
+    request<SupportLogin[]>(`/staff/support-logins${clientId ? `?client_id=${clientId}` : ''}`),
+  pushSupportLogin: (data: { client_id: string; admin_user_id: string; login_email: string; login_password: string; reason?: string }) =>
+    request<{ success: boolean; client: string; login_email: string }>('/staff/support-logins/push', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  revokeSupportLogin: (loginId: string) =>
+    request<{ success: boolean }>(`/staff/support-logins/${loginId}/revoke`, { method: 'POST' }),
 }

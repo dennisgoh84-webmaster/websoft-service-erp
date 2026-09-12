@@ -8,6 +8,8 @@ const NAV = [
   { to: '/advertisements', label: '📢 Advertisements' },
   { to: '/licenses', label: '🔑 Licenses' },
   { to: '/config-updates', label: '⚙️ Config Updates' },
+  { to: '/versions', label: '🔄 Version Control' },
+  { to: '/staff', label: '👤 Staff' },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {

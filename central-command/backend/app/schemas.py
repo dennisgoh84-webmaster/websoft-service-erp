@@ -22,7 +22,10 @@ class AdminUserOut(BaseModel):
     id: uuid.UUID
     username: str
     full_name: str
+    email: str | None = None
+    role: str = "admin"
     is_active: bool
+    created_at: datetime | None = None
 
 
 # ── Clients ───────────────────────────────────────────────────────────
@@ -211,3 +214,100 @@ class DashboardStats(BaseModel):
     total_config_updates: int
     pending_pushes: int
     recent_pushes: list[PushLogOut]
+
+
+# ── Staff Management ─────────────────────────────────────────────────
+class StaffCreate(BaseModel):
+    username: str
+    full_name: str
+    email: str | None = None
+    password: str
+    role: str = "admin"
+
+
+class StaffUpdate(BaseModel):
+    full_name: str | None = None
+    email: str | None = None
+    role: str | None = None
+    is_active: bool | None = None
+    password: str | None = None
+
+
+class SupportLoginPush(BaseModel):
+    """Push a support login to a client ERP database."""
+    client_id: uuid.UUID
+    admin_user_id: uuid.UUID
+    login_email: str
+    login_password: str
+    reason: str | None = None
+
+
+class SupportLoginOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    admin_user_id: uuid.UUID
+    client_id: uuid.UUID
+    login_email: str
+    client_user_id: str | None
+    status: str
+    reason: str | None
+    pushed_at: datetime
+    pushed_by: uuid.UUID | None
+    revoked_at: datetime | None
+
+
+# ── Version Control ──────────────────────────────────────────────────
+class ERPVersionCreate(BaseModel):
+    version_number: str
+    alembic_head: str
+    release_notes: str | None = None
+
+
+class ERPVersionUpdate(BaseModel):
+    version_number: str | None = None
+    alembic_head: str | None = None
+    release_notes: str | None = None
+    status: str | None = None
+    is_latest: bool | None = None
+
+
+class ERPVersionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    version_number: str
+    alembic_head: str
+    release_notes: str | None
+    status: str
+    is_latest: bool
+    released_at: datetime | None
+    created_at: datetime
+
+
+class ClientVersionInfo(BaseModel):
+    """A client's current version status compared to the latest."""
+    client_id: uuid.UUID
+    client_name: str
+    client_code: str
+    current_alembic_head: str | None
+    current_version: str | None
+    latest_version: str | None
+    is_up_to_date: bool
+    status: str
+
+
+class UpgradeAction(BaseModel):
+    """Push an upgrade to a client."""
+    version_id: uuid.UUID
+
+
+class UpgradeLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    client_id: uuid.UUID
+    from_version: str | None
+    to_version: str
+    to_alembic_head: str
+    success: bool
+    error_message: str | None
+    upgraded_at: datetime
+    upgraded_by: uuid.UUID | None

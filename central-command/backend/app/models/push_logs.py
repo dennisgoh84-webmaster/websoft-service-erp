@@ -18,6 +18,8 @@ class PushType(str, enum.Enum):
     VIDEO = "video"
     LICENSE = "license"
     CONFIG = "config"
+    VERSION = "version"
+    SUPPORT_LOGIN = "support_login"
 
 
 class PushLog(Base):

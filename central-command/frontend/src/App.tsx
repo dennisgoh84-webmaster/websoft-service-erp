@@ -8,6 +8,8 @@ import ClientDetailPage from './pages/ClientDetailPage'
 import AdvertisementsPage from './pages/AdvertisementsPage'
 import LicensesPage from './pages/LicensesPage'
 import ConfigUpdatesPage from './pages/ConfigUpdatesPage'
+import VersionControlPage from './pages/VersionControlPage'
+import StaffPage from './pages/StaffPage'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -32,6 +34,8 @@ export default function App() {
         <Route path="/advertisements" element={<AdvertisementsPage />} />
         <Route path="/licenses" element={<LicensesPage />} />
         <Route path="/config-updates" element={<ConfigUpdatesPage />} />
+        <Route path="/versions" element={<VersionControlPage />} />
+        <Route path="/staff" element={<StaffPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Layout>
