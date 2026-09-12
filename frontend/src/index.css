@@ -595,9 +595,15 @@ button:disabled {
   font-size: 40px;
   color: var(--accent);
 }
-/* Same size as the default .stat-value -- just coloured to match each
-   status's own pill colour (confirmed 2026-09-11), so Not
+/* Same size as .stat-value-total (2026-09-11: "different color for same
+   size") -- just coloured to match each status's own pill colour, so Not
    started/In progress/Blocked/Done are distinguishable at a glance. */
+.stat-value-not-started,
+.stat-value-in-progress,
+.stat-value-blocked,
+.stat-value-done {
+  font-size: 40px;
+}
 .stat-value-not-started {
   color: var(--warn-text);
 }
@@ -615,10 +621,32 @@ button:disabled {
   color: var(--text-muted);
   margin-top: 2px;
 }
-.stat-label-total {
-  font-size: 14px;
+/* All 5 labels the same size/weight (2026-09-12: "all the same size diff
+   colour, all to follow Total Tasks size") -- a touch bigger than the
+   plain .stat-label default, but always smaller than the 40px number
+   above it, then coloured to match that tile's own number. */
+.stat-label-total,
+.stat-label-not-started,
+.stat-label-in-progress,
+.stat-label-blocked,
+.stat-label-done {
+  font-size: 15px;
   font-weight: 600;
+}
+.stat-label-total {
   color: var(--accent);
+}
+.stat-label-not-started {
+  color: var(--warn-text);
+}
+.stat-label-in-progress {
+  color: var(--info-text);
+}
+.stat-label-blocked {
+  color: var(--danger);
+}
+.stat-label-done {
+  color: var(--ok-text);
 }
 
 .login-shell {

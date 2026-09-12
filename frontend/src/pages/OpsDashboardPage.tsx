@@ -196,19 +196,19 @@ export default function OpsDashboardPage() {
         </div>
         <div className="card stat-tile">
           <div className="stat-value stat-value-not-started">{dashboard.open_count}</div>
-          <div className="stat-label">Not started</div>
+          <div className="stat-label stat-label-not-started">Not started</div>
         </div>
         <div className="card stat-tile">
           <div className="stat-value stat-value-in-progress">{dashboard.in_progress_count}</div>
-          <div className="stat-label">In progress / Watch</div>
+          <div className="stat-label stat-label-in-progress">In progress / Watch</div>
         </div>
         <div className="card stat-tile">
           <div className="stat-value stat-value-blocked">{dashboard.blocked_count}</div>
-          <div className="stat-label">Blocked</div>
+          <div className="stat-label stat-label-blocked">Blocked</div>
         </div>
         <div className="card stat-tile">
           <div className="stat-value stat-value-done">{dashboard.done_count}</div>
-          <div className="stat-label">Done</div>
+          <div className="stat-label stat-label-done">Done</div>
         </div>
       </div>
 
