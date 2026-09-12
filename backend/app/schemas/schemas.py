@@ -31,6 +31,39 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class LoginResult(BaseModel):
+    """The response to /auth/login, /auth/verify-otp and /auth/change-
+    password (2026-09-12: forced first-login password change + email
+    OTP). Only one of the three token fields is ever set, matching
+    `status`:
+    - "ok": `access_token` -- signed in, no further step needed.
+    - "must_change_password": `change_token` -- a first-login (or post-
+      admin-reset) account must set its own password via
+      POST /auth/change-password before it can sign in.
+    - "otp_required": `otp_token` -- a 6-digit code was emailed; call
+      POST /auth/verify-otp with it to get the real access_token.
+    Every non-access token here carries a "purpose" claim so it can
+    never be used as a bearer token even if intercepted -- see
+    app/services/auth.py.
+    """
+
+    status: str  # "ok" | "must_change_password" | "otp_required"
+    access_token: str | None = None
+    token_type: str = "bearer"
+    change_token: str | None = None
+    otp_token: str | None = None
+
+
+class VerifyOtpRequest(BaseModel):
+    otp_token: str
+    code: str = Field(min_length=6, max_length=6)
+
+
+class ChangePasswordRequest(BaseModel):
+    change_token: str
+    new_password: str = Field(min_length=8)
+
+
 class CurrentUser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -104,6 +137,10 @@ class UserOut(BaseModel):
     # Confirmed 2026-09-11: shown on Staff Master and Support Monitoring.
     # A data URI, same inline-image pattern as Company.logo.
     photo: str | None
+    # Confirmed 2026-09-12: lets Staff Master flag accounts that still
+    # need to set their own password (new hires, and anyone whose
+    # password an admin just reset).
+    must_change_password: bool
     is_active: bool
     created_at: datetime
 
@@ -271,6 +308,12 @@ class CompanyIndividualCreate(BaseModel):
     # make this record selectable on Purchase Order / AP.
     is_customer: bool = True
     is_supplier: bool = False
+    # PDPA (2026-09-12): when all data relating to this record must be
+    # archived. Optional -- not every record has an agreed expiry yet.
+    # PDPA consent itself is NOT set here: it is recorded (with a
+    # server-stamped date/time) via the dedicated POST .../pdpa-consent
+    # endpoint, never as a plain field a client can set silently.
+    data_expiry_date: date | None = None
 
 
 class CompanyIndividualUpdate(BaseModel):
@@ -300,6 +343,7 @@ class CompanyIndividualUpdate(BaseModel):
     payment_terms_days: int | None = Field(default=None, ge=0)
     is_customer: bool | None = None
     is_supplier: bool | None = None
+    data_expiry_date: date | None = None
 
 
 class CompanyIndividualOut(BaseModel):
@@ -331,8 +375,24 @@ class CompanyIndividualOut(BaseModel):
     payment_terms_days: int | None
     is_customer: bool
     is_supplier: bool
+    # PDPA (2026-09-12).
+    pdpa_consent_given: bool
+    pdpa_consent_at: datetime | None
+    data_expiry_date: date | None
+    is_archived: bool
+    archived_at: datetime | None
     is_active: bool
     created_at: datetime
+
+
+class PdpaConsentUpdate(BaseModel):
+    """Ticks/unticks the PDPA-agreement-esigned checkbox on a Company/
+    Individual file. The date/time is never taken from the client --
+    the server stamps `pdpa_consent_at` itself the moment this is
+    called, so it is a reliable record of when consent was actually
+    filed (see app/routers/company_individuals.py)."""
+
+    given: bool
 
 
 class ContactCreate(BaseModel):

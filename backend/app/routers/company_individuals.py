@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -23,6 +24,7 @@ from app.schemas.schemas import (
     CompanyIndividualRelationshipCreate,
     CompanyIndividualRelationshipOut,
     CompanyIndividualUpdate,
+    PdpaConsentUpdate,
 )
 from app.services import audit, exports
 from app.services.authority import require_module_access
@@ -61,6 +63,7 @@ CUSTOMER_FIELDS = (
     "memo",
     "billing_notes",
     "payment_terms_days",
+    "data_expiry_date",
 )
 
 
@@ -219,6 +222,91 @@ def reactivate_customer(
     return customer
 
 
+@router.post("/{customer_id}/pdpa-consent", response_model=CompanyIndividualOut)
+def set_pdpa_consent(
+    customer_id: uuid.UUID,
+    payload: PdpaConsentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Ticks/unticks the "PDPA Agreement e-signed" checkbox (2026-09-12).
+    A dedicated endpoint rather than a field on the generic PATCH so the
+    date/time is always stamped by the server, never client-supplied --
+    see PdpaConsentUpdate's docstring."""
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    old_given = customer.pdpa_consent_given
+    customer.pdpa_consent_given = payload.given
+    customer.pdpa_consent_at = datetime.now(timezone.utc) if payload.given else None
+    audit.record(
+        db,
+        entity_type="customer",
+        entity_id=customer.id,
+        action="pdpa_consent_recorded" if payload.given else "pdpa_consent_revoked",
+        actor_user_id=current_user.id,
+        old_value={"pdpa_consent_given": old_given},
+        new_value={
+            "pdpa_consent_given": payload.given,
+            "pdpa_consent_at": customer.pdpa_consent_at.isoformat() if customer.pdpa_consent_at else None,
+        },
+    )
+    db.commit()
+    db.refresh(customer)
+    return customer
+
+
+@router.post("/{customer_id}/archive", response_model=CompanyIndividualOut)
+def archive_customer(
+    customer_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
+):
+    """Soft-archive-in-place (confirmed 2026-09-12): all of this record's
+    data stays in the same database, same row -- never deleted, moved
+    to a separate schema, or exported out, per CLAUDE.md's "never
+    permanently delete" rule. Typically used once `data_expiry_date`
+    has passed (see CompanyIndividualDetailPage), but not restricted to
+    that -- there is no background job in this system, so archiving is
+    always a deliberate staff action."""
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    customer.is_archived = True
+    customer.archived_at = datetime.now(timezone.utc)
+    audit.record(
+        db,
+        entity_type="customer",
+        entity_id=customer.id,
+        action="archived",
+        actor_user_id=current_user.id,
+        old_value={"is_archived": False},
+        new_value={"is_archived": True},
+    )
+    db.commit()
+    db.refresh(customer)
+    return customer
+
+
+@router.post("/{customer_id}/unarchive", response_model=CompanyIndividualOut)
+def unarchive_customer(
+    customer_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
+):
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    customer.is_archived = False
+    customer.archived_at = None
+    audit.record(
+        db,
+        entity_type="customer",
+        entity_id=customer.id,
+        action="unarchived",
+        actor_user_id=current_user.id,
+        old_value={"is_archived": True},
+        new_value={"is_archived": False},
+    )
+    db.commit()
+    db.refresh(customer)
+    return customer
+
+
 def _filter_customers(
     db: Session,
     company_id: uuid.UUID,
@@ -227,6 +315,7 @@ def _filter_customers(
     include_inactive: bool,
     industry_code: str | None = None,
     is_supplier: bool | None = None,
+    include_archived: bool = False,
 ):
     """Dynamic filter for the CompanyIndividual master: free-text `q` matches
     across name/email/phone/mobile/UEN/legacy code/tags,
@@ -236,11 +325,17 @@ def _filter_customers(
     (confirmed 2026-09-11: customer grouping by industry). `is_supplier`
     narrows to records flagged as a supplier (2026-09-12: Purchase
     Order/AP pick from this same file rather than a separate list).
+    `include_archived` is separate from `include_inactive` -- an
+    archived (past its PDPA data expiry date) record stays hidden from
+    every normal list even with include_inactive=True; only the
+    dedicated "show archived" view opts back in.
     Shared by list_customers and the export endpoints so "export what
     I'm looking at" always matches what's on screen."""
     query = db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)
     if not include_inactive:
         query = query.filter(CompanyIndividual.is_active)
+    if not include_archived:
+        query = query.filter(~CompanyIndividual.is_archived)
     if customer_group_id:
         query = query.filter(CompanyIndividual.customer_group_id == customer_group_id)
     if industry_code:
@@ -271,11 +366,19 @@ def list_customers(
     industry_code: str | None = None,
     include_inactive: bool = False,
     is_supplier: bool | None = None,
+    include_archived: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     return _filter_customers(
-        db, current_user.company_id, q, customer_group_id, include_inactive, industry_code, is_supplier
+        db,
+        current_user.company_id,
+        q,
+        customer_group_id,
+        include_inactive,
+        industry_code,
+        is_supplier,
+        include_archived,
     )
 
 

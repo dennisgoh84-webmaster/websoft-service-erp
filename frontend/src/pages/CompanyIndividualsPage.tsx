@@ -29,6 +29,9 @@ export default function CompanyIndividualsPage() {
   const [filterGroup, setFilterGroup] = useState('')
   const [filterIndustry, setFilterIndustry] = useState('')
   const [showInactive, setShowInactive] = useState(false)
+  // PDPA (2026-09-12): archived records are hidden even from "Show
+  // inactive" -- a separate, explicit opt-in.
+  const [showArchived, setShowArchived] = useState(false)
 
   function refresh() {
     api
@@ -37,12 +40,13 @@ export default function CompanyIndividualsPage() {
         customer_group_id: filterGroup || undefined,
         industry_code: filterIndustry || undefined,
         include_inactive: showInactive,
+        include_archived: showArchived,
       })
       .then(setCustomers)
       .catch((e) => setError(e.message))
   }
 
-  useEffect(refresh, [q, filterGroup, filterIndustry, showInactive])
+  useEffect(refresh, [q, filterGroup, filterIndustry, showInactive, showArchived])
   useEffect(() => {
     api.listCompanyIndividualGroups().then(setGroups).catch((e) => setError(e.message))
     api.listSetupItems({ list_type: 'industry' }).then(setIndustries).catch(() => setIndustries([]))
@@ -63,6 +67,7 @@ export default function CompanyIndividualsPage() {
     setFilterGroup('')
     setFilterIndustry('')
     setShowInactive(false)
+    setShowArchived(false)
   }
 
   async function onExport(format: string) {
@@ -203,6 +208,10 @@ export default function CompanyIndividualsPage() {
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show inactive
           </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            Show archived
+          </label>
           <button type="button" className="secondary" onClick={resetFilters}>
             Reset filters
           </button>
@@ -260,7 +269,8 @@ export default function CompanyIndividualsPage() {
                 <td>
                   <span className={`badge ${c.is_active ? 'active' : 'draft'}`}>
                     {c.is_active ? 'Active' : 'Inactive'}
-                  </span>
+                  </span>{' '}
+                  {c.is_archived && <span className="badge draft">Archived</span>}
                 </td>
                 <td style={{ display: 'flex', gap: 10 }}>
                   <Link to={`/company-individuals/${c.id}`}>Open</Link>

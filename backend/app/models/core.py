@@ -19,7 +19,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -149,6 +149,12 @@ class User(Base):
     # for the same reason -- a small image needed on every render of a
     # staff-facing screen, not a business document.
     photo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Confirmed 2026-09-12: "New staff user for the first time to force
+    # them change own password" -- True for every newly created user
+    # (including via seed_demo.py) and after an admin password reset;
+    # cleared once they complete POST /api/auth/change-password. See
+    # app/routers/auth.py's login sequence.
+    must_change_password: Mapped[bool] = mapped_column(default=True)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -156,6 +162,33 @@ class User(Base):
     company_access: Mapped[list["UserCompanyAccess"]] = relationship(
         primaryjoin="User.id == UserCompanyAccess.user_id", viewonly=True
     )
+
+
+class LoginOtp(Base):
+    """One issued email OTP challenge (2026-09-12: "enhance security with
+    OTP upon login... email or handphone whatsapp"). Only email is built
+    -- WhatsApp OTP needs an automated send-and-verify integration (a
+    WhatsApp Business API account) this system doesn't have yet; see
+    docs/planned-work.md. Issued only when SMTP is configured
+    (app/services/mailer.is_configured) -- otherwise login skips the OTP
+    step entirely rather than locking everyone out.
+
+    `code_hash` is a SHA-256 hash, not the plaintext code -- a 6-digit
+    OTP is far weaker than a real password, but there is no reason to
+    store it recoverable either. `attempts` caps guesses at the code
+    before the whole challenge must be restarted (a fresh login)."""
+
+    __tablename__ = "login_otps"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class AuditLogEntry(Base):

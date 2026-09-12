@@ -1280,6 +1280,83 @@ Ledger transactions.
    Journal Voucher interacts with a reference-coded line on the same
    transaction.
 
+## 27. Staff password policy, forced first-login change, email OTP, and PDPA consent/data-expiry on Company/Individual (raised 2026-09-12)
+
+Requested as: "user staff password have to use complex password like
+alphanumeric... New staff user for the first time to force them change
+own password, enhance security with OTP upon login either email or
+handphone whatsapp"; and separately "For PDPA Purposes, contact
+company/individual file need to have a section to keep checkbox record
+date/time when they esigned the PDPA Agreement and filed in the
+system, all data relating to this customer have an data expiry date
+and after the expiry date, we need to archive them somewhere."
+
+27.1. **DECIDED, built.** Password complexity: at least 8 characters
+   (already enforced), plus at least one letter and one number
+   (`app/services/auth.py::validate_password_complexity`). No
+   uppercase/special-character rule was given, so none is assumed.
+   Enforced on staff creation, admin password reset, and self-service
+   change-password.
+
+27.2. **DECIDED, built.** Forced change on first login:
+   `User.must_change_password` defaults `True` for every new staff
+   account and is set back to `True` on every admin-initiated password
+   reset (a temporary password should never outlive one sign-in). A
+   user in this state gets a short-lived `password_change`-purpose
+   token from `/api/auth/login` instead of a real access token, and
+   must call `/api/auth/change-password` before continuing. Demo/seed
+   accounts (`scripts/seed_demo.py`) are explicitly seeded with
+   `must_change_password=False` so the existing walkthrough login
+   isn't interrupted -- a real staff account created from Staff Master
+   always goes through this.
+
+27.3. **DECIDED with Dennis (email now, WhatsApp later).** OTP channel:
+   email OTP is built (`LoginOtp` model, 6-digit code, SHA-256-hashed,
+   10-minute expiry, 5-attempt cap), issued via the existing SMTP
+   mailer (`app/services/mailer.py`) whenever `mailer.is_configured()`
+   is true. If SMTP isn't configured, login skips the OTP step
+   entirely rather than locking every user out of an unconfigured
+   dev/demo environment. **WhatsApp OTP is NOT built** -- it needs an
+   automated send-and-verify integration (a WhatsApp Business API
+   account via Twilio or Meta's Cloud API); today's WhatsApp usage
+   elsewhere in this system is only manual `wa.me` links opened by a
+   staff member, which cannot deliver a code unattended. Recorded here
+   as confirmed future scope once that account exists.
+
+27.4. **DECIDED (security design).** Every JWT this system issues now
+   carries a `purpose` claim -- `"access"` for a real bearer token,
+   `"password_change"` / `"otp"` for the two short-lived intermediate
+   tokens the login sequence hands back. `decode_access_token` rejects
+   anything whose purpose isn't `"access"`, so an intermediate token
+   can never be replayed against a protected endpoint even if it
+   leaked (verified: calling `/api/auth/me` with a `password_change`
+   token returns 401).
+
+27.5. **DECIDED with Dennis (soft-archive in place).** PDPA on
+   Company/Individual: `pdpa_consent_given` (bool) + `pdpa_consent_at`
+   (server-stamped, never client-supplied) record the e-signed PDPA
+   Agreement checkbox, set only via the dedicated
+   `POST /api/company-individuals/{id}/pdpa-consent` endpoint (not the
+   general PATCH) so the timestamp is always trustworthy. Every change
+   is written to the existing audit trail.
+
+27.6. **DECIDED with Dennis (soft-archive in place, not a separate
+   archive schema or export-and-delete).** `data_expiry_date` (optional,
+   per record) flags when a Company/Individual's data should be
+   archived. `is_archived` / `archived_at` follow the exact same
+   pattern as the existing `is_active` flag -- all data stays in the
+   same database row, per CLAUDE.md's "never permanently delete" rule
+   -- toggled via `POST .../archive` and `POST .../unarchive`. Archived
+   records are hidden from every normal list/picker even with "show
+   inactive" on; a separate "Show archived" opt-in reveals them.
+   **NOT built: automatic archiving.** There is no background job
+   infrastructure in this system (every other lifecycle action --
+   Year-End Closing, deactivation -- is a deliberate staff click), so
+   a record past its `data_expiry_date` is flagged on its own page
+   (a "Past expiry -- archive this record" badge) for a staff member to
+   archive; it is not swept up automatically. Revisit if/when this
+   system gains a scheduled-job runner.
+
 ---
 
 ## How to use this document

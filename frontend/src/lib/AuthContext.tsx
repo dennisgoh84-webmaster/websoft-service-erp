@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, clearToken, getToken, login as apiLogin, setToken } from './api'
-import type { Company, CurrentUser } from './api'
+import type { Company, CurrentUser, LoginResult } from './api'
 
 interface AuthState {
   user: CurrentUser | null
@@ -13,7 +13,15 @@ interface AuthState {
    * both can differ per company. Drives which nav links show at all. */
   moduleAccess: Record<string, boolean>
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
+  /** Runs the first step of the login sequence (2026-09-12: forced
+   * first-login password change + email OTP) and returns its result
+   * without touching the session -- Login.tsx drives the rest of the
+   * flow (OTP entry, password-change form) and calls completeLogin
+   * once a real access_token comes back. */
+  login: (email: string, password: string) => Promise<LoginResult>
+  /** Stores a real access_token (from login/verifyOtp/changePassword
+   * once status="ok") and loads the session. */
+  completeLogin: (token: string) => Promise<void>
   logout: () => void
   switchCompany: (companyId: string) => Promise<void>
   /** Re-read the current user + companies (e.g. after Company Setup edits). */
@@ -55,8 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
-  async function login(email: string, password: string) {
-    const token = await apiLogin(email, password)
+  async function login(email: string, password: string): Promise<LoginResult> {
+    return apiLogin(email, password)
+  }
+
+  async function completeLogin(token: string) {
     setToken(token)
     await loadSession()
   }
@@ -84,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         moduleAccess,
         loading,
         login,
+        completeLogin,
         logout,
         switchCompany,
         refresh: loadSession,

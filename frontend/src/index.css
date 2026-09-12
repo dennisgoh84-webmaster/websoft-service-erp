@@ -684,8 +684,61 @@ a.icon-button:hover {
   min-height: 100vh;
   width: 100%;
 }
+.login-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
 .login-card {
   width: 340px;
+}
+/* Promotions panel (2026-09-12: "empty place to publish promotions --
+   add-on features, new updates, latest news"): a narrow, tall column
+   beside the login card, sample content for now -- see Login.tsx's
+   PROMO_ITEMS. Wraps below the card on a narrow viewport instead of
+   squeezing it. */
+.login-promo {
+  width: 220px;
+  padding: 20px;
+  color: #fff;
+  background: linear-gradient(160deg, var(--accent) 0%, #5a1420 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.login-promo h2 {
+  margin: 0;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+.login-promo-item {
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+.login-promo-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.login-promo-item .tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  padding: 2px 6px;
+  margin-bottom: 6px;
+}
+.login-promo-item p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  opacity: 0.95;
 }
 
 .muted {

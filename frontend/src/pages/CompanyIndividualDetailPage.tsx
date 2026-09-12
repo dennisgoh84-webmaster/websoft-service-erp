@@ -18,6 +18,10 @@ const ACTION_LABELS: Record<string, string> = {
   updated: 'Details updated',
   deactivated: 'Deactivated',
   reactivated: 'Reactivated',
+  pdpa_consent_recorded: 'PDPA Agreement e-signed',
+  pdpa_consent_revoked: 'PDPA consent revoked',
+  archived: 'Archived',
+  unarchived: 'Unarchived',
 }
 
 function emptyForm() {
@@ -45,6 +49,7 @@ function emptyForm() {
     memo: '',
     billing_notes: '',
     payment_terms_days: '',
+    data_expiry_date: '',
   }
 }
 
@@ -135,6 +140,7 @@ export default function CompanyIndividualDetailPage() {
           memo: c.memo ?? '',
           billing_notes: c.billing_notes ?? '',
           payment_terms_days: c.payment_terms_days === null ? '' : String(c.payment_terms_days),
+          data_expiry_date: c.data_expiry_date ?? '',
         })
         setExcludeAutoSent(c.exclude_auto_sent)
         setIsCustomer(c.is_customer)
@@ -200,12 +206,36 @@ export default function CompanyIndividualDetailPage() {
         memo: form.memo || null,
         billing_notes: form.billing_notes || null,
         payment_terms_days: form.payment_terms_days === '' ? null : parseInt(form.payment_terms_days, 10),
+        data_expiry_date: form.data_expiry_date || null,
       })
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save changes')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function onTogglePdpaConsent(given: boolean) {
+    if (!id) return
+    setError(null)
+    try {
+      await api.setPdpaConsent(id, given)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update PDPA consent')
+    }
+  }
+
+  async function onToggleArchive() {
+    if (!id || !customer) return
+    setError(null)
+    try {
+      if (customer.is_archived) await api.unarchiveCompanyIndividual(id)
+      else await api.archiveCompanyIndividual(id)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update archive status')
     }
   }
 
@@ -361,6 +391,7 @@ export default function CompanyIndividualDetailPage() {
         <span className={`badge ${customer.is_active ? 'active' : 'draft'}`}>
           {customer.is_active ? 'Active' : 'Inactive'}
         </span>{' '}
+        {customer.is_archived && <span className="badge draft">Archived</span>}{' '}
         <span className="muted">
           {customer.customer_type === 'individual' ? 'Individual' : 'Company'} &middot; added{' '}
           {new Date(customer.created_at).toLocaleDateString()}
@@ -530,6 +561,18 @@ export default function CompanyIndividualDetailPage() {
               placeholder="Leave blank if not yet agreed"
             />
           </div>
+          <div className="form-row">
+            <label>Data expiry date (PDPA)</label>
+            <input
+              type="date"
+              value={form.data_expiry_date}
+              onChange={(e) => setForm((p) => ({ ...p, data_expiry_date: e.target.value }))}
+            />
+          </div>
+          <p className="muted" style={{ marginTop: -8 }}>
+            After this date, this record's data should be archived (see "PDPA &amp; Data
+            Retention" below) -- leave blank if no expiry has been agreed yet.
+          </p>
           <div className="form-row">
             <label>Terms &amp; conditions (shown on orders)</label>
             <textarea {...field('terms_and_conditions')} rows={3} />
@@ -866,6 +909,49 @@ export default function CompanyIndividualDetailPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="card">
+        <h2>PDPA &amp; Data Retention</h2>
+        <div className="form-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={customer.pdpa_consent_given}
+              onChange={(e) => onTogglePdpaConsent(e.target.checked)}
+              style={{ width: 'auto', marginRight: 8 }}
+            />
+            PDPA Agreement e-signed
+          </label>
+        </div>
+        <p className="muted" style={{ marginTop: -8 }}>
+          {customer.pdpa_consent_given && customer.pdpa_consent_at
+            ? `Recorded ${new Date(customer.pdpa_consent_at).toLocaleString()}.`
+            : 'Not yet recorded. Ticking this box files it in the system with the current date/time.'}
+        </p>
+
+        {customer.data_expiry_date && (
+          <p>
+            Data expiry date: <strong>{customer.data_expiry_date}</strong>
+            {new Date(customer.data_expiry_date) < new Date() && !customer.is_archived && (
+              <span className="badge exceeded" style={{ marginLeft: 8 }}>
+                Past expiry -- archive this record
+              </span>
+            )}
+          </p>
+        )}
+
+        <p className="muted">
+          Archiving keeps all of this record's data intact in the same database -- per
+          CLAUDE.md, nothing is ever permanently deleted -- but hides it from every normal
+          list and picker.
+          {customer.is_archived && customer.archived_at && (
+            <> Archived {new Date(customer.archived_at).toLocaleString()}.</>
+          )}
+        </p>
+        <button className="secondary" onClick={onToggleArchive}>
+          {customer.is_archived ? 'Unarchive' : 'Archive now'}
+        </button>
       </div>
 
       <div className="card">

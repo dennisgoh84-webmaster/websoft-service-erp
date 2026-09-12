@@ -169,7 +169,12 @@ export default function StaffMasterPage() {
                 <td>
                   <span className={`badge ${u.is_active ? 'active' : 'draft'}`}>
                     {u.is_active ? 'Active' : 'Deactivated'}
-                  </span>
+                  </span>{' '}
+                  {u.must_change_password && (
+                    <span className="badge draft" title="Hasn't set their own password yet">
+                      Password pending
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

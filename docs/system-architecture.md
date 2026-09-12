@@ -228,6 +228,18 @@ approval workflows) without changing the shape described here.
   the *same* browser at once (the second login overwrites the shared
   token) -- different browsers, or a private/incognito window alongside
   a regular one, work fine for that.
+- **Login security, CONFIRMED and built (2026-09-12; see
+  [open-business-decisions.md](open-business-decisions.md) #27).**
+  Password complexity (min 8 chars, at least one letter and one
+  number), a forced password change on a staff member's first sign-in
+  (and after any admin-initiated reset), and an email one-time code as
+  a second factor once SMTP is configured. Every JWT this system
+  issues carries a `purpose` claim (`"access"` for a real bearer
+  token, `"password_change"` / `"otp"` for the two short-lived
+  intermediate tokens the login sequence hands back), so an
+  intermediate token can never be replayed against a protected
+  endpoint even if it leaked. WhatsApp OTP is deferred -- see
+  [planned-work.md](planned-work.md) #7.
 
 ### PostgreSQL architecture
 

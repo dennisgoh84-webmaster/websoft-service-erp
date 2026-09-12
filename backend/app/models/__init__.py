@@ -37,6 +37,7 @@ from app.models.contracts import (  # noqa: F401
 from app.models.core import (  # noqa: F401
     AuditLogEntry,
     Company,
+    LoginOtp,
     User,
     UserCompanyAccess,
     UserRole,

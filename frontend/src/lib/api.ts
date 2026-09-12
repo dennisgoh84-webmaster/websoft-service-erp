@@ -70,16 +70,50 @@ export function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-export async function login(email: string, password: string): Promise<string> {
+// Login sequence (2026-09-12: forced first-login password change + email
+// OTP second factor -- see backend app/routers/auth.py's module docstring).
+// Only one of access_token/change_token/otp_token is ever set, matching
+// `status`; Login.tsx drives the multi-step UI off this shape.
+export interface LoginResult {
+  status: 'ok' | 'must_change_password' | 'otp_required'
+  access_token?: string
+  token_type?: string
+  change_token?: string
+  otp_token?: string
+}
+
+export async function login(email: string, password: string): Promise<LoginResult> {
   const body = new URLSearchParams({ username: email, password })
   const res = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Device-Id': getDeviceId() },
     body,
   })
-  if (!res.ok) throw new Error('Invalid email or password')
-  const data = await res.json()
-  return data.access_token as string
+  if (!res.ok) {
+    let detail = 'Invalid email or password'
+    try {
+      const errBody = await res.json()
+      detail = errBody.detail ?? detail
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail)
+  }
+  return res.json() as Promise<LoginResult>
+}
+
+export async function verifyOtp(otpToken: string, code: string): Promise<LoginResult> {
+  return request<LoginResult>('/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify({ otp_token: otpToken, code }),
+  })
+}
+
+export async function changePassword(changeToken: string, newPassword: string): Promise<LoginResult> {
+  return request<LoginResult>('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ change_token: changeToken, new_password: newPassword }),
+  })
 }
 
 // ---- Types (mirroring backend Pydantic schemas) ----
@@ -124,6 +158,9 @@ export interface StaffUser {
   group_id: string | null
   /** Data URI, e.g. "data:image/png;base64,..." -- shown on Staff Master and Support Monitoring. */
   photo: string | null
+  /** Confirmed 2026-09-12: true for a new hire, or right after an admin
+   * password reset, until they set their own password at next sign-in. */
+  must_change_password: boolean
   is_active: boolean
   created_at: string
 }
@@ -232,6 +269,18 @@ export interface CompanyIndividual {
    * records here rather than a separate supplier file. */
   is_customer: boolean
   is_supplier: boolean
+  /** PDPA (2026-09-12): whether the PDPA Agreement has been e-signed,
+   * and when -- `pdpa_consent_at` is stamped by the server, never set
+   * directly (see api.setPdpaConsent). */
+  pdpa_consent_given: boolean
+  pdpa_consent_at: string | null
+  /** After this date, all of this record's data should be archived
+   * (see api.archiveCompanyIndividual). Null = no expiry agreed yet. */
+  data_expiry_date: string | null
+  /** Soft-archive-in-place -- the record and all its data stay in the
+   * same database row, just hidden from normal lists. */
+  is_archived: boolean
+  archived_at: string | null
   is_active: boolean
   created_at: string
 }
@@ -305,6 +354,7 @@ export type CompanyIndividualFields = Partial<{
   payment_terms_days: number | null
   is_customer: boolean
   is_supplier: boolean
+  data_expiry_date: string | null
 }>
 
 export type ContractStatus = 'draft' | 'active' | 'exceeded' | 'expired' | 'renewed'
@@ -1141,6 +1191,9 @@ export const api = {
       /** 2026-09-12: Purchase Order/AP pick suppliers from this same
        * Company/Individual list, filtered to is_supplier=true. */
       is_supplier?: boolean
+      /** PDPA (2026-09-12): archived records are hidden from every
+       * normal list even with include_inactive -- opt in explicitly. */
+      include_archived?: boolean
     } = {},
   ) =>
     request<CompanyIndividual[]>(
@@ -1150,6 +1203,7 @@ export const api = {
         industry_code: filters.industry_code,
         include_inactive: filters.include_inactive ? 'true' : undefined,
         is_supplier: filters.is_supplier === undefined ? undefined : filters.is_supplier ? 'true' : 'false',
+        include_archived: filters.include_archived ? 'true' : undefined,
       })}`,
     ),
   exportCompanyIndividualsCsv: (
@@ -1182,6 +1236,16 @@ export const api = {
   deactivateCompanyIndividual: (id: string) => request<CompanyIndividual>(`/company-individuals/${id}/deactivate`, { method: 'POST' }),
   reactivateCompanyIndividual: (id: string) => request<CompanyIndividual>(`/company-individuals/${id}/reactivate`, { method: 'POST' }),
   getCompanyIndividualAuditLog: (id: string) => request<AuditLogEntry[]>(`/company-individuals/${id}/audit-log`),
+  /** PDPA (2026-09-12): ticks/unticks "PDPA Agreement e-signed" -- the
+   * date/time is stamped server-side, never sent from here. */
+  setPdpaConsent: (id: string, given: boolean) =>
+    request<CompanyIndividual>(`/company-individuals/${id}/pdpa-consent`, {
+      method: 'POST',
+      body: JSON.stringify({ given }),
+    }),
+  /** Soft-archive-in-place -- all data stays, just hidden from normal lists. */
+  archiveCompanyIndividual: (id: string) => request<CompanyIndividual>(`/company-individuals/${id}/archive`, { method: 'POST' }),
+  unarchiveCompanyIndividual: (id: string) => request<CompanyIndividual>(`/company-individuals/${id}/unarchive`, { method: 'POST' }),
 
   // CompanyIndividual Groups (tag linking separate companies in one group)
   listCompanyIndividualGroups: (includeInactive = false) =>

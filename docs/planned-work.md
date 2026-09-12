@@ -286,6 +286,22 @@ a migration program") -- explicitly a future need, not to be built now.
 | (Sales) Receipts | Receipt(s) (`app/models/payments.py` `Payment`, the Receipt Voucher) |
 | Chart of Accounts | Chart of Accounts (`app/models/accounting.py` `Account`) |
 
+## 7. WhatsApp OTP as a second login factor (raised 2026-09-12, deferred)
+
+Requested alongside email OTP as: "enhance security with OTP upon
+login either email or handphone whatsapp." Email OTP is built (see
+docs/open-business-decisions.md #27.3) using the existing SMTP mailer;
+WhatsApp OTP is deferred because it needs infrastructure this system
+doesn't have yet -- an automated WhatsApp Business API account
+(Twilio's WhatsApp API or Meta's Cloud API) that can send a templated
+message and have this backend poll/receive the delivery status. Every
+other WhatsApp touchpoint in this system today (Print/Email/WhatsApp
+icon buttons on documents) is a manual `wa.me` deep link a staff member
+opens and sends themselves -- there is no automated send path to build
+on. Build once such an account is provisioned: add a `whatsapp_otps`-
+style flow mirroring `LoginOtp`, and let the user choose email or
+WhatsApp at the OTP step.
+
 This aligns with CLAUDE.md's already-approved Odoo replacement strategy
 (phased, module-by-module, with a parallel-run period and no big-bang
 migration) and its note that "important historical data will eventually

@@ -29,7 +29,7 @@ from app.schemas.schemas import (
     UserUpdate,
 )
 from app.services import audit, exports
-from app.services.auth import hash_password
+from app.services.auth import hash_password, validate_password_complexity
 from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -99,6 +99,7 @@ def _user_out(db: Session, user: User, company_id: uuid.UUID) -> UserOut:
         role=user.role,
         group_id=access.group_id if access else None,
         photo=user.photo,
+        must_change_password=user.must_change_password,
         is_active=user.is_active,
         created_at=user.created_at,
     )
@@ -188,6 +189,10 @@ def create_user(
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=409, detail="A user with this email already exists.")
     _validate_group_for_company(db, payload.group_id, current_user.company_id)
+    try:
+        validate_password_complexity(payload.password)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
     user = User(
         company_id=current_user.company_id,
@@ -195,6 +200,9 @@ def create_user(
         hashed_password=hash_password(payload.password),
         full_name=payload.full_name,
         role=payload.role,
+        # Confirmed 2026-09-12: every new staff account must set its own
+        # password the first time it signs in (see app/routers/auth.py).
+        must_change_password=True,
     )
     db.add(user)
     db.flush()
@@ -471,7 +479,14 @@ def reset_password(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
     user = _get_user_or_404(db, user_id)
+    try:
+        validate_password_complexity(payload.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     user.hashed_password = hash_password(payload.new_password)
+    # An admin-issued reset is a temporary password -- force the user to
+    # set their own on next sign-in, same as a brand-new account.
+    user.must_change_password = True
     audit.record(
         db,
         entity_type="user",

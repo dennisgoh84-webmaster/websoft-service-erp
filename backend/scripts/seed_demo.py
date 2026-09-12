@@ -74,6 +74,10 @@ from app.services.numbering import next_document_number
 from app.services.tax import apply_gst
 
 DEMO_PASSWORD = "demo1234"
+# Seeded accounts are pre-provisioned for a live demo/walkthrough, so
+# every one of them is created with must_change_password=False --
+# skipping the forced-first-login password change (2026-09-12) real
+# staff accounts (created from Staff Master) always go through.
 
 # key -> (name, description, is_built, enabled_by_default)
 # Covers the 19 business-area modules in docs/module-map.md, plus
@@ -580,22 +584,22 @@ def main():
 
         dennis = User(
             company_id=company.id, email="dennis@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Dennis (Owner)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Dennis (Owner)",
             role=UserRole.OWNER,
         )
         nico = User(
             company_id=company.id, email="nico@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Nico (Service & Support Lead)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Nico (Service & Support Lead)",
             role=UserRole.SERVICE_LEAD, photo=avatar_photo_data_uri("7a1f2b"),
         )
         cherish = User(
             company_id=company.id, email="cherish@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Cherish (Sales Manager)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Cherish (Sales Manager)",
             role=UserRole.SALES_MANAGER, photo=avatar_photo_data_uri("2f4858"),
         )
         engineer = User(
             company_id=company.id, email="weiling@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Wei Ling (Support Engineer)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Wei Ling (Support Engineer)",
             role=UserRole.SUPPORT_ENGINEER, photo=avatar_photo_data_uri("1b998b"),
         )
         # Confirmed 2026-09-11: 5 more Company-1 staff, purely so
@@ -604,34 +608,34 @@ def main():
         # business rule.
         marcus = User(
             company_id=company.id, email="marcus@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Marcus Tan (Support Engineer)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Marcus Tan (Support Engineer)",
             role=UserRole.SUPPORT_ENGINEER, photo=avatar_photo_data_uri("5b4b8a"),
         )
         farhana = User(
             company_id=company.id, email="farhana@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Farhana Ismail (Support Engineer)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Farhana Ismail (Support Engineer)",
             role=UserRole.SUPPORT_ENGINEER, photo=avatar_photo_data_uri("c96a2c"),
         )
         kevin = User(
             company_id=company.id, email="kevin@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Kevin Lim (Sales Executive)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Kevin Lim (Sales Executive)",
             role=UserRole.SALES_MANAGER, photo=avatar_photo_data_uri("3a6b35"),
         )
         siti = User(
             company_id=company.id, email="siti@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Siti Rahman (Support Engineer)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Siti Rahman (Support Engineer)",
             role=UserRole.SUPPORT_ENGINEER, photo=avatar_photo_data_uri("8a4f7d"),
         )
         bryan = User(
             company_id=company.id, email="bryan@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Bryan Ong (Finance)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Bryan Ong (Finance)",
             role=UserRole.FINANCE, photo=avatar_photo_data_uri("44576d"),
         )
         # Staff of the second entity only -- proves staff, groups and
         # data are company-scoped: Priya never sees company 1's records.
         priya = User(
             company_id=company2.id, email="priya@websoft.local",
-            hashed_password=hash_password(DEMO_PASSWORD), full_name="Priya (Digital Lead)",
+            hashed_password=hash_password(DEMO_PASSWORD), must_change_password=False, full_name="Priya (Digital Lead)",
             role=UserRole.SALES_MANAGER,
         )
         db.add_all([dennis, nico, cherish, engineer, marcus, farhana, kevin, siti, bryan, priya])

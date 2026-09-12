@@ -29,9 +29,9 @@ asks:
 """
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -156,6 +156,31 @@ class CompanyIndividual(Base):
     # ticked on the ones migrated from the old suppliers table.
     is_customer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_supplier: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # PDPA (2026-09-12): "contact company/individual file need to have a
+    # section to keep checkbox record date/time when they esigned the PDPA
+    # Agreement and filed in the system". `pdpa_consent_at` is stamped by
+    # the server the moment `pdpa_consent_given` is ticked (see the
+    # dedicated POST .../pdpa-consent endpoint in
+    # app/routers/company_individuals.py, not the general PATCH) -- never
+    # client-supplied, so it is a trustworthy record of *when* consent was
+    # actually filed, not just that the box is currently ticked.
+    pdpa_consent_given: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    pdpa_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # "all data relating to this customer have a data expiry date and
+    # after the expiry date, we need to archive them somewhere" (2026-09-12).
+    # Archive destination confirmed with Dennis: soft-archive in place --
+    # `is_archived`/`archived_at` follow the exact same pattern as
+    # `is_active` above rather than a separate archive table or an
+    # export-and-delete, per CLAUDE.md's "never permanently delete"
+    # rule. `data_expiry_date` past today just flags the record (see the
+    # CompanyIndividual detail page) for a staff member to archive via
+    # POST .../archive -- there is no background job in this system, so
+    # archiving is a deliberate action, not automatic.
+    data_expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
