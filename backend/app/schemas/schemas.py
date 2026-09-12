@@ -699,6 +699,16 @@ class ProjectMilestoneUpdate(BaseModel):
     notes: str | None = None
 
 
+class BudgetOverrunStatus(BaseModel):
+    """Computed budget overrun info returned alongside the Job Order."""
+    is_over_hours: bool = False
+    is_over_cost: bool = False
+    consumed_minutes: int = 0
+    contracted_minutes: int = 0
+    consumed_cost_sgd: float = 0
+    contract_value_sgd: float = 0
+
+
 class JobOrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -713,9 +723,13 @@ class JobOrderOut(BaseModel):
     assigned_to_user_id: uuid.UUID | None
     due_date: date | None
     void_reason: str | None
+    budget_overrun_approved: bool = False
+    budget_overrun_approved_by: uuid.UUID | None = None
+    budget_overrun_approved_at: datetime | None = None
     created_at: datetime
     closed_at: datetime | None
     milestones: list[ProjectMilestoneOut] = []
+    budget_overrun: BudgetOverrunStatus | None = None
 
 
 # ---- Service Records (formerly "Timesheets") ----

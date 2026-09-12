@@ -112,6 +112,20 @@ class JobOrder(Base):
     # app/services/service_records.py.
     is_urgent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # PROJECT budget overrun approval (7.1): when cumulative Service
+    # Record hours OR costs exceed the linked contract's values, the
+    # Sales Manager (Cherish) must approve continuation. This flag is
+    # set by the /approve-overrun endpoint (sales_manager or owner).
+    budget_overrun_approved: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    budget_overrun_approved_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    budget_overrun_approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Set only when status is VOID -- why this Job Order was voided
     # instead of worked (duplicate, raised in error, etc.). Required by
     # the void endpoint; the audit log also records who/when.

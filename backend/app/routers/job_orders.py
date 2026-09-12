@@ -1,15 +1,20 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.core import User, UserRole
 from app.models.company_individuals import CompanyIndividual
+from app.models.contracts import Contract
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrder, JobOrderStatus, JobOrderType, MilestoneType, MilestoneStatus, ProjectMilestone
+from app.models.service_records import ServiceRecord, ServiceRecordStatus
 from app.schemas.schemas import (
+    BudgetOverrunStatus,
     JobOrderAssign,
     JobOrderCreate,
     JobOrderOut,
@@ -23,6 +28,9 @@ from app.schemas.schemas import (
 from app.services import audit, exports
 from app.services.authority import require_module_access
 from app.services.numbering import next_document_number
+
+# ---- Budget overrun roles (7.1) ----
+OVERRUN_APPROVAL_ROLES = {UserRole.SALES_MANAGER, UserRole.OWNER}
 
 router = APIRouter(prefix="/api/job-orders", tags=["job-orders"])
 MODULE = "service_operations"
@@ -42,6 +50,53 @@ PROJECT_MILESTONE_TEMPLATE = [
     (MilestoneType.HANDOVER, "Handover", 3),
     (MilestoneType.COMPLETION_SIGNOFF, "Completion Sign-off", 4),
 ]
+
+
+# ---- Budget overrun computation (7.1) ------------------------------------
+def _compute_budget_overrun(db: Session, job_order: JobOrder) -> BudgetOverrunStatus | None:
+    """Check if a PROJECT-type Job Order has exceeded its contract's
+    hours or cost. Returns None for SUPPORT-type or no-contract JOs."""
+    if job_order.job_order_type != JobOrderType.PROJECT or not job_order.contract_id:
+        return None
+
+    contract = db.get(Contract, job_order.contract_id)
+    if not contract:
+        return None
+
+    # Sum approved Service Record minutes for this Job Order
+    total_minutes = (
+        db.query(sa_func.coalesce(sa_func.sum(ServiceRecord.rounded_minutes), 0))
+        .filter(
+            ServiceRecord.job_order_id == job_order.id,
+            ServiceRecord.status == ServiceRecordStatus.APPROVED,
+        )
+        .scalar()
+    )
+
+    # Compute cost: use the contract's blended rate (value / hours)
+    contracted_hours = contract.contracted_minutes / 60 if contract.contracted_minutes > 0 else 0
+    blended_rate = (float(contract.contract_value_sgd) / contracted_hours) if contracted_hours > 0 else 0
+    consumed_hours = total_minutes / 60
+    consumed_cost = consumed_hours * blended_rate
+
+    is_over_hours = total_minutes > contract.contracted_minutes if contract.contracted_minutes > 0 else False
+    is_over_cost = consumed_cost > float(contract.contract_value_sgd) if float(contract.contract_value_sgd) > 0 else False
+
+    return BudgetOverrunStatus(
+        is_over_hours=is_over_hours,
+        is_over_cost=is_over_cost,
+        consumed_minutes=total_minutes,
+        contracted_minutes=contract.contracted_minutes,
+        consumed_cost_sgd=round(consumed_cost, 2),
+        contract_value_sgd=round(float(contract.contract_value_sgd), 2),
+    )
+
+
+def _enrich_job_order_out(db: Session, job_order: JobOrder) -> JobOrderOut:
+    """Build a JobOrderOut with computed budget_overrun for PROJECT JOs."""
+    out = JobOrderOut.model_validate(job_order)
+    out.budget_overrun = _compute_budget_overrun(db, job_order)
+    return out
 
 
 @router.post("", response_model=JobOrderOut)
@@ -204,7 +259,7 @@ def get_job_order(
     job_order = db.get(JobOrder, job_order_id)
     if not job_order or job_order.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Job order not found")
-    return job_order
+    return _enrich_job_order_out(db, job_order)
 
 
 @router.post("/{job_order_id}/assign", response_model=JobOrderOut)
@@ -366,6 +421,43 @@ def reopen_job_order(
     return job_order
 
 
+# ---- Budget Overrun Approval (7.1) ----------------------------------------
+
+@router.post("/{job_order_id}/approve-overrun", response_model=JobOrderOut)
+def approve_budget_overrun(
+    job_order_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Sales Manager (Cherish) or Owner approves continuation past budget
+    overrun on a PROJECT-type Job Order. Decided 2026-09-12 (item 7.1)."""
+    if current_user.role not in OVERRUN_APPROVAL_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="Only Sales Manager or Owner can approve budget overrun.",
+        )
+    job_order = _require_job_order(db, job_order_id, current_user)
+    if job_order.job_order_type != JobOrderType.PROJECT:
+        raise HTTPException(status_code=409, detail="Budget overrun applies to PROJECT-type Job Orders only.")
+    if job_order.budget_overrun_approved:
+        raise HTTPException(status_code=409, detail="Budget overrun already approved.")
+
+    job_order.budget_overrun_approved = True
+    job_order.budget_overrun_approved_by = current_user.id
+    job_order.budget_overrun_approved_at = datetime.now(timezone.utc)
+    audit.record(
+        db,
+        entity_type="job_order",
+        entity_id=job_order.id,
+        action="budget_overrun_approved",
+        actor_user_id=current_user.id,
+        new_value={"budget_overrun_approved": True},
+    )
+    db.commit()
+    db.refresh(job_order)
+    return _enrich_job_order_out(db, job_order)
+
+
 # ---- Project Milestones (PROJECT-type Job Orders) -----------------------
 
 @router.post("/{job_order_id}/milestones", response_model=ProjectMilestoneOut)
@@ -426,11 +518,24 @@ def update_milestone(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
-    """Update dates, status, assignment or notes on a milestone."""
+    """Update dates, status, assignment or notes on a milestone.
+    Milestone completion (7.3): only Sales Manager or Owner can set
+    status to COMPLETED — decided 2026-09-12."""
     job_order = _require_job_order(db, job_order_id, current_user)
     milestone = db.get(ProjectMilestone, milestone_id)
     if not milestone or milestone.job_order_id != job_order.id:
         raise HTTPException(status_code=404, detail="Milestone not found")
+
+    # 7.3: gate COMPLETED status to Sales Manager / Owner
+    if (
+        payload.status == MilestoneStatus.COMPLETED
+        and milestone.status != MilestoneStatus.COMPLETED
+        and current_user.role not in OVERRUN_APPROVAL_ROLES
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only Sales Manager or Owner can mark a milestone as Completed.",
+        )
 
     old_values = {}
     new_values = {}

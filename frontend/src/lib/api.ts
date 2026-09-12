@@ -479,6 +479,15 @@ export interface ProjectMilestone {
   created_at: string
 }
 
+export interface BudgetOverrunStatus {
+  is_over_hours: boolean
+  is_over_cost: boolean
+  consumed_minutes: number
+  contracted_minutes: number
+  consumed_cost_sgd: number
+  contract_value_sgd: number
+}
+
 export interface JobOrder {
   id: string
   job_order_number: string
@@ -494,9 +503,13 @@ export interface JobOrder {
   /** Manual, optional -- set by Sales/Coordinator after discussion with Support. */
   due_date: string | null
   void_reason: string | null
+  budget_overrun_approved: boolean
+  budget_overrun_approved_by: string | null
+  budget_overrun_approved_at: string | null
   created_at: string
   closed_at: string | null
   milestones: ProjectMilestone[]
+  budget_overrun: BudgetOverrunStatus | null
 }
 
 // ---- Operations/Accounting Reports filters ----
@@ -1822,6 +1835,8 @@ export const api = {
   voidJobOrder: (id: string, reason: string) =>
     request<JobOrder>(`/job-orders/${id}/void`, { method: 'POST', body: JSON.stringify({ reason }) }),
   reopenJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}/reopen`, { method: 'POST' }),
+  approveBudgetOverrun: (id: string) =>
+    request<JobOrder>(`/job-orders/${id}/approve-overrun`, { method: 'POST' }),
 
   // ---- Project Milestones ----
   listMilestones: (jobOrderId: string) =>

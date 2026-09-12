@@ -135,6 +135,21 @@ export default function JobOrderDetailPage() {
     }
   }
 
+  async function onApproveBudgetOverrun() {
+    if (!id) return
+    if (!window.confirm('Approve budget overrun? This allows work to continue past the contract budget.')) return
+    setError(null)
+    setWorking(true)
+    try {
+      await api.approveBudgetOverrun(id)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve budget overrun')
+    } finally {
+      setWorking(false)
+    }
+  }
+
   if (!jobOrder) return <p>Loading...</p>
 
   const isClosed = jobOrder.status === 'closed'
@@ -196,6 +211,61 @@ export default function JobOrderDetailPage() {
         )}
       </p>
       {error && <div className="error-banner">{error}</div>}
+
+      {/* Budget overrun warning (7.1) */}
+      {jobOrder.budget_overrun && (jobOrder.budget_overrun.is_over_hours || jobOrder.budget_overrun.is_over_cost) && (
+        <div
+          style={{
+            background: jobOrder.budget_overrun_approved ? '#eafaf1' : '#fdecea',
+            border: `1px solid ${jobOrder.budget_overrun_approved ? '#27ae60' : '#e74c3c'}`,
+            borderRadius: 8,
+            padding: '12px 16px',
+            marginBottom: 16,
+          }}
+        >
+          <strong style={{ color: jobOrder.budget_overrun_approved ? '#27ae60' : '#e74c3c' }}>
+            {jobOrder.budget_overrun_approved ? '✅ Budget Overrun Approved' : '⚠️ Budget Overrun Detected'}
+          </strong>
+          <div style={{ marginTop: 6, fontSize: 13 }}>
+            {jobOrder.budget_overrun.is_over_hours && (
+              <p style={{ margin: '2px 0' }}>
+                Hours: <strong>{(jobOrder.budget_overrun.consumed_minutes / 60).toFixed(1)}h</strong> consumed
+                of <strong>{(jobOrder.budget_overrun.contracted_minutes / 60).toFixed(1)}h</strong> contracted
+                ({((jobOrder.budget_overrun.consumed_minutes / Math.max(1, jobOrder.budget_overrun.contracted_minutes)) * 100).toFixed(0)}%)
+              </p>
+            )}
+            {jobOrder.budget_overrun.is_over_cost && (
+              <p style={{ margin: '2px 0' }}>
+                Cost: <strong>SGD {jobOrder.budget_overrun.consumed_cost_sgd.toLocaleString()}</strong> consumed
+                of <strong>SGD {jobOrder.budget_overrun.contract_value_sgd.toLocaleString()}</strong> contract value
+              </p>
+            )}
+          </div>
+          {jobOrder.budget_overrun_approved ? (
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: '#666' }}>
+              Approved by {userName(jobOrder.budget_overrun_approved_by)} on{' '}
+              {jobOrder.budget_overrun_approved_at
+                ? new Date(jobOrder.budget_overrun_approved_at).toLocaleString()
+                : '-'}
+            </p>
+          ) : (
+            isOpenOrAssigned && (user?.role === 'sales_manager' || user?.role === 'owner') && (
+              <button
+                onClick={onApproveBudgetOverrun}
+                disabled={working}
+                style={{ marginTop: 8 }}
+              >
+                Approve Overrun
+              </button>
+            )
+          )}
+          {!jobOrder.budget_overrun_approved && !(user?.role === 'sales_manager' || user?.role === 'owner') && (
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: '#e74c3c' }}>
+              Sales Manager or Owner approval required to continue past budget.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Side by side -- confirmed 2026-09-11, these two small forms
           don't need a full-width card each. Hidden once closed/void --

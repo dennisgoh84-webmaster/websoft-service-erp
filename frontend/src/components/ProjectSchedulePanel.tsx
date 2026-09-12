@@ -14,6 +14,7 @@ import {
   type MilestoneType,
   type ProjectMilestone,
 } from '../lib/api'
+import { useAuth } from '../lib/AuthContext'
 
 const MILESTONE_TYPE_LABELS: Record<MilestoneType, string> = {
   installation: 'Installation',
@@ -46,6 +47,8 @@ interface Props {
 }
 
 export default function ProjectSchedulePanel({ jobOrderId, milestones, users, editable, onRefresh }: Props) {
+  const { user: currentUser } = useAuth()
+  const canApproveCompletion = currentUser?.role === 'sales_manager' || currentUser?.role === 'owner'
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<{
@@ -174,6 +177,10 @@ export default function ProjectSchedulePanel({ jobOrderId, milestones, users, ed
 
       {error && <div className="error-banner">{error}</div>}
 
+      <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+        Milestone completion requires Sales Manager or Owner approval (decision 7.3).
+      </p>
+
       {milestones.length === 0 ? (
         <p className="muted">No milestones. Click "Initialize Template" to add the standard project milestones.</p>
       ) : (
@@ -218,7 +225,9 @@ export default function ProjectSchedulePanel({ jobOrderId, milestones, users, ed
                           >
                             <option value="pending">Pending</option>
                             <option value="in_progress">In Progress</option>
-                            <option value="completed">Completed</option>
+                            <option value="completed" disabled={!canApproveCompletion && m.status !== 'completed'}>
+                              Completed {!canApproveCompletion && m.status !== 'completed' ? '(Sales Mgr only)' : ''}
+                            </option>
                             <option value="skipped">Skipped</option>
                           </select>
                         ) : (

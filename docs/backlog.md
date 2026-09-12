@@ -79,10 +79,12 @@ shipped and when.
   approval workflow (DRAFT→PENDING→APPROVED→PAID), automatic clawback
   on write-off, finance-administered payout with Mark Paid action.
   → [open-business-decisions.md #6](open-business-decisions.md#6-commission-management)
-- [ ] Smaller longstanding open questions not currently blocking
-  anything in progress (Projects budget-overrun process, detailed
-  role/permission matrix, sales/service ownership definitions, etc.).
+- [x] **Smaller longstanding open questions (sections 7 & 8)** --
+  settled and built 2026-09-12. Budget overrun detection + Sales Manager
+  approval on PROJECT Job Orders (7.1); labour costing deferred (7.2);
+  milestone completion approval gated to Sales Manager (7.3); ownership
+  questions (8.1-8.3) confirmed as open-to-team via Group Authority.
   → [open-business-decisions.md #7-8](open-business-decisions.md#7-projects)
 
 ---
-Last updated: 2026-09-12 (Product "Is Stock" flag built)
+Last updated: 2026-09-12 (Open questions 7 & 8 settled + budget overrun / milestone approval built)
