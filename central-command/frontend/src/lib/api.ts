@@ -1,0 +1,211 @@
+/**
+ * Central Command API client.
+ */
+
+const BASE = '/api'
+
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem('cc_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...init?.headers },
+  })
+  if (res.status === 401) {
+    localStorage.removeItem('cc_token')
+    window.location.href = '/login'
+    throw new Error('Unauthorized')
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || `HTTP ${res.status}`)
+  }
+  if (res.status === 204) return undefined as T
+  return res.json()
+}
+
+// ── Types ────────────────────────────────────────────────────────────
+
+export interface AdminUser {
+  id: string
+  username: string
+  full_name: string
+  is_active: boolean
+}
+
+export interface Client {
+  id: string
+  name: string
+  code: string
+  db_host: string
+  db_port: number
+  db_name: string
+  db_username: string
+  db_use_tls: boolean
+  status: string
+  notes: string | null
+  last_connected_at: string | null
+  last_known_alembic_head: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ClientSummary {
+  id: string
+  name: string
+  code: string
+  status: string
+  last_connected_at: string | null
+  last_known_alembic_head: string | null
+}
+
+export interface ConnectionTestResult {
+  success: boolean
+  message: string
+  alembic_head: string | null
+  companies: { id: string; name: string; registration_number: string | null }[] | null
+}
+
+export interface Advertisement {
+  id: string
+  tag: string | null
+  text: string
+  sort_order: number
+  is_active: boolean
+  created_at: string
+  assignments: { client_id: string; pushed_at: string | null }[]
+}
+
+export interface VideoSetting {
+  id: string
+  video_url: string | null
+  label: string
+  is_active: boolean
+  created_at: string
+}
+
+export interface ClientModule {
+  module_key: string
+  module_name: string
+  is_built: boolean
+  enabled: boolean
+  license_type: string
+  notes: string | null
+  updated_at: string | null
+  company_id: string
+  company_name: string
+}
+
+export interface ConfigUpdate {
+  id: string
+  title: string
+  description: string | null
+  sql_statement: string
+  status: string
+  created_at: string
+  updated_at: string
+  push_logs: {
+    id: string
+    client_id: string
+    success: boolean
+    error_message: string | null
+    pushed_at: string
+  }[]
+}
+
+export interface PushLogEntry {
+  id: string
+  client_id: string
+  push_type: string
+  detail: string
+  success: boolean
+  error_message: string | null
+  pushed_at: string
+  pushed_by: string | null
+}
+
+export interface DashboardStats {
+  total_clients: number
+  active_clients: number
+  suspended_clients: number
+  total_ads: number
+  active_ads: number
+  total_config_updates: number
+  pending_pushes: number
+  recent_pushes: PushLogEntry[]
+}
+
+export interface PushResult {
+  results: { client: string; success: boolean; error?: string; count?: number }[]
+}
+
+// ── API methods ──────────────────────────────────────────────────────
+
+export const api = {
+  // Auth
+  login: (username: string, password: string) =>
+    request<{ access_token: string; full_name: string }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+  me: () => request<AdminUser>('/auth/me'),
+
+  // Dashboard
+  getDashboard: () => request<DashboardStats>('/dashboard/'),
+
+  // Clients
+  listClients: () => request<ClientSummary[]>('/clients/'),
+  getClient: (id: string) => request<Client>(`/clients/${id}`),
+  createClient: (data: Partial<Client>) =>
+    request<Client>('/clients/', { method: 'POST', body: JSON.stringify(data) }),
+  updateClient: (id: string, data: Partial<Client>) =>
+    request<Client>(`/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteClient: (id: string) =>
+    request<void>(`/clients/${id}`, { method: 'DELETE' }),
+  testConnection: (id: string) =>
+    request<ConnectionTestResult>(`/clients/${id}/test-connection`, { method: 'POST' }),
+
+  // Advertisements
+  listAds: () => request<Advertisement[]>('/advertisements/'),
+  createAd: (data: { tag?: string; text: string; sort_order?: number; client_ids?: string[] }) =>
+    request<Advertisement>('/advertisements/', { method: 'POST', body: JSON.stringify(data) }),
+  updateAd: (id: string, data: Partial<Advertisement & { client_ids?: string[] }>) =>
+    request<Advertisement>(`/advertisements/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAd: (id: string) =>
+    request<void>(`/advertisements/${id}`, { method: 'DELETE' }),
+  pushAd: (id: string) =>
+    request<PushResult>(`/advertisements/${id}/push`, { method: 'POST' }),
+  pushAllAds: () =>
+    request<PushResult>('/advertisements/push-all', { method: 'POST' }),
+
+  // Videos
+  listVideos: () => request<VideoSetting[]>('/advertisements/videos'),
+  createVideo: (data: { video_url?: string; label: string; client_ids?: string[] }) =>
+    request<VideoSetting>('/advertisements/videos', { method: 'POST', body: JSON.stringify(data) }),
+  pushVideo: (id: string) =>
+    request<PushResult>(`/advertisements/videos/${id}/push`, { method: 'POST' }),
+
+  // Licenses
+  getClientModules: (clientId: string) =>
+    request<ClientModule[]>(`/licenses/${clientId}/modules`),
+  setModuleLicense: (clientId: string, companyId: string, data: { module_key: string; enabled: boolean; license_type?: string; notes?: string }) =>
+    request<{ success: boolean }>(`/licenses/${clientId}/companies/${companyId}/modules`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Config Updates
+  listConfigUpdates: () => request<ConfigUpdate[]>('/config-updates/'),
+  getConfigUpdate: (id: string) => request<ConfigUpdate>(`/config-updates/${id}`),
+  createConfigUpdate: (data: { title: string; description?: string; sql_statement: string }) =>
+    request<ConfigUpdate>('/config-updates/', { method: 'POST', body: JSON.stringify(data) }),
+  updateConfigUpdate: (id: string, data: Partial<ConfigUpdate>) =>
+    request<ConfigUpdate>(`/config-updates/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  pushConfigUpdate: (id: string) =>
+    request<PushResult & { total: number; successes: number }>(`/config-updates/${id}/push`, { method: 'POST' }),
+  pushConfigToClient: (updateId: string, clientId: string) =>
+    request<{ success: boolean }>(`/config-updates/${updateId}/push/${clientId}`, { method: 'POST' }),
+}

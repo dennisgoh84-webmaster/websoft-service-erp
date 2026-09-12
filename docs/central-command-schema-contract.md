@@ -144,23 +144,27 @@ migration file.
 
 ---
 
-## 6. Open questions (still unresolved)
+## 6. Settled decisions (resolved 2026-09-12)
 
-These are carried from planned-work.md §8 and must be resolved before
-Central Command is built:
+All 6 open questions resolved — Central Command is now built in
+`central-command/` directory.
 
-1. **Client DB connection registry** — how does Central Command store
-   connection details for each client's PostgreSQL?
-2. **Network access** — is PostgreSQL exposed (TLS + auth) or VPN?
-3. **Schema versioning** — how does Central Command stay compatible
-   with schema changes?
-4. **Ad targeting rules** — what criteria determine which client sees
-   which ad?
-5. **Audit trail** — should Central Command writes appear in the
-   client's Event Logs?
-6. **Scope beyond ads and licenses** — will Central Command push other
-   things?
+1. **Client DB connection registry** → DECIDED: Central Command's own
+   database has a `clients` table with host, port, db_name, username,
+   password, TLS flag per client.  Admin adds clients via the UI.
+2. **Network access** → DECIDED: Internet with TLS + auth.  Each
+   client's PostgreSQL is exposed with TLS encryption and credentials.
+3. **Schema versioning** → DECIDED: Check `alembic_version` table.
+   Read the client's migration head before writing, refuse if
+   incompatible.
+4. **Ad targeting rules** → DECIDED: Manual per-client.  Admin assigns
+   ads to specific client instances via the UI.
+5. **Audit trail** → DECIDED: Central Command's own `push_logs` table
+   only.  Don't log in the client's Event Logs.
+6. **Scope beyond ads and licenses** → DECIDED: Yes, config updates
+   too.  Push SQL-based configuration changes (tax rate updates, new
+   default settings) to client databases.
 
 ---
 
-Last updated: 2026-09-12
+Last updated: 2026-09-12 (all open questions settled, Central Command built)
