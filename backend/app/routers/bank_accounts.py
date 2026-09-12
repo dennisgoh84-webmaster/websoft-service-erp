@@ -13,7 +13,7 @@ from app.models.core import User
 from app.models.groups import AccessLevel
 from app.models.treasury import BankAccount
 from app.schemas.schemas import BankAccountCreate, BankAccountOut, BankAccountUpdate
-from app.services import audit, exports
+from app.services import audit, bank_book, exports
 from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/bank-accounts", tags=["bank-accounts"])
@@ -32,13 +32,44 @@ def _filter_bank_accounts(db: Session, company_id: uuid.UUID, include_inactive: 
     return query.order_by(BankAccount.bank_name, BankAccount.account_name).all()
 
 
+def _bank_account_out(db: Session, bank_account: BankAccount) -> BankAccountOut:
+    return BankAccountOut(
+        id=bank_account.id,
+        bank_name=bank_account.bank_name,
+        account_name=bank_account.account_name,
+        account_number=bank_account.account_number,
+        branch=bank_account.branch,
+        swift_code=bank_account.swift_code,
+        currency_code=bank_account.currency_code,
+        gl_account_id=bank_account.gl_account_id,
+        opening_balance_sgd=float(bank_account.opening_balance_sgd),
+        opening_balance_date=bank_account.opening_balance_date,
+        current_balance_sgd=float(bank_book.current_balance(db, bank_account)),
+        is_active=bank_account.is_active,
+    )
+
+
 @router.get("", response_model=list[BankAccountOut])
 def list_bank_accounts(
     include_inactive: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    return _filter_bank_accounts(db, current_user.company_id, include_inactive)
+    return [
+        _bank_account_out(db, b) for b in _filter_bank_accounts(db, current_user.company_id, include_inactive)
+    ]
+
+
+@router.get("/{bank_account_id}", response_model=BankAccountOut)
+def get_bank_account(
+    bank_account_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    bank_account = db.get(BankAccount, bank_account_id)
+    if not bank_account or bank_account.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Bank account not found")
+    return _bank_account_out(db, bank_account)
 
 
 def _row(b: BankAccount, gl_codes: dict) -> dict:
@@ -115,7 +146,7 @@ def create_bank_account(
     )
     db.commit()
     db.refresh(bank_account)
-    return bank_account
+    return _bank_account_out(db, bank_account)
 
 
 @router.patch("/{bank_account_id}", response_model=BankAccountOut)
@@ -139,7 +170,7 @@ def update_bank_account(
     new_value: dict[str, object] = {}
     for field in (
         "bank_name", "account_name", "account_number", "branch", "swift_code",
-        "currency_code", "gl_account_id", "is_active",
+        "currency_code", "gl_account_id", "opening_balance_sgd", "opening_balance_date", "is_active",
     ):
         if field not in fields:
             continue
@@ -163,4 +194,4 @@ def update_bank_account(
     )
     db.commit()
     db.refresh(bank_account)
-    return bank_account
+    return _bank_account_out(db, bank_account)

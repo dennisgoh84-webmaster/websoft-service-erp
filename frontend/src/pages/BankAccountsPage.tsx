@@ -1,8 +1,10 @@
 // Bank Master File -- the company's own bank accounts. Setup data
 // only: no Receipt/Payment Voucher or GL posting reads from this yet.
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type Account, type BankAccount } from '../lib/api'
+import { formatMoney } from '../lib/format'
 
 export default function BankAccountsPage() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
@@ -17,6 +19,8 @@ export default function BankAccountsPage() {
   const [swiftCode, setSwiftCode] = useState('')
   const [currencyCode, setCurrencyCode] = useState('SGD')
   const [glAccountId, setGlAccountId] = useState('')
+  const [openingBalance, setOpeningBalance] = useState('0')
+  const [openingBalanceDate, setOpeningBalanceDate] = useState('')
   const [creating, setCreating] = useState(false)
 
   function refresh() {
@@ -45,6 +49,8 @@ export default function BankAccountsPage() {
         swift_code: swiftCode || undefined,
         currency_code: currencyCode || 'SGD',
         gl_account_id: glAccountId || null,
+        opening_balance_sgd: Number(openingBalance) || 0,
+        opening_balance_date: openingBalanceDate || null,
       })
       setBankName('')
       setAccountName('')
@@ -52,6 +58,8 @@ export default function BankAccountsPage() {
       setBranch('')
       setSwiftCode('')
       setGlAccountId('')
+      setOpeningBalance('0')
+      setOpeningBalanceDate('')
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add bank account')
@@ -82,6 +90,7 @@ export default function BankAccountsPage() {
       <p className="muted">
         The company's own bank accounts. Setup data only -- no Receipt/Payment Voucher or GL posting
         reads from this yet; the optional GL account link is for reference until that's wired up.
+        Click a bank account to open its Bank Book: transaction ledger and reconciliation.
       </p>
       {error && <div className="error-banner">{error}</div>}
 
@@ -106,6 +115,7 @@ export default function BankAccountsPage() {
                 <th>SWIFT</th>
                 <th>Currency</th>
                 <th>GL account</th>
+                <th style={{ textAlign: 'right' }}>Current balance</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -113,13 +123,18 @@ export default function BankAccountsPage() {
             <tbody>
               {bankAccounts.map((b) => (
                 <tr key={b.id} style={{ opacity: b.is_active ? 1 : 0.6 }}>
-                  <td>{b.bank_name}</td>
+                  <td>
+                    <Link to={`/bank-accounts/${b.id}`}>{b.bank_name}</Link>
+                  </td>
                   <td>{b.account_name}</td>
                   <td>{b.account_number}</td>
                   <td>{b.branch ?? '-'}</td>
                   <td>{b.swift_code ?? '-'}</td>
                   <td>{b.currency_code}</td>
                   <td>{glAccountLabel(b.gl_account_id)}</td>
+                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                    {formatMoney(b.current_balance_sgd)}
+                  </td>
                   <td>
                     <span className={`badge ${b.is_active ? 'active' : 'draft'}`}>
                       {b.is_active ? 'Active' : 'Inactive'}
@@ -134,7 +149,7 @@ export default function BankAccountsPage() {
               ))}
               {bankAccounts.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="muted">
+                  <td colSpan={10} className="muted">
                     No bank accounts set up yet.
                   </td>
                 </tr>
@@ -181,6 +196,19 @@ export default function BankAccountsPage() {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="form-row">
+            <label>Opening balance (SGD)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={openingBalance}
+              onChange={(e) => setOpeningBalance(e.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label>Opening balance date</label>
+            <input type="date" value={openingBalanceDate} onChange={(e) => setOpeningBalanceDate(e.target.value)} />
           </div>
           <button type="submit" disabled={creating}>
             {creating ? 'Adding...' : 'Add bank account'}

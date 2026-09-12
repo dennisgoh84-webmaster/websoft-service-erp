@@ -7,6 +7,7 @@ import AccountingPeriodsPage from './pages/AccountingPeriodsPage'
 import AccountingReportsPage from './pages/AccountingReportsPage'
 import AnnouncementsPage from './pages/AnnouncementsPage'
 import AccountsPayablePage from './pages/AccountsPayablePage'
+import BankAccountDetailPage from './pages/BankAccountDetailPage'
 import BankAccountsPage from './pages/BankAccountsPage'
 import ChartOfAccountsPage from './pages/ChartOfAccountsPage'
 import CurrencyRatesPage from './pages/CurrencyRatesPage'
@@ -102,6 +103,7 @@ function AppRoutes() {
         <Route path="/gl-types" element={<GLTypesPage />} />
         <Route path="/currency-rates" element={<CurrencyRatesPage />} />
         <Route path="/bank-accounts" element={<BankAccountsPage />} />
+        <Route path="/bank-accounts/:id" element={<BankAccountDetailPage />} />
         <Route path="/tax-types" element={<TaxTypesPage />} />
         <Route path="/accounting-periods" element={<AccountingPeriodsPage />} />
         <Route path="/year-end-closing" element={<YearEndClosingPage />} />

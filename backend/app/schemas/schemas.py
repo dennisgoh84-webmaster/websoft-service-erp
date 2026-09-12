@@ -1502,6 +1502,13 @@ class BankAccountOut(BaseModel):
     swift_code: str | None
     currency_code: str
     gl_account_id: uuid.UUID | None
+    # Bank Book (2026-09-12) -- see app/models/treasury.py's module
+    # docstring for why this is a separate ledger from the GL.
+    opening_balance_sgd: float
+    opening_balance_date: date | None
+    # Opening balance + every non-voided BankTransaction to date --
+    # computed by the router, not a stored column.
+    current_balance_sgd: float = 0
     is_active: bool
 
 
@@ -1513,6 +1520,8 @@ class BankAccountCreate(BaseModel):
     swift_code: str | None = None
     currency_code: str = Field(default="SGD", min_length=3, max_length=3)
     gl_account_id: uuid.UUID | None = None
+    opening_balance_sgd: float = 0
+    opening_balance_date: date | None = None
 
 
 class BankAccountUpdate(BaseModel):
@@ -1523,7 +1532,78 @@ class BankAccountUpdate(BaseModel):
     swift_code: str | None = None
     currency_code: str | None = None
     gl_account_id: uuid.UUID | None = None
+    opening_balance_sgd: float | None = None
+    opening_balance_date: date | None = None
     is_active: bool | None = None
+
+
+# ---- Bank Book: Bank Transactions + Bank Reconciliation (2026-09-12) ----
+class BankTransactionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    bank_account_id: uuid.UUID
+    transaction_number: str
+    transaction_date: date
+    description: str
+    reference: str | None
+    debit_sgd: float
+    credit_sgd: float
+    is_reconciled: bool
+    reconciled_at: datetime | None
+    is_voided: bool
+    void_reason: str | None
+    voided_at: datetime | None
+    created_at: datetime
+    # Running balance as at this line -- computed by the router in
+    # ledger (date/creation) order, not a stored column.
+    running_balance_sgd: float = 0
+
+
+class BankTransactionCreate(BaseModel):
+    transaction_date: date
+    description: str = Field(min_length=1, max_length=500)
+    reference: str | None = None
+    # Exactly one of these must be > 0 -- same rule as a JournalLine.
+    debit_sgd: float = Field(default=0, ge=0)
+    credit_sgd: float = Field(default=0, ge=0)
+
+
+class BankTransactionVoid(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class BankLedgerOut(BaseModel):
+    bank_account_id: uuid.UUID
+    opening_balance_sgd: float
+    opening_balance_date: date | None
+    rows: list[BankTransactionOut]
+    closing_balance_sgd: float
+    reconciled_balance_sgd: float
+    unreconciled_count: int
+
+
+class BankReconciliationCreate(BaseModel):
+    statement_date: date
+    statement_balance_sgd: float
+    note: str | None = None
+    # Transactions to mark reconciled as part of saving this session --
+    # anything already reconciled is left as-is; nothing here unreconciles
+    # a line (untick it individually first if that's really intended).
+    reconciled_transaction_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class BankReconciliationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    bank_account_id: uuid.UUID
+    statement_date: date
+    statement_balance_sgd: float
+    ledger_balance_sgd: float
+    difference_sgd: float
+    note: str | None
+    reconciled_by_user_id: uuid.UUID | None
+    reconciled_by_name: str | None = None
+    created_at: datetime
 
 
 # ---- Tax Type (TaxCode maintenance) ----

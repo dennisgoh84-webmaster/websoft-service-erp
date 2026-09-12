@@ -1484,6 +1484,50 @@ the promo video and "What's New" items were still hardcoded in
    a gap to close, since nothing else in this system live-updates an
    open tab either.
 
+## 31. Bank Book: separate ledger, not GL-derived (raised 2026-09-12)
+
+Requested as: "Bank Opening Balances / Bank Transaction Debit & Credit
+and Ledger Balances / Bank Reconciliation" -- Dennis asked for all
+three.
+
+31.1. **DECIDED with Dennis, built.** Before this could be built, one
+   real fork existed: the General Ledger's `JournalEntry`/`JournalLine`
+   already has `VoucherType.RECEIPT`/`PAYMENT` and `source_type`/
+   `source_id` fields, but nothing currently posts to them -- only the
+   manual Journal Voucher screen writes a `JournalEntry` (see #4b.2:
+   which account a sales invoice or receipt should post to is still
+   undecided). Asked Dennis whether the Bank Book's ledger should read
+   from GL Journal Vouchers, or be its own separate ledger. **Dennis
+   chose a separate Bank Book**, not the GL-derived option recommended.
+   This means the Bank Book's running balance and the General Ledger's
+   Bank/Cash-at-bank account balance are two independent figures that
+   can drift apart -- there is no reconciliation between them yet, and
+   none is planned until GL auto-posting itself is decided (#4b.2).
+   Each `BankAccount` gained its own `opening_balance_sgd` /
+   `opening_balance_date`; every debit/credit line is a new
+   `BankTransaction` row (own `BT-####` numbering via
+   `numbering.py`), never a `JournalLine`.
+
+31.2. **DECIDED by implementation.** Debit/credit follow the same
+   convention as `JournalLine`: separate non-negative `debit_sgd`/
+   `credit_sgd` columns, exactly one of which must be > 0 per line
+   (money in vs. money out), rather than a signed single amount.
+
+31.3. **DECIDED by implementation.** A `BankTransaction` is never
+   hard-deleted -- a wrong entry is voided with a required reason
+   (`void_reason`/`voided_at`), same pattern as `JobOrder.void_reason`.
+   A voided line stays visible in the ledger (struck through) but is
+   excluded from the running balance and reconciled-balance
+   calculations.
+
+31.4. **DECIDED by implementation.** "Bank Reconciliation" ticks off
+   transactions as reconciled (individually, or as part of saving a
+   dated reconciliation session) and permanently records each session
+   (`BankReconciliation`: statement date, statement balance, the
+   ledger balance as at that date, and the difference) -- this history
+   is never overwritten, so a past reconciliation's own numbers don't
+   change even if more transactions are added/voided later.
+
 ---
 
 ## How to use this document

@@ -17,6 +17,7 @@ from app.routers import (
     accounts,
     announcements,
     bank_accounts,
+    bank_transactions,
     payables,
     catalog,
     currency_rates,
@@ -106,6 +107,7 @@ app.include_router(setup_lists.router)
 app.include_router(gl_types.router)
 app.include_router(currency_rates.router)
 app.include_router(bank_accounts.router)
+app.include_router(bank_transactions.router)
 app.include_router(document_control.router)
 app.include_router(tax_codes.router)
 app.include_router(periods.router)

@@ -796,7 +796,56 @@ export interface BankAccount {
   swift_code: string | null
   currency_code: string
   gl_account_id: string | null
+  /** Bank Book (2026-09-12) -- see api.listBankTransactions/BankLedger.
+   * A separate ledger from the General Ledger's Journal Vouchers. */
+  opening_balance_sgd: number
+  opening_balance_date: string | null
+  /** Opening balance + every non-voided transaction to date -- computed
+   * server-side, not something you set directly. */
+  current_balance_sgd: number
   is_active: boolean
+}
+
+// ---- Bank Book: Bank Transactions + Bank Reconciliation ----
+export interface BankTransaction {
+  id: string
+  bank_account_id: string
+  transaction_number: string
+  transaction_date: string
+  description: string
+  reference: string | null
+  debit_sgd: number
+  credit_sgd: number
+  is_reconciled: boolean
+  reconciled_at: string | null
+  is_voided: boolean
+  void_reason: string | null
+  voided_at: string | null
+  created_at: string
+  running_balance_sgd: number
+}
+
+export interface BankLedger {
+  bank_account_id: string
+  opening_balance_sgd: number
+  opening_balance_date: string | null
+  rows: BankTransaction[]
+  closing_balance_sgd: number
+  reconciled_balance_sgd: number
+  unreconciled_count: number
+}
+
+export interface BankReconciliation {
+  id: string
+  bank_account_id: string
+  statement_date: string
+  statement_balance_sgd: number
+  ledger_balance_sgd: number
+  difference_sgd: number
+  note: string | null
+  reconciled_by_user_id: string | null
+  reconciled_by_name: string | null
+  created_at: string
 }
 
 // ---- Tax Type (Tax Code maintenance) ----
@@ -1967,6 +2016,7 @@ export const api = {
   // ---- Bank Master File ----
   listBankAccounts: (includeInactive = false) =>
     request<BankAccount[]>(`/bank-accounts${includeInactive ? '?include_inactive=true' : ''}`),
+  getBankAccount: (id: string) => request<BankAccount>(`/bank-accounts/${id}`),
   createBankAccount: (payload: {
     bank_name: string
     account_name: string
@@ -1975,6 +2025,8 @@ export const api = {
     swift_code?: string
     currency_code?: string
     gl_account_id?: string | null
+    opening_balance_sgd?: number
+    opening_balance_date?: string | null
   }) => request<BankAccount>('/bank-accounts', { method: 'POST', body: JSON.stringify(payload) }),
   updateBankAccount: (
     id: string,
@@ -1986,6 +2038,8 @@ export const api = {
       swift_code: string | null
       currency_code: string
       gl_account_id: string | null
+      opening_balance_sgd: number
+      opening_balance_date: string | null
       is_active: boolean
     }>,
   ) => request<BankAccount>(`/bank-accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
@@ -1993,6 +2047,49 @@ export const api = {
     requestBlob(`/bank-accounts/export.csv${includeInactive ? '?include_inactive=true' : ''}`),
   exportBankAccountsExcel: (includeInactive = false) =>
     requestBlob(`/bank-accounts/export.xlsx${includeInactive ? '?include_inactive=true' : ''}`),
+
+  // ---- Bank Book: Bank Transactions (debit/credit + running ledger balance) ----
+  // Separate from the General Ledger's Journal Vouchers -- confirmed with Dennis, 2026-09-12.
+  listBankTransactions: (bankAccountId: string) =>
+    request<BankLedger>(`/bank-accounts/${bankAccountId}/transactions`),
+  createBankTransaction: (
+    bankAccountId: string,
+    payload: {
+      transaction_date: string
+      description: string
+      reference?: string | null
+      debit_sgd?: number
+      credit_sgd?: number
+    },
+  ) =>
+    request<BankTransaction>(`/bank-accounts/${bankAccountId}/transactions`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  voidBankTransaction: (transactionId: string, reason: string) =>
+    request<BankTransaction>(`/bank-transactions/${transactionId}/void`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  toggleBankTransactionReconciled: (transactionId: string) =>
+    request<BankTransaction>(`/bank-transactions/${transactionId}/toggle-reconciled`, { method: 'POST' }),
+
+  // ---- Bank Book: Bank Reconciliation ----
+  listBankReconciliations: (bankAccountId: string) =>
+    request<BankReconciliation[]>(`/bank-accounts/${bankAccountId}/reconciliations`),
+  createBankReconciliation: (
+    bankAccountId: string,
+    payload: {
+      statement_date: string
+      statement_balance_sgd: number
+      reconciled_transaction_ids: string[]
+      note?: string | null
+    },
+  ) =>
+    request<BankReconciliation>(`/bank-accounts/${bankAccountId}/reconciliations`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   // ---- Tax Type (Tax Code maintenance) ----
   listTaxCodes: (includeInactive = false) =>

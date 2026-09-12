@@ -79,6 +79,7 @@ PREFIXES = {
     "contract": "CON",       # service contract
     "job_order": "JO",
     "service_record": "SR",
+    "bank_transaction": "BT",  # Bank Book entry, separate from the GL's JV/RV/PV
 }
 
 
