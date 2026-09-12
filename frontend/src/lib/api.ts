@@ -1323,6 +1323,7 @@ export interface Product {
   unit_of_measure: string | null
   tax_code: string
   default_reference_code_id: string | null
+  is_stock: boolean
   is_active: boolean
   created_at: string
 }
@@ -2230,6 +2231,7 @@ export const api = {
     unit_of_measure?: string
     tax_code?: string
     default_reference_code_id?: string | null
+    is_stock?: boolean
   }) => request<Product>('/catalog', { method: 'POST', body: JSON.stringify(payload) }),
   updateCatalogItem: (
     id: string,
@@ -2244,6 +2246,7 @@ export const api = {
       unit_of_measure: string | null
       tax_code: string
       default_reference_code_id: string | null
+      is_stock: boolean
       is_active: boolean
     }>,
   ) => request<Product>(`/catalog/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),

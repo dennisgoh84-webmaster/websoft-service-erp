@@ -48,8 +48,10 @@ shipped and when.
   for managing approval rules already in place. Absorbs Service Record
   approval logic.
   → [planned-work.md #4](planned-work.md#4-eapproval-master----authority-based-value-gated-multi-staff-approvals-across-documents-raised-2026-09-12)
-- [ ] **Product "Is Stock" flag / Stock Master** -- blocked on the
-  separate Websoft Stock Distribution ERP project existing first.
+- [x] **Product "Is Stock" flag** -- built 2026-09-12. `is_stock`
+  boolean added to Product model + migration + frontend toggle on
+  Product Catalog page. Full Stock Master link-up deferred until
+  the separate Websoft Stock Distribution ERP project is ready.
   → [planned-work.md #5](planned-work.md#5-product-is-stock-flag--stock-master-item-selection----pending-websoft-stock-distribution-erp-raised-2026-09-12)
 - [ ] **Odoo migration program** -- Contacts/Subscriptions/Timesheets/
   Quotations/Invoices/Receipts/Chart of Accounts. 6 open questions on
@@ -83,4 +85,4 @@ shipped and when.
   → [open-business-decisions.md #7-8](open-business-decisions.md#7-projects)
 
 ---
-Last updated: 2026-09-12 (eSignature/eDocument + eApproval Master built)
+Last updated: 2026-09-12 (Product "Is Stock" flag built)

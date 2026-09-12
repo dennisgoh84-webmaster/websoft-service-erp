@@ -1349,6 +1349,7 @@ class ProductCreate(BaseModel):
     unit_of_measure: str | None = None
     tax_code: str = "SR"
     default_reference_code_id: uuid.UUID | None = None
+    is_stock: bool = False
 
 
 class ProductUpdate(BaseModel):
@@ -1362,6 +1363,7 @@ class ProductUpdate(BaseModel):
     unit_of_measure: str | None = None
     tax_code: str | None = None
     default_reference_code_id: uuid.UUID | None = None
+    is_stock: bool | None = None
     is_active: bool | None = None
 
 
@@ -1378,6 +1380,7 @@ class ProductOut(BaseModel):
     unit_of_measure: str | None
     tax_code: str
     default_reference_code_id: uuid.UUID | None
+    is_stock: bool
     is_active: bool
     created_at: datetime
 
