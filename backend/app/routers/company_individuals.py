@@ -24,6 +24,7 @@ from app.schemas.schemas import (
     CompanyIndividualRelationshipCreate,
     CompanyIndividualRelationshipOut,
     CompanyIndividualUpdate,
+    PdpaAgreementDocumentUpdate,
     PdpaConsentUpdate,
 )
 from app.services import audit, exports
@@ -31,6 +32,27 @@ from app.services.authority import require_module_access
 
 router = APIRouter(prefix="/api/company-individuals", tags=["company-individuals"])
 MODULE = "company_individual_management"
+
+# The uploaded signed PDPA Agreement (2026-09-12: "need to be able to see
+# the signed agreement") -- an image (scan/photo) or PDF, same inline-
+# data-URI pattern as Company.logo / User.photo, sized for a scanned
+# document rather than a small avatar/logo.
+MAX_PDPA_DOCUMENT_CHARS = 2_800_000  # ~2 MB of base64
+
+
+def _validate_pdpa_document(document: str | None) -> None:
+    if document is None:
+        return
+    if not (document.startswith("data:image/") or document.startswith("data:application/pdf")):
+        raise HTTPException(
+            status_code=400,
+            detail="The signed agreement must be an image or PDF (e.g. 'data:image/png;base64,...' "
+            "or 'data:application/pdf;base64,...').",
+        )
+    if len(document) > MAX_PDPA_DOCUMENT_CHARS:
+        raise HTTPException(
+            status_code=400, detail="That file is too large -- please use one under ~2 MB."
+        )
 
 CUSTOMER_EXPORT_FIELDS = [
     "name", "customer_type", "customer_group", "industry", "legacy_customer_code",
@@ -249,6 +271,42 @@ def set_pdpa_consent(
             "pdpa_consent_at": customer.pdpa_consent_at.isoformat() if customer.pdpa_consent_at else None,
         },
     )
+    db.commit()
+    db.refresh(customer)
+    return customer
+
+
+@router.post("/{customer_id}/pdpa-agreement-document", response_model=CompanyIndividualOut)
+def set_pdpa_agreement_document(
+    customer_id: uuid.UUID,
+    payload: PdpaAgreementDocumentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Uploads or removes the scanned/photographed/PDF signed PDPA
+    Agreement itself (2026-09-12: "need to be able to see the signed
+    agreement"). Security: gated at the same EDIT level as every other
+    write on this record (this system's access control is per-module,
+    not per-field -- see docs/system-architecture.md's RBAC section);
+    reading it back (via GET .../{customer_id}) needs only VIEW, same as
+    every other field here, and it is never reachable from any
+    unauthenticated endpoint. The upload/removal itself is written to
+    the audit trail below -- never the file content."""
+    customer = _customer_or_404(db, customer_id, current_user.company_id)
+    _validate_pdpa_document(payload.document)
+    had_document = customer.pdpa_agreement_document is not None
+    customer.pdpa_agreement_document = payload.document
+    has_document = payload.document is not None
+    if had_document != has_document:
+        audit.record(
+            db,
+            entity_type="customer",
+            entity_id=customer.id,
+            action="pdpa_agreement_document_uploaded" if has_document else "pdpa_agreement_document_removed",
+            actor_user_id=current_user.id,
+            old_value={"pdpa_agreement_document": "(on file)" if had_document else "(none)"},
+            new_value={"pdpa_agreement_document": "(on file)" if has_document else "(none)"},
+        )
     db.commit()
     db.refresh(customer)
     return customer

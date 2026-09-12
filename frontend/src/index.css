@@ -705,50 +705,48 @@ a.icon-button:hover {
   margin-bottom: 16px;
 }
 /* Promotions panel (2026-09-12: "empty place to publish promotions --
-   add-on features, new updates, latest news"): a narrow, tall column
-   beside the login card, sample content for now -- see Login.tsx's
-   PROMO_ITEMS. Wraps below the card on a narrow viewport instead of
-   squeezing it. */
+   add-on features, new updates, latest news"; later changed to a video
+   -- "the right advert panel sample picture can change to video
+   instead"): a narrow, tall column beside the login card. Wraps below
+   the card on a narrow viewport instead of squeezing it. */
 .login-promo {
   width: 220px;
-  padding: 20px;
-  color: #fff;
   background: linear-gradient(160deg, var(--accent) 0%, #5a1420 100%);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  overflow: hidden;
 }
-.login-promo h2 {
+.login-promo-video {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+.login-promo-caption {
   margin: 0;
-  font-size: 15px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.85;
-}
-.login-promo-item {
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-}
-.login-promo-item:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-.login-promo-item .tag {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 3px;
-  padding: 2px 6px;
-  margin-bottom: 6px;
-}
-.login-promo-item p {
-  margin: 0;
-  font-size: 13px;
+  padding: 14px 16px;
+  color: #fff;
+  font-size: 12px;
   line-height: 1.4;
-  opacity: 0.95;
+  opacity: 0.9;
+}
+
+/* A plain-text button styled as a link -- e.g. "Forgot password?" on
+   the Login page -- so it doesn't compete visually with the primary
+   submit button above it. */
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  text-align: center;
 }
 
 .muted {

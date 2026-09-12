@@ -1357,6 +1357,68 @@ and after the expiry date, we need to archive them somewhere."
    archive; it is not swept up automatically. Revisit if/when this
    system gains a scheduled-job runner.
 
+## 28. PDPA signed-agreement viewing, archive-button gating, login video panel, and forgot-password OTP (raised 2026-09-12, follow-up to #27)
+
+Requested as: "PDPA Need to be able to see the signed agreement, the
+archive button is only to appear after the expiry date... pls take
+care of the security too... LOGIN page - The right advert panel sample
+picture can change to video instead.. Need to have a forget password,
+and OTP also."
+
+28.1. **DECIDED, built.** "See the signed agreement": a new
+   `pdpa_agreement_document` field on Company/Individual (image or PDF,
+   data URI, same inline-storage pattern as Company.logo/User.photo,
+   capped at ~2 MB) uploaded and previewed from the PDPA & Data
+   Retention card -- an image renders inline, a PDF embeds inline.
+   Security taken as: (a) content-type + size validated server-side,
+   (b) gated at the same `company_individual_management` access level
+   as every other field on the record (this system has no per-field
+   permission granularity -- see the RBAC section of
+   system-architecture.md), (c) never reachable from any
+   unauthenticated endpoint, (d) every upload/removal is written to
+   the audit trail (never the file content). If "the security" meant
+   something more specific (e.g. restricting this one field to a
+   narrower group than the rest of the record, or encryption at rest),
+   that hasn't been built -- flag it and it can be added.
+
+28.2. **DECIDED, built.** "Archive button only appears after the
+   expiry date": a UI-level gate on the CompanyIndividual detail page,
+   not a backend restriction -- `POST .../archive` itself still accepts
+   a call regardless of date (an admin can still correct a mistake or
+   close an account early for another reason), and Unarchive is always
+   available once archived. Revisit if a hard backend rule turns out
+   to be what was meant.
+
+28.3. **DECIDED, built (a placeholder, not a real ad).** Login page
+   promo panel changed from static text to a looping muted video
+   (`Login.tsx`'s `PROMO_VIDEO_URL`) with a short text caption below
+   it. No real advertisement video exists yet, so a well-known CC0
+   sample clip (hosted on MDN's own infrastructure) stands in --
+   swap the URL for the real one once available. Chosen as an external
+   URL rather than building video file upload/storage: a video is far
+   too large to hold inline the way the logo/photo/PDPA document
+   above do, and no video-hosting infrastructure exists in this system
+   -- introducing one is a bigger architecture decision than this
+   request asked for. The panel falls back to the plain gradient +
+   caption (its original look) if the video URL doesn't load in a
+   given deployment, so it never shows a broken box.
+
+28.4. **DECIDED, built.** "Forget password, and OTP also": a
+   self-service email+OTP flow, separate from the login sequence --
+   `POST /api/auth/forgot-password` (email) always returns the same
+   generic message whether or not the account exists (prevents
+   enumerating staff emails), and only actually emails a 6-digit code
+   when it does and SMTP is configured; `POST /api/auth/reset-password-otp`
+   (email + code + new password) sets the new password directly once
+   the code matches -- no separate link/token exchange, since email +
+   code together already prove account control. Reuses the `LoginOtp`
+   table from #27.3, now with a `purpose` column ("login" vs
+   "password_reset") so a code emailed for one flow can never complete
+   the other. If email delivery isn't configured, this flow has no way
+   to reach the user (same limitation as login OTP) -- there is
+   currently no alternative (e.g. a security-question fallback), since
+   none was requested.
+
 ---
 
 ## How to use this document

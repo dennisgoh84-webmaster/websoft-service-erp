@@ -15,6 +15,18 @@ The sequence a client follows:
    returning the same LoginResult shape.
 3. POST /verify-otp (otp_token + code). Returns status="ok" with the
    real access_token once the code matches.
+
+"Forget password" (2026-09-12) is a separate, self-contained pair:
+1. POST /forgot-password (email). Always returns the same generic
+   message, whether or not that email belongs to an account -- an
+   OTP is only actually emailed if it does (and SMTP is configured).
+2. POST /reset-password-otp (email + code + new_password). Sets the
+   new password directly once the code matches -- no separate
+   token exchange, since email+code together already prove the
+   caller controls the account.
+Both use the same LoginOtp table as login's OTP step, distinguished by
+`purpose="password_reset"` so a code emailed for one can never be used
+for the other.
 """
 import hashlib
 import secrets
@@ -28,7 +40,15 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.core import LoginOtp, User
-from app.schemas.schemas import ChangePasswordRequest, CurrentUser, LoginResult, VerifyOtpRequest
+from app.schemas.schemas import (
+    ChangePasswordRequest,
+    CurrentUser,
+    ForgotPasswordRequest,
+    LoginResult,
+    MessageResponse,
+    ResetPasswordWithOtpRequest,
+    VerifyOtpRequest,
+)
 from app.services import audit, mailer
 from app.services.auth import (
     create_access_token,
@@ -61,6 +81,7 @@ def _issue_login_result(db: Session, user: User) -> LoginResult:
         otp = LoginOtp(
             user_id=user.id,
             code_hash=_hash_otp(code),
+            purpose="login",
             expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRE_MINUTES),
         )
         db.add(otp)
@@ -150,7 +171,7 @@ def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
 
     otp = (
         db.query(LoginOtp)
-        .filter(LoginOtp.user_id == user.id, LoginOtp.consumed_at.is_(None))
+        .filter(LoginOtp.user_id == user.id, LoginOtp.purpose == "login", LoginOtp.consumed_at.is_(None))
         .order_by(LoginOtp.created_at.desc())
         .first()
     )
@@ -173,6 +194,92 @@ def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
     otp.consumed_at = now
     db.commit()
     return LoginResult(status="ok", access_token=create_access_token(user.id))
+
+
+# A single generic response for both the "email not found" and the
+# "email found, code sent" cases -- revealing which would let anyone
+# probe for registered staff emails.
+_FORGOT_PASSWORD_GENERIC_MESSAGE = (
+    "If an account exists for that email, a one-time code has been sent to it."
+)
+_RESET_PASSWORD_GENERIC_ERROR = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect or expired code."
+)
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email, User.is_active).first()
+    if user and mailer.is_configured():
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        otp = LoginOtp(
+            user_id=user.id,
+            code_hash=_hash_otp(code),
+            purpose="password_reset",
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRE_MINUTES),
+        )
+        db.add(otp)
+        db.commit()
+        try:
+            mailer.send_email(
+                to_email=user.email,
+                subject="Reset your Websoft Service ERP password",
+                body_text=(
+                    f"Your one-time password-reset code is {code}.\n\n"
+                    f"It expires in {OTP_EXPIRE_MINUTES} minutes. If you didn't request a "
+                    "password reset, you can ignore this email -- your password hasn't changed."
+                ),
+            )
+        except (mailer.MailerNotConfigured, mailer.MailerError):
+            pass  # still return the generic message below -- never reveal send failures
+    # Always the same response, regardless of whether the account exists,
+    # is active, or SMTP is even configured -- see module docstring.
+    return MessageResponse(message=_FORGOT_PASSWORD_GENERIC_MESSAGE)
+
+
+@router.post("/reset-password-otp", response_model=MessageResponse)
+def reset_password_with_otp(payload: ResetPasswordWithOtpRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not user.is_active:
+        raise _RESET_PASSWORD_GENERIC_ERROR
+
+    otp = (
+        db.query(LoginOtp)
+        .filter(
+            LoginOtp.user_id == user.id,
+            LoginOtp.purpose == "password_reset",
+            LoginOtp.consumed_at.is_(None),
+        )
+        .order_by(LoginOtp.created_at.desc())
+        .first()
+    )
+    now = datetime.now(timezone.utc)
+    if not otp or otp.expires_at < now or otp.attempts >= OTP_MAX_ATTEMPTS:
+        raise _RESET_PASSWORD_GENERIC_ERROR
+    if _hash_otp(payload.code) != otp.code_hash:
+        otp.attempts += 1
+        db.commit()
+        raise _RESET_PASSWORD_GENERIC_ERROR
+
+    try:
+        validate_password_complexity(payload.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    otp.consumed_at = now
+    user.hashed_password = hash_password(payload.new_password)
+    # They just proved they control the account's email and chose this
+    # password themselves -- no need to force yet another change.
+    user.must_change_password = False
+    audit.record(
+        db,
+        entity_type="user",
+        entity_id=user.id,
+        action="password_reset_via_forgot_password",
+        actor_user_id=user.id,
+    )
+    db.commit()
+    return MessageResponse(message="Password updated. You can now sign in with your new password.")
 
 
 @router.get("/me", response_model=CurrentUser)

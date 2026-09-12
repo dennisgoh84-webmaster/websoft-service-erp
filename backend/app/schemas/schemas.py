@@ -64,6 +64,29 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8)
 
 
+class MessageResponse(BaseModel):
+    """A plain confirmation message -- used where the response must be
+    identical whether or not the request "worked" in some sensitive
+    sense (e.g. forgot-password: never confirm or deny an email exists)."""
+
+    message: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordWithOtpRequest(BaseModel):
+    """Completes "forgot password": proves the caller controls the
+    account's email by quoting the code just sent to it, then sets a
+    new password directly -- no separate change_token/otp_token step
+    since email+code together already establish who this is."""
+
+    email: str
+    code: str = Field(min_length=6, max_length=6)
+    new_password: str = Field(min_length=8)
+
+
 class CurrentUser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -389,6 +412,10 @@ class CompanyIndividualOut(BaseModel):
     # PDPA (2026-09-12).
     pdpa_consent_given: bool
     pdpa_consent_at: datetime | None
+    # The uploaded signed agreement itself ("need to be able to see the
+    # signed agreement") -- a data URI, image or PDF; null if none has
+    # been uploaded yet. See PdpaAgreementDocumentUpdate.
+    pdpa_agreement_document: str | None
     data_expiry_date: date | None
     is_archived: bool
     archived_at: datetime | None
@@ -404,6 +431,15 @@ class PdpaConsentUpdate(BaseModel):
     filed (see app/routers/company_individuals.py)."""
 
     given: bool
+
+
+class PdpaAgreementDocumentUpdate(BaseModel):
+    """Uploads (or, with `document=None`, removes) the scanned/
+    photographed/PDF signed PDPA Agreement itself. Validated server-side
+    (content type + size cap) in app/routers/company_individuals.py,
+    same pattern as Company.logo / User.photo."""
+
+    document: str | None
 
 
 class ContactCreate(BaseModel):

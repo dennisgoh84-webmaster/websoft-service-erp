@@ -176,7 +176,13 @@ class LoginOtp(Base):
     `code_hash` is a SHA-256 hash, not the plaintext code -- a 6-digit
     OTP is far weaker than a real password, but there is no reason to
     store it recoverable either. `attempts` caps guesses at the code
-    before the whole challenge must be restarted (a fresh login)."""
+    before the whole challenge must be restarted (a fresh login).
+
+    `purpose` (2026-09-12, added for "forget password") distinguishes a
+    login-time OTP from a forgot-password OTP -- the same row shape,
+    but a code emailed for one must never be usable for the other (see
+    app/routers/auth.py's login/verify-otp and forgot-password/reset-
+    password-otp, each of which filters on its own purpose)."""
 
     __tablename__ = "login_otps"
 
@@ -185,6 +191,7 @@ class LoginOtp(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(20), nullable=False, default="login")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

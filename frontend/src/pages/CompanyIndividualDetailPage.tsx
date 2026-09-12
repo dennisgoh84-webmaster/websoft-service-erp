@@ -216,6 +216,49 @@ export default function CompanyIndividualDetailPage() {
     }
   }
 
+  // The signed agreement upload (2026-09-12: "need to be able to see the
+  // signed agreement") -- same immediate-save pattern as the consent
+  // checkbox and the photo upload elsewhere in this app. ~2 MB cap
+  // mirrors the backend's MAX_PDPA_DOCUMENT_CHARS.
+  const MAX_PDPA_DOCUMENT_BYTES = 2 * 1024 * 1024
+
+  async function onPickPdpaDocument(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-picking the same file name later
+    if (!id || !file) return
+    setError(null)
+    if (!(file.type.startsWith('image/') || file.type === 'application/pdf')) {
+      setError('Please choose an image or PDF file.')
+      return
+    }
+    if (file.size > MAX_PDPA_DOCUMENT_BYTES) {
+      setError('That file is too large -- please use one under ~2 MB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        await api.setPdpaAgreementDocument(id, reader.result as string)
+        refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to upload the signed agreement')
+      }
+    }
+    reader.onerror = () => setError('Could not read that file.')
+    reader.readAsDataURL(file)
+  }
+
+  async function onRemovePdpaDocument() {
+    if (!id) return
+    setError(null)
+    try {
+      await api.setPdpaAgreementDocument(id, null)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove the signed agreement')
+    }
+  }
+
   async function onTogglePdpaConsent(given: boolean) {
     if (!id) return
     setError(null)
@@ -364,6 +407,11 @@ export default function CompanyIndividualDetailPage() {
 
   if (notFound) return <p>Not found. <Link to="/company-individuals">Back to Company / Individual</Link></p>
   if (!customer) return <p>Loading...</p>
+
+  // "The archive button is only to appear after the expiry date"
+  // (2026-09-12) -- a UI-level gate, not a backend restriction: an
+  // already-archived record can always be unarchived regardless of date.
+  const isPastExpiry = Boolean(customer.data_expiry_date && new Date(customer.data_expiry_date) < new Date())
 
   function field(key: keyof ReturnType<typeof emptyForm>) {
     return {
@@ -930,10 +978,51 @@ export default function CompanyIndividualDetailPage() {
             : 'Not yet recorded. Ticking this box files it in the system with the current date/time.'}
         </p>
 
+        <div className="form-row">
+          <label>Signed agreement</label>
+          <div>
+            {customer.pdpa_agreement_document ? (
+              <div>
+                {customer.pdpa_agreement_document.startsWith('data:application/pdf') ? (
+                  <embed
+                    src={customer.pdpa_agreement_document}
+                    type="application/pdf"
+                    style={{ width: '100%', maxWidth: 480, height: 360, border: '1px solid var(--border)' }}
+                  />
+                ) : (
+                  <a href={customer.pdpa_agreement_document} target="_blank" rel="noreferrer">
+                    <img
+                      src={customer.pdpa_agreement_document}
+                      alt="Signed PDPA Agreement"
+                      style={{ maxWidth: 240, maxHeight: 240, display: 'block', border: '1px solid var(--border)' }}
+                    />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className="secondary"
+                  style={{ marginTop: 8 }}
+                  onClick={onRemovePdpaDocument}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <>
+                <input type="file" accept="image/*,application/pdf" onChange={onPickPdpaDocument} />
+                <p className="muted" style={{ marginTop: 4 }}>
+                  Upload a photo, scan, or PDF of the signed agreement (up to ~2 MB) so it can be
+                  viewed here later.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+
         {customer.data_expiry_date && (
           <p>
             Data expiry date: <strong>{customer.data_expiry_date}</strong>
-            {new Date(customer.data_expiry_date) < new Date() && !customer.is_archived && (
+            {isPastExpiry && !customer.is_archived && (
               <span className="badge exceeded" style={{ marginLeft: 8 }}>
                 Past expiry -- archive this record
               </span>
@@ -949,9 +1038,21 @@ export default function CompanyIndividualDetailPage() {
             <> Archived {new Date(customer.archived_at).toLocaleString()}.</>
           )}
         </p>
-        <button className="secondary" onClick={onToggleArchive}>
-          {customer.is_archived ? 'Unarchive' : 'Archive now'}
-        </button>
+        {customer.is_archived ? (
+          <button className="secondary" onClick={onToggleArchive}>
+            Unarchive
+          </button>
+        ) : isPastExpiry ? (
+          <button className="secondary" onClick={onToggleArchive}>
+            Archive now
+          </button>
+        ) : (
+          <p className="muted">
+            {customer.data_expiry_date
+              ? 'Archiving becomes available once the data expiry date above has passed.'
+              : 'Set a data expiry date above to enable archiving.'}
+          </p>
+        )}
       </div>
 
       <div className="card">

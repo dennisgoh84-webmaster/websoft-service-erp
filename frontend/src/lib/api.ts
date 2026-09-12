@@ -116,6 +116,33 @@ export async function changePassword(changeToken: string, newPassword: string): 
   })
 }
 
+// "Forget password" (2026-09-12) -- a self-contained email+OTP pair,
+// separate from the login sequence above. forgotPassword always
+// resolves the same way (never reveals whether the email exists);
+// resetPasswordWithOtp sets the new password directly once the code
+// matches, no separate token exchange needed.
+export interface MessageResponse {
+  message: string
+}
+
+export async function forgotPassword(email: string): Promise<MessageResponse> {
+  return request<MessageResponse>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+}
+
+export async function resetPasswordWithOtp(
+  email: string,
+  code: string,
+  newPassword: string,
+): Promise<MessageResponse> {
+  return request<MessageResponse>('/auth/reset-password-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, code, new_password: newPassword }),
+  })
+}
+
 // ---- Types (mirroring backend Pydantic schemas) ----
 export type UserRole = 'owner' | 'service_lead' | 'sales_manager' | 'support_engineer' | 'finance'
 
@@ -282,6 +309,9 @@ export interface CompanyIndividual {
    * directly (see api.setPdpaConsent). */
   pdpa_consent_given: boolean
   pdpa_consent_at: string | null
+  /** The uploaded signed agreement itself -- a data URI (image or PDF),
+   * or null if none has been uploaded yet. See api.setPdpaAgreementDocument. */
+  pdpa_agreement_document: string | null
   /** After this date, all of this record's data should be archived
    * (see api.archiveCompanyIndividual). Null = no expiry agreed yet. */
   data_expiry_date: string | null
@@ -1253,6 +1283,13 @@ export const api = {
     request<CompanyIndividual>(`/company-individuals/${id}/pdpa-consent`, {
       method: 'POST',
       body: JSON.stringify({ given }),
+    }),
+  /** Uploads (data URI, image or PDF) or removes (pass null) the
+   * scanned/photographed signed PDPA Agreement itself. */
+  setPdpaAgreementDocument: (id: string, document: string | null) =>
+    request<CompanyIndividual>(`/company-individuals/${id}/pdpa-agreement-document`, {
+      method: 'POST',
+      body: JSON.stringify({ document }),
     }),
   /** Soft-archive-in-place -- all data stays, just hidden from normal lists. */
   archiveCompanyIndividual: (id: string) => request<CompanyIndividual>(`/company-individuals/${id}/archive`, { method: 'POST' }),

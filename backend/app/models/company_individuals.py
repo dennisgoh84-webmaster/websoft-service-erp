@@ -167,6 +167,18 @@ class CompanyIndividual(Base):
     # actually filed, not just that the box is currently ticked.
     pdpa_consent_given: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     pdpa_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # "Need to be able to see the signed agreement" (2026-09-12): the
+    # actual scanned/photographed/PDF signed PDPA Agreement, stored the
+    # same inline-data-URI way as Company.logo/User.photo -- see
+    # app/routers/company_individuals.py's POST .../pdpa-agreement-document
+    # (size- and content-type-validated there, same pattern as the photo/
+    # logo uploads) for why this stays a plain Text column rather than
+    # standing up file storage for one more small per-record document.
+    # Security: never exposed by any unauthenticated endpoint -- reading
+    # it requires the same company_individual_management VIEW access as
+    # every other field on this record, and every upload/removal is
+    # written to the audit trail (without the file content itself).
+    pdpa_agreement_document: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # "all data relating to this customer have a data expiry date and
     # after the expiry date, we need to archive them somewhere" (2026-09-12).
