@@ -27,7 +27,13 @@ from app.models.accounting import (
     VoucherType,
 )
 from app.services.numbering import next_document_number
-from app.services.periods import PeriodClosedError, require_open_period
+from app.models.periods import PeriodOperation
+from app.services.periods import (
+    PeriodClosedError,
+    PeriodLockedError,
+    require_period_allows,
+    voucher_type_to_doc_type,
+)
 
 
 class LedgerRuleViolation(Exception):
@@ -124,8 +130,9 @@ def post_entry(
 
     if not bypass_period_check:
         try:
-            require_open_period(db, entry.company_id, entry.entry_date)
-        except PeriodClosedError as e:
+            doc_type = voucher_type_to_doc_type(entry.voucher_type)
+            require_period_allows(db, entry.company_id, entry.entry_date, doc_type, PeriodOperation.GL)
+        except (PeriodLockedError, PeriodClosedError) as e:
             raise LedgerRuleViolation(str(e))
 
     if entry.total_debit != entry.total_credit:
@@ -155,6 +162,13 @@ def reverse_entry(
         raise LedgerRuleViolation("Only a posted voucher can be reversed.")
     if not reason.strip():
         raise LedgerRuleViolation("A reason is required to reverse a voucher.")
+
+    # Check REVERSE lock on the original entry's period
+    try:
+        doc_type = voucher_type_to_doc_type(entry.voucher_type)
+        require_period_allows(db, entry.company_id, entry.entry_date, doc_type, PeriodOperation.REVERSE)
+    except (PeriodLockedError, PeriodClosedError) as e:
+        raise LedgerRuleViolation(str(e))
 
     reversal = create_journal_entry(
         db,
