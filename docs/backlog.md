@@ -53,8 +53,12 @@ shipped and when.
   → [planned-work.md #7](planned-work.md#7-whatsapp-otp-as-a-second-login-factor-raised-2026-09-12-deferred)
 - [ ] **Server Company Central Command** -- separate app/repo. Pushes
   ads/banners and license enforcement directly into each client's
-  PostgreSQL. This ERP's `module_controls` and `announcements` tables
-  are the schema contract. 6 open questions flagged.
+  PostgreSQL. Schema contract documented 2026-09-12 (see
+  [central-command-schema-contract.md](central-command-schema-contract.md)):
+  tables `announcements`, `ad_banner_settings`, `company_modules`,
+  `modules`, `companies`; enforcement via `require_module_access()`.
+  6 open questions still unresolved -- no code changes needed in this
+  ERP repo until the separate Central Command app is started.
   → [planned-work.md #8](planned-work.md#8-server-company-central-command----remote-adbanner-push--license-enforcement-raised-2026-09-12)
 
 ## Partially open
@@ -71,4 +75,4 @@ shipped and when.
   → [open-business-decisions.md #7-8](open-business-decisions.md#7-projects)
 
 ---
-Last updated: 2026-09-12 (GL Transactions ledger view built)
+Last updated: 2026-09-12 (Central Command schema contract documented)
