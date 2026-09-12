@@ -1,7 +1,13 @@
 """
-Accounting Periods and Year-End Closing. See app/models/periods.py and
-app/services/periods.py for the mechanics and the two pragmatic,
-explicitly-flagged defaults this implements.
+Accounting Periods and Year-End Closing.
+
+Updated 2026-09-12: replaced binary close/reopen with granular
+per-document-type, per-operation lock matrix. Close All / Open All
+are convenience actions that set every lock at once; individual
+locks can be toggled one cell at a time from the frontend grid.
+
+See app/models/periods.py for the lock matrix and
+app/services/periods.py for the enforcement and year-end mechanics.
 """
 import uuid
 
@@ -16,6 +22,7 @@ from app.schemas.schemas import (
     AccountingPeriodCreate,
     AccountingPeriodOut,
     FiscalYearClosureOut,
+    PeriodLockToggleRequest,
     YearEndClosingRequest,
 )
 from app.services import audit
@@ -63,6 +70,7 @@ def create_period(
     period = AccountingPeriod(company_id=current_user.company_id, **payload.model_dump())
     db.add(period)
     db.flush()
+    periods_svc.seed_locks_for_period(db, period, locked=False)
     audit.record(
         db,
         entity_type="accounting_period",
@@ -77,17 +85,61 @@ def create_period(
     return period
 
 
+# ---- Lock toggle (single cell) ----------------------------------------
+
+
+@router.post("/{period_id}/toggle-lock", response_model=AccountingPeriodOut)
+def toggle_lock_endpoint(
+    period_id: uuid.UUID,
+    payload: PeriodLockToggleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
+):
+    """Lock or unlock one doc-type × operation cell."""
+    period = db.get(AccountingPeriod, period_id)
+    if not period or period.company_id != current_user.company_id:
+        raise HTTPException(status_code=404, detail="Period not found")
+    try:
+        periods_svc.toggle_lock(
+            db,
+            period,
+            payload.doc_type,
+            payload.operation,
+            locked=payload.locked,
+            actor_user_id=current_user.id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    action = "locked" if payload.locked else "unlocked"
+    audit.record(
+        db,
+        entity_type="accounting_period",
+        entity_id=period.id,
+        action=f"lock_{action}",
+        actor_user_id=current_user.id,
+        details=f"{payload.doc_type.value}/{payload.operation.value} {action} in {period.name}",
+        new_value={"doc_type": payload.doc_type.value, "operation": payload.operation.value, "is_locked": payload.locked},
+    )
+    db.commit()
+    db.refresh(period)
+    return period
+
+
+# ---- Close All / Open All ----------------------------------------------
+
+
 @router.post("/{period_id}/close", response_model=AccountingPeriodOut)
 def close_period_endpoint(
     period_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
+    """Lock every operation for every doc type ("Close All")."""
     period = db.get(AccountingPeriod, period_id)
     if not period or period.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Period not found")
     if period.status == PeriodStatus.CLOSED:
-        raise HTTPException(status_code=422, detail="That period is already closed.")
+        raise HTTPException(status_code=422, detail="That period is already fully closed.")
 
     periods_svc.close_period(db, period, actor_user_id=current_user.id)
     audit.record(
@@ -109,19 +161,19 @@ def close_period_endpoint(
 def reopen_period_endpoint(
     period_id: uuid.UUID,
     db: Session = Depends(get_db),
-    # Reopening a closed period is a bigger deal than closing one -- it
-    # lets past-dated postings resume -- so it's owner-only, mirroring
-    # the "owner approves the risky reversal" pattern used elsewhere
-    # (write-off threshold, excess-usage decisions).
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.FULL)),
 ):
+    """Unlock every operation for every doc type ("Open All"). Owner-only."""
     if current_user.role != UserRole.OWNER:
         raise HTTPException(status_code=403, detail="Only the owner can reopen a closed accounting period.")
     period = db.get(AccountingPeriod, period_id)
     if not period or period.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Period not found")
     if period.status == PeriodStatus.OPEN:
-        raise HTTPException(status_code=422, detail="That period is already open.")
+        # Check if any individual lock is set (partial state)
+        any_locked = any(lk.is_locked for lk in period.locks)
+        if not any_locked:
+            raise HTTPException(status_code=422, detail="That period is already fully open.")
 
     periods_svc.reopen_period(db, period)
     audit.record(
@@ -163,8 +215,7 @@ def close_fiscal_year_endpoint(
 ):
     """Year-End Closing: posts one closing journal entry moving every
     Revenue/Expense account's movement for the fiscal year into the
-    chosen Equity account. Owner-only -- this has real bookkeeping
-    consequences (confirmed 2026-09-11), unlike closing a single period."""
+    chosen Equity account. Owner-only."""
     if current_user.role != UserRole.OWNER:
         raise HTTPException(status_code=403, detail="Only the owner can perform Year-End Closing.")
 

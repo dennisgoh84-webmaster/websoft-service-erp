@@ -921,6 +921,24 @@ export interface DocumentNumberFormat {
 // ---- Accounting Periods / Year-End Closing ----
 export type PeriodStatus = 'open' | 'closed'
 
+export type PeriodDocType =
+  | 'sales_invoice'
+  | 'receipt_voucher'
+  | 'payment_voucher'
+  | 'purchase_bill'
+  | 'journal_voucher'
+
+export type PeriodOperation = 'update' | 'reverse' | 'bank' | 'unbank' | 'gl' | 'ungl'
+
+export interface PeriodLock {
+  id: string
+  doc_type: PeriodDocType
+  operation: PeriodOperation
+  is_locked: boolean
+  locked_by_user_id: string | null
+  locked_at: string | null
+}
+
 export interface AccountingPeriod {
   id: string
   fiscal_year: number
@@ -929,6 +947,7 @@ export interface AccountingPeriod {
   period_end: string
   status: PeriodStatus
   closed_at: string | null
+  locks: PeriodLock[]
 }
 
 export interface FiscalYearClosure {
@@ -2263,6 +2282,8 @@ export const api = {
     request<AccountingPeriod[]>(`/accounting-periods${qs({ fiscal_year })}`),
   createAccountingPeriod: (payload: { fiscal_year: number; name: string; period_start: string; period_end: string }) =>
     request<AccountingPeriod>('/accounting-periods', { method: 'POST', body: JSON.stringify(payload) }),
+  togglePeriodLock: (id: string, payload: { doc_type: PeriodDocType; operation: PeriodOperation; locked: boolean }) =>
+    request<AccountingPeriod>(`/accounting-periods/${id}/toggle-lock`, { method: 'POST', body: JSON.stringify(payload) }),
   closeAccountingPeriod: (id: string) =>
     request<AccountingPeriod>(`/accounting-periods/${id}/close`, { method: 'POST' }),
   reopenAccountingPeriod: (id: string) =>

@@ -22,7 +22,7 @@ from app.models.job_orders import JobOrderPriority, JobOrderStatus
 from app.models.licensing import LicenseType
 from app.models.service_records import ServiceRecordCompletion, ServiceRecordOutcome, ServiceRecordStatus
 from app.models.setup import SetupListType
-from app.models.periods import PeriodStatus
+from app.models.periods import PeriodDocType, PeriodOperation, PeriodStatus
 from app.models.ops_tasks import OpsTaskStatus
 
 
@@ -1775,6 +1775,16 @@ class DocumentNumberFormatUpdate(BaseModel):
 
 
 # ---- Accounting Periods / Year-End Closing ----
+class PeriodLockOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    doc_type: PeriodDocType
+    operation: PeriodOperation
+    is_locked: bool
+    locked_by_user_id: uuid.UUID | None
+    locked_at: datetime | None
+
+
 class AccountingPeriodOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -1784,6 +1794,7 @@ class AccountingPeriodOut(BaseModel):
     period_end: date
     status: PeriodStatus
     closed_at: datetime | None
+    locks: list[PeriodLockOut] = []
 
 
 class AccountingPeriodCreate(BaseModel):
@@ -1791,6 +1802,12 @@ class AccountingPeriodCreate(BaseModel):
     name: str = Field(min_length=1, max_length=50)
     period_start: date
     period_end: date
+
+
+class PeriodLockToggleRequest(BaseModel):
+    doc_type: PeriodDocType
+    operation: PeriodOperation
+    locked: bool
 
 
 class FiscalYearClosureOut(BaseModel):
