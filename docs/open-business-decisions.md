@@ -1419,6 +1419,33 @@ and OTP also."
    currently no alternative (e.g. a security-question fallback), since
    none was requested.
 
+## 29. Sidebar hidden app-wide + a smaller ad-video banner on every page (raised 2026-09-12)
+
+Requested as: "After login successfully, all modules, hide menu bar,
+then have smaller tall banner on the right for advertisement video."
+
+29.1. **DECIDED, built.** Extends the 2026-09-11 decision that hid the
+   sidebar by default on just the two dashboards ("for the first 2
+   dashboard, when we go in ... hide the menu bar, so we can display
+   more wider on the screen") to every page in the app: the sidebar is
+   now hidden by default everywhere, with the existing "☰ Menu" button
+   in the topbar peeking it back open on any page (it re-hides again on
+   the next navigation, same as it always did on the two dashboards --
+   see `Layout.tsx`). Sign-out and the company logo/name live inside
+   that sidebar, so they now need one click to reach from anywhere,
+   same tradeoff already accepted for the two dashboards, just applied
+   consistently everywhere instead of as a special case.
+
+29.2. **DECIDED, built.** The Login page's advertisement video
+   (2026-09-12, see #28.3) is now also shown -- smaller -- as a
+   permanent tall banner on the right of every authenticated page, in
+   the width the sidebar's hiding freed up. Extracted into a shared
+   `components/PromoVideoPanel.tsx` so both placements play the same
+   clip/caption and degrade the same way if the video can't load.
+   Explicitly hidden from print output (`@media print`), same as the
+   sidebar and topbar -- a printed invoice/receipt/etc. must never
+   carry it.
+
 ---
 
 ## How to use this document

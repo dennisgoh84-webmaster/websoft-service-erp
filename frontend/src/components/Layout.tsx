@@ -2,16 +2,11 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import CompanySwitcher from './CompanySwitcher'
 import NavSection, { type NavItem } from './NavSection'
+import PromoVideoPanel from './PromoVideoPanel'
 import ThemeToggle from './ThemeToggle'
 import { useAuth } from '../lib/AuthContext'
 
 const NAV_COLLAPSE_KEY = 'websoft_nav_collapsed'
-
-// The two full-width dashboards (2026-09-11: "for the first 2 dashboard,
-// when we go in ... hide the menu bar, so we can display more wider on the
-// screen"). Auto-hiding is route-driven, not a sticky preference -- see the
-// sidebarPeek effect below.
-const WIDE_DASHBOARD_PATHS = new Set(['/', '/ops-dashboard'])
 
 function loadCollapsed(): Record<string, boolean> {
   try {
@@ -53,13 +48,19 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed)
   const [sidebarPeek, setSidebarPeek] = useState(false)
 
-  const isWideDashboard = WIDE_DASHBOARD_PATHS.has(location.pathname)
-  const sidebarHidden = isWideDashboard && !sidebarPeek
+  // "After login successfully, all modules, hide menu bar" (2026-09-12)
+  // -- extends what started 2026-09-11 as a special case for just the
+  // two dashboards ("for the first 2 dashboard, when we go in ... hide
+  // the menu bar, so we can display more wider on the screen") to every
+  // page: the sidebar is hidden by default everywhere now, with the
+  // "☰ Menu" button in the topbar below letting you peek it back open
+  // without leaving the page.
+  const sidebarHidden = !sidebarPeek
 
-  // Re-hides the menu every time you land on one of the wide dashboards --
-  // "peek" is a per-visit override (so you can still reach the rest of the
-  // nav from there) rather than a remembered preference, so leaving and
-  // coming back always re-hides it.
+  // Re-hides the menu every time you land on a new page -- "peek" is a
+  // per-visit override (so you can still reach the rest of the nav from
+  // wherever you are) rather than a remembered preference, so leaving
+  // and coming back always re-hides it.
   useEffect(() => {
     setSidebarPeek(false)
   }, [location.pathname])
@@ -207,15 +208,13 @@ export default function Layout() {
       <main className="main">
         <div className="main-topbar">
           <div className="main-topbar-left">
-            {isWideDashboard && (
-              <button
-                type="button"
-                className="secondary sidebar-peek-toggle"
-                onClick={() => setSidebarPeek((v) => !v)}
-              >
-                {sidebarPeek ? '✕ Hide menu' : '☰ Menu'}
-              </button>
-            )}
+            <button
+              type="button"
+              className="secondary sidebar-peek-toggle"
+              onClick={() => setSidebarPeek((v) => !v)}
+            >
+              {sidebarPeek ? '✕ Hide menu' : '☰ Menu'}
+            </button>
           </div>
           <div className="main-topbar-right">
             <CompanySwitcher />
@@ -224,6 +223,7 @@ export default function Layout() {
         </div>
         <Outlet />
       </main>
+      <PromoVideoPanel className="app-ad-banner" />
     </div>
   )
 }

@@ -1,18 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
+import PromoVideoPanel from '../components/PromoVideoPanel'
 import { api, changePassword, forgotPassword, resetPasswordWithOtp, verifyOtp } from '../lib/api'
 import type { LoginResult, PublicBranding } from '../lib/api'
-
-// Promotions video panel (2026-09-12: "the right advert panel sample
-// picture can change to video instead"). No real advertisement video
-// exists yet, so this is a clearly-labelled placeholder -- MDN's own
-// CC0 sample clip, hosted on Mozilla's infrastructure, so it won't
-// disappear or show anything inappropriate. Swap PROMO_VIDEO_URL for
-// the real ad once one exists; same "ask if this should be editable
-// from Company Setup" question as the caption text below applies here.
-const PROMO_VIDEO_URL = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
-const PROMO_CAPTION = "What's New: Reference Monitor, icon Print/Email/WhatsApp actions, and Company/Individual."
 
 // Login sequence (2026-09-12: password complexity, forced first-login
 // password change, email OTP second factor; "forget password" is a
@@ -55,11 +46,6 @@ export default function Login() {
   useEffect(() => {
     api.getPublicBranding().then(setBranding).catch(() => setBranding(null))
   }, [])
-
-  // If the video can't load (blocked network, bad URL, browser codec
-  // support), fall back to the plain gradient panel + caption instead
-  // of showing a broken black box.
-  const [videoFailed, setVideoFailed] = useState(false)
 
   /** Common tail of every sign-in step: "ok" signs the user in,
    * otherwise move to whichever step the backend says is next. */
@@ -353,20 +339,7 @@ export default function Login() {
           )}
         </div>
 
-        <div className="login-promo">
-          {!videoFailed && (
-            <video
-              className="login-promo-video"
-              src={PROMO_VIDEO_URL}
-              autoPlay
-              muted
-              loop
-              playsInline
-              onError={() => setVideoFailed(true)}
-            />
-          )}
-          <p className="login-promo-caption">{PROMO_CAPTION}</p>
-        </div>
+        <PromoVideoPanel className="login-promo" />
       </div>
     </div>
   )
