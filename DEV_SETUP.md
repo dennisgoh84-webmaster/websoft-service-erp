@@ -1,5 +1,9 @@
 # Local Development Setup
 
+This covers running the app on your own machine for development. For
+standing up a shared server so other staff can test it, see
+[DEPLOY.md](DEPLOY.md) instead.
+
 Status: first working slice -- the **Service Operations core** (Company/Individual,
 Service Contract, Job Order, Service Record, Excess Usage Review,
 Billing/Invoice), plus Module Control / multi-company licensing and a

@@ -1,0 +1,58 @@
+# Single-VPS staging/production deploy -- see DEPLOY.md for the full
+# runbook. Frontend (nginx) is the only exposed port; it serves the
+# built React app and reverse-proxies /api/* to `backend`, so both
+# share one origin and the backend needs no CORS configuration.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: websoft_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a real password in .env}
+      POSTGRES_DB: websoft_service_erp
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U websoft_app -d websoft_service_erp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build: ./backend
+    command: ["uv", "run", "alembic", "upgrade", "head"]
+    environment:
+      database_url: postgresql+psycopg://websoft_app:${POSTGRES_PASSWORD:?set a real password in .env}@db:5432/websoft_service_erp
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      database_url: postgresql+psycopg://websoft_app:${POSTGRES_PASSWORD:?set a real password in .env}@db:5432/websoft_service_erp
+      jwt_secret_key: ${JWT_SECRET_KEY:?set a real random secret in .env}
+      smtp_host: ${SMTP_HOST:-}
+      smtp_port: ${SMTP_PORT:-587}
+      smtp_username: ${SMTP_USERNAME:-}
+      smtp_password: ${SMTP_PASSWORD:-}
+      smtp_from_email: ${SMTP_FROM_EMAIL:-}
+      smtp_from_name: ${SMTP_FROM_NAME:-Web Master Consultancy}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

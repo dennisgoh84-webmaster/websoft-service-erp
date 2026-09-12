@@ -1,1 +1,4 @@
 demo/*.webm
+
+# docker-compose deploy secrets (see .env.example) -- never commit real values.
+.env
