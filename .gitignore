@@ -1,4 +1,6 @@
-demo/*.webm
+# Scratch delivery output only (recorded walkthroughs, one-off staged
+# artifacts) -- never application source, so never tracked.
+demo/
 
 # docker-compose deploy secrets (see .env.example) -- never commit real values.
 .env
