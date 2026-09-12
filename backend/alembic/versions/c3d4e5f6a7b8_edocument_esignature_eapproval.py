@@ -19,6 +19,7 @@ Creates:
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import UUID
 
 
@@ -39,11 +40,7 @@ APPROVAL_DECISION_VALUES = ["approved", "rejected"]
 
 
 def upgrade() -> None:
-    # ── Enums ──────────────────────────────────────────────────────
-    doc_entity_type = sa.Enum(
-        *DOCUMENT_ENTITY_TYPES, name="document_entity_type", create_type=False
-    )
-    # Only create if not already created by a prior migration
+    # ── Enums (all use raw SQL with IF NOT EXISTS) ─────────────────
     op.execute("""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'document_entity_type') THEN
@@ -55,24 +52,41 @@ def upgrade() -> None:
             END IF;
         END $$;
     """)
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'approval_mode') THEN
+                CREATE TYPE approval_mode AS ENUM ('any_one', 'all_must');
+            END IF;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'approval_status') THEN
+                CREATE TYPE approval_status AS ENUM ('pending', 'approved', 'rejected');
+            END IF;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'approval_decision_value') THEN
+                CREATE TYPE approval_decision_value AS ENUM ('approved', 'rejected');
+            END IF;
+        END $$;
+    """)
 
-    approval_mode = sa.Enum(*APPROVAL_MODES, name="approval_mode")
-    approval_mode.create(op.get_bind(), checkfirst=True)
-
-    approval_status = sa.Enum(*APPROVAL_STATUSES, name="approval_status")
-    approval_status.create(op.get_bind(), checkfirst=True)
-
-    approval_decision_value = sa.Enum(
-        *APPROVAL_DECISION_VALUES, name="approval_decision_value"
-    )
-    approval_decision_value.create(op.get_bind(), checkfirst=True)
+    # Column type helpers — postgresql.ENUM with create_type=False
+    # prevents SQLAlchemy from trying to re-CREATE the type.
+    det = postgresql.ENUM(*DOCUMENT_ENTITY_TYPES, name="document_entity_type", create_type=False)
+    am = postgresql.ENUM(*APPROVAL_MODES, name="approval_mode", create_type=False)
+    ast = postgresql.ENUM(*APPROVAL_STATUSES, name="approval_status", create_type=False)
+    adv = postgresql.ENUM(*APPROVAL_DECISION_VALUES, name="approval_decision_value", create_type=False)
 
     # ── document_attachments ───────────────────────────────────────
     op.create_table(
         "document_attachments",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("company_id", UUID(as_uuid=True), sa.ForeignKey("companies.id"), nullable=False),
-        sa.Column("entity_type", doc_entity_type, nullable=False),
+        sa.Column("entity_type", det, nullable=False),
         sa.Column("entity_id", UUID(as_uuid=True), nullable=False, index=True),
         sa.Column("uploaded_by_user_id", UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("original_filename", sa.String(500), nullable=False),
@@ -89,7 +103,7 @@ def upgrade() -> None:
         "document_signatures",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("company_id", UUID(as_uuid=True), sa.ForeignKey("companies.id"), nullable=False),
-        sa.Column("entity_type", doc_entity_type, nullable=False),
+        sa.Column("entity_type", det, nullable=False),
         sa.Column("entity_id", UUID(as_uuid=True), nullable=False, index=True),
         sa.Column("signer_user_id", UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("signer_name", sa.String(255), nullable=False),
@@ -106,12 +120,7 @@ def upgrade() -> None:
         sa.Column("company_id", UUID(as_uuid=True), sa.ForeignKey("companies.id"), nullable=False),
         sa.Column("name", sa.String(200), nullable=False),
         sa.Column("description", sa.String(500), nullable=True),
-        sa.Column(
-            "mode",
-            sa.Enum(*APPROVAL_MODES, name="approval_mode", create_type=False),
-            nullable=False,
-            server_default="any_one",
-        ),
+        sa.Column("mode", am, nullable=False, server_default="any_one"),
         sa.Column("bank_account_id", UUID(as_uuid=True), sa.ForeignKey("bank_accounts.id"), nullable=True),
         sa.Column("is_active", sa.Boolean, default=True, nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
@@ -133,7 +142,7 @@ def upgrade() -> None:
         "approval_rules",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("authority_id", UUID(as_uuid=True), sa.ForeignKey("approval_authorities.id"), nullable=False),
-        sa.Column("entity_type", doc_entity_type, nullable=False),
+        sa.Column("entity_type", det, nullable=False),
         sa.Column("threshold_amount", sa.Numeric(15, 2), nullable=True),
         sa.Column("priority", sa.Integer, nullable=False, server_default="0"),
         sa.Column("is_active", sa.Boolean, default=True, nullable=False),
@@ -145,16 +154,11 @@ def upgrade() -> None:
         "approval_requests",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("company_id", UUID(as_uuid=True), sa.ForeignKey("companies.id"), nullable=False),
-        sa.Column("entity_type", doc_entity_type, nullable=False),
+        sa.Column("entity_type", det, nullable=False),
         sa.Column("entity_id", UUID(as_uuid=True), nullable=False, index=True),
         sa.Column("rule_id", UUID(as_uuid=True), sa.ForeignKey("approval_rules.id"), nullable=False),
         sa.Column("authority_id", UUID(as_uuid=True), sa.ForeignKey("approval_authorities.id"), nullable=False),
-        sa.Column(
-            "status",
-            sa.Enum(*APPROVAL_STATUSES, name="approval_status", create_type=False),
-            nullable=False,
-            server_default="pending",
-        ),
+        sa.Column("status", ast, nullable=False, server_default="pending"),
         sa.Column("requested_by_user_id", UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("requested_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True),
@@ -166,11 +170,7 @@ def upgrade() -> None:
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("request_id", UUID(as_uuid=True), sa.ForeignKey("approval_requests.id"), nullable=False),
         sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column(
-            "decision",
-            sa.Enum(*APPROVAL_DECISION_VALUES, name="approval_decision_value", create_type=False),
-            nullable=False,
-        ),
+        sa.Column("decision", adv, nullable=False),
         sa.Column("comment", sa.Text, nullable=True),
         sa.Column("decided_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.UniqueConstraint("request_id", "user_id", name="uq_approval_decision"),

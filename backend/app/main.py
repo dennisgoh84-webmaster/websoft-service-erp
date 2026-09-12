@@ -21,6 +21,7 @@ from app.routers import (
     bank_transactions,
     payables,
     catalog,
+    commissions,
     currency_rates,
     document_control,
     documents,
@@ -120,6 +121,7 @@ app.include_router(ops_dashboard.router)
 app.include_router(mobile.router)
 app.include_router(documents.router)
 app.include_router(approvals.router)
+app.include_router(commissions.router)
 
 
 @app.get("/api/health")

@@ -1037,6 +1037,36 @@ export interface CommissionReport {
   total_commission_sgd: number
 }
 
+// ---- Commission Payouts (6.3/6.4/6.5) ----
+export type CommissionPayoutType = 'earning' | 'clawback'
+export type CommissionPayoutStatus = 'draft' | 'pending_approval' | 'approved' | 'paid' | 'cancelled'
+
+export interface CommissionPayout {
+  id: string
+  company_id: string
+  payout_number: string
+  payout_type: CommissionPayoutType
+  status: CommissionPayoutStatus
+  sales_staff_id: string
+  period_month: string
+  period_start: string
+  period_end: string
+  amount_sgd: number
+  rate_percent: number
+  clawback_invoice_id: string | null
+  clawback_reason: string | null
+  submitted_by_user_id: string | null
+  submitted_at: string | null
+  approved_by_user_id: string | null
+  approved_at: string | null
+  paid_date: string | null
+  paid_reference: string | null
+  paid_by_user_id: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 // ---- Ops Dashboard (personal task tracker, confirmed 2026-09-11) ----
 export type OpsTaskStatus = 'not_started' | 'in_progress' | 'watch' | 'blocked' | 'done'
 
@@ -2286,6 +2316,43 @@ export const api = {
     request<{ rate_percent: number }>('/reports/accounting/commission-settings', {
       method: 'PUT',
       body: JSON.stringify({ rate_percent }),
+    }),
+
+  // ---- Commission Payouts (6.3/6.4/6.5) ----
+  generateCommissionPayouts: (period_month: string) =>
+    request<CommissionPayout[]>('/commissions/payouts/generate', {
+      method: 'POST',
+      body: JSON.stringify({ period_month }),
+    }),
+  listCommissionPayouts: (filters: { period_month?: string; status?: string; sales_staff_id?: string } = {}) =>
+    request<CommissionPayout[]>(`/commissions/payouts${qs(filters)}`),
+  getCommissionPayout: (id: string) =>
+    request<CommissionPayout>(`/commissions/payouts/${id}`),
+  submitCommissionPayout: (id: string) =>
+    request<CommissionPayout>(`/commissions/payouts/${id}/submit`, { method: 'POST' }),
+  approveCommissionPayout: (id: string) =>
+    request<CommissionPayout>(`/commissions/payouts/${id}/approve`, { method: 'POST' }),
+  rejectCommissionPayout: (id: string, reason?: string) =>
+    request<CommissionPayout>(`/commissions/payouts/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  payCommissionPayout: (id: string, paid_date: string, paid_reference?: string) =>
+    request<CommissionPayout>(`/commissions/payouts/${id}/pay`, {
+      method: 'POST',
+      body: JSON.stringify({ paid_date, paid_reference }),
+    }),
+  cancelCommissionPayout: (id: string) =>
+    request<CommissionPayout>(`/commissions/payouts/${id}/cancel`, { method: 'POST' }),
+  submitAllCommissionPayouts: (period_month: string) =>
+    request<CommissionPayout[]>('/commissions/payouts/submit-all', {
+      method: 'POST',
+      body: JSON.stringify({ period_month }),
+    }),
+  approveAllCommissionPayouts: (period_month: string) =>
+    request<CommissionPayout[]>('/commissions/payouts/approve-all', {
+      method: 'POST',
+      body: JSON.stringify({ period_month }),
     }),
 
   // ---- GL Types ----

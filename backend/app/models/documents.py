@@ -42,6 +42,7 @@ class DocumentEntityType(str, enum.Enum):
     SERVICE_RECORD = "service_record"
     CONTRACT = "contract"
     INCIDENT = "incident"
+    COMMISSION_PAYOUT = "commission_payout"
 
 
 class DocumentAttachment(Base):

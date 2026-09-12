@@ -56,9 +56,11 @@ shipped and when.
 
 ## Partially open
 
-- [ ] **Commission Management** -- the GP-based report is built;
+- [x] **Commission Management** -- ~~the GP-based report is built;
   approval workflow, clawback rules, and payout mechanism (6.3-6.5) are
-  still fully open.
+  still fully open.~~ All 6 items (6.1-6.5) resolved and built:
+  approval workflow (DRAFT→PENDING→APPROVED→PAID), automatic clawback
+  on write-off, finance-administered payout with Mark Paid action.
   → [open-business-decisions.md #6](open-business-decisions.md#6-commission-management)
 - [ ] Smaller longstanding open questions not currently blocking
   anything in progress (Projects budget-overrun process, detailed

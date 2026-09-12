@@ -6,8 +6,6 @@ import {
   type ServiceRecord,
   type ServiceRecordCompletion,
   type JobOrder,
-  type ProjectMilestone,
-  type MilestoneStatus,
 } from '../lib/api'
 import ProjectSchedulePanel from '../components/ProjectSchedulePanel'
 import { useAuth } from '../lib/AuthContext'

@@ -1936,6 +1936,50 @@ class CommissionReport(BaseModel):
     total_commission_sgd: float
 
 
+# ---- Commission Payouts (6.3/6.4/6.5, built 2026-09-12) ----
+
+
+class CommissionPayoutCreate(BaseModel):
+    period_month: str = Field(min_length=7, max_length=7, pattern=r"^\d{4}-\d{2}$")
+
+
+class CommissionPayoutReject(BaseModel):
+    reason: str | None = None
+
+
+class CommissionPayoutMarkPaid(BaseModel):
+    paid_date: date
+    paid_reference: str | None = None
+
+
+class CommissionPayoutOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    company_id: uuid.UUID
+    payout_number: str
+    payout_type: str
+    status: str
+    sales_staff_id: uuid.UUID
+    period_month: str
+    period_start: date
+    period_end: date
+    amount_sgd: float
+    rate_percent: float
+    clawback_invoice_id: uuid.UUID | None = None
+    clawback_reason: str | None = None
+    submitted_by_user_id: uuid.UUID | None = None
+    submitted_at: datetime | None = None
+    approved_by_user_id: uuid.UUID | None = None
+    approved_at: datetime | None = None
+    paid_date: date | None = None
+    paid_reference: str | None = None
+    paid_by_user_id: uuid.UUID | None = None
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 # ---- Ops Dashboard (personal task tracker, confirmed 2026-09-11) ----
 class OpsTaskCategoryCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)

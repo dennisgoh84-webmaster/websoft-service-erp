@@ -127,6 +127,7 @@ export default function Layout() {
     { key: 'accounting-periods', path: '/accounting-periods', label: 'GST and Account Period', visible: can('finance_accounting') },
     { key: 'year-end-closing', path: '/year-end-closing', label: 'Year-End Closing', visible: can('finance_accounting') },
     { key: 'accounting-reports', path: '/accounting-reports', label: 'Accounting Reports', visible: can('accounting_reports') },
+    { key: 'commission-payouts', path: '/commission-payouts', label: 'Commission Payouts', visible: can('accounting_reports') },
   ]
 
   const maintenanceItems: NavItem[] = [

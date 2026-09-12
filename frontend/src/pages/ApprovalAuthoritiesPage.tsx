@@ -11,7 +11,6 @@ import {
   api,
   type ApprovalAuthority,
   type ApprovalMode,
-  type ApprovalRule,
   type DocumentEntityType,
   type StaffUser,
 } from '../lib/api'

@@ -11,6 +11,7 @@ import AnnouncementsPage from './pages/AnnouncementsPage'
 import AccountsPayablePage from './pages/AccountsPayablePage'
 import BankAccountDetailPage from './pages/BankAccountDetailPage'
 import BankAccountsPage from './pages/BankAccountsPage'
+import CommissionPayoutsPage from './pages/CommissionPayoutsPage'
 import ChartOfAccountsPage from './pages/ChartOfAccountsPage'
 import CurrencyRatesPage from './pages/CurrencyRatesPage'
 import DocumentControlPage from './pages/DocumentControlPage'
@@ -116,6 +117,7 @@ function AppRoutes() {
         <Route path="/year-end-closing" element={<YearEndClosingPage />} />
         <Route path="/general-ledger" element={<GeneralLedgerPage />} />
         <Route path="/accounting-reports" element={<AccountingReportsPage />} />
+        <Route path="/commission-payouts" element={<CommissionPayoutsPage />} />
         <Route path="/company-setup" element={<CompanySetupPage />} />
         <Route path="/modules" element={<ModulesPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />

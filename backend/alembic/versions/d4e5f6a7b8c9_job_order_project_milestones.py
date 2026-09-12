@@ -13,6 +13,7 @@ Adds:
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import UUID
 
 
@@ -30,25 +31,42 @@ MILESTONE_STATUSES = ["pending", "in_progress", "completed", "skipped"]
 
 
 def upgrade() -> None:
-    # ── Enums ──────────────────────────────────────────────────────
-    job_order_type = sa.Enum(*JOB_ORDER_TYPES, name="job_order_type")
-    job_order_type.create(op.get_bind(), checkfirst=True)
+    # ── Enums (raw SQL with IF NOT EXISTS) ─────────────────────────
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'job_order_type') THEN
+                CREATE TYPE job_order_type AS ENUM ('support', 'project');
+            END IF;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'milestone_type') THEN
+                CREATE TYPE milestone_type AS ENUM (
+                    'installation', 'training', 'repeat_training',
+                    'handover', 'completion_signoff'
+                );
+            END IF;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'milestone_status') THEN
+                CREATE TYPE milestone_status AS ENUM (
+                    'pending', 'in_progress', 'completed', 'skipped'
+                );
+            END IF;
+        END $$;
+    """)
 
-    milestone_type = sa.Enum(*MILESTONE_TYPES, name="milestone_type")
-    milestone_type.create(op.get_bind(), checkfirst=True)
-
-    milestone_status = sa.Enum(*MILESTONE_STATUSES, name="milestone_status")
-    milestone_status.create(op.get_bind(), checkfirst=True)
+    jot = postgresql.ENUM(*JOB_ORDER_TYPES, name="job_order_type", create_type=False)
+    mt = postgresql.ENUM(*MILESTONE_TYPES, name="milestone_type", create_type=False)
+    ms = postgresql.ENUM(*MILESTONE_STATUSES, name="milestone_status", create_type=False)
 
     # ── Add job_order_type column to job_orders ───────────────────
     op.add_column(
         "job_orders",
-        sa.Column(
-            "job_order_type",
-            sa.Enum(*JOB_ORDER_TYPES, name="job_order_type", create_type=False),
-            nullable=False,
-            server_default="support",
-        ),
+        sa.Column("job_order_type", jot, nullable=False, server_default="support"),
     )
 
     # ── project_milestones ────────────────────────────────────────
@@ -59,11 +77,7 @@ def upgrade() -> None:
             "job_order_id", UUID(as_uuid=True),
             sa.ForeignKey("job_orders.id"), nullable=False, index=True,
         ),
-        sa.Column(
-            "milestone_type",
-            sa.Enum(*MILESTONE_TYPES, name="milestone_type", create_type=False),
-            nullable=False,
-        ),
+        sa.Column("milestone_type", mt, nullable=False),
         sa.Column("label", sa.String(200), nullable=False),
         sa.Column("sort_order", sa.Integer, nullable=False, server_default="0"),
         sa.Column("planned_start", sa.Date, nullable=True),
@@ -74,12 +88,7 @@ def upgrade() -> None:
             "assigned_user_id", UUID(as_uuid=True),
             sa.ForeignKey("users.id"), nullable=True,
         ),
-        sa.Column(
-            "status",
-            sa.Enum(*MILESTONE_STATUSES, name="milestone_status", create_type=False),
-            nullable=False,
-            server_default="pending",
-        ),
+        sa.Column("status", ms, nullable=False, server_default="pending"),
         sa.Column("notes", sa.Text, nullable=True),
         sa.Column(
             "created_at", sa.DateTime(timezone=True),
