@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Contract, type Customer, type JobOrder, type JobOrderPriority } from '../lib/api'
+import { api, downloadBlob, type Contract, type CompanyIndividual, type JobOrder, type JobOrderPriority } from '../lib/api'
 
 export default function JobOrdersPage() {
   const [jobOrders, setJobOrders] = useState<JobOrder[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CompanyIndividual[]>([])
   const [contracts, setContracts] = useState<Contract[]>([])
   const [searchParams] = useSearchParams()
   const preselectedContract = searchParams.get('contract') ?? ''
@@ -21,7 +21,7 @@ export default function JobOrdersPage() {
   // Dynamic filters
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') ?? '')
   const [filterPriority, setFilterPriority] = useState('')
-  const [filterCustomer, setFilterCustomer] = useState('')
+  const [filterCompanyIndividual, setFilterCompanyIndividual] = useState('')
   const [filterContract, setFilterContract] = useState(preselectedContract)
 
   function refresh() {
@@ -29,18 +29,18 @@ export default function JobOrdersPage() {
       .listJobOrders({
         status: filterStatus || undefined,
         priority: filterPriority || undefined,
-        customer_id: filterCustomer || undefined,
+        customer_id: filterCompanyIndividual || undefined,
         contract_id: filterContract || undefined,
       })
       .then(setJobOrders)
-    api.listCustomers().then(setCustomers)
+    api.listCompanyIndividuals().then(setCustomers)
     api.listContracts().then(setContracts)
   }
 
-  useEffect(refresh, [filterStatus, filterPriority, filterCustomer, filterContract])
+  useEffect(refresh, [filterStatus, filterPriority, filterCompanyIndividual, filterContract])
 
   const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? id.slice(0, 8)
-  const contractsForCustomer = contracts.filter((c) => c.customer_id === customerId)
+  const contractsForCompanyIndividual = contracts.filter((c) => c.customer_id === customerId)
 
   async function onCreate(e: FormEvent) {
     e.preventDefault()
@@ -66,7 +66,7 @@ export default function JobOrdersPage() {
   function resetFilters() {
     setFilterStatus('')
     setFilterPriority('')
-    setFilterCustomer('')
+    setFilterCompanyIndividual('')
     setFilterContract('')
   }
 
@@ -75,7 +75,7 @@ export default function JobOrdersPage() {
     const filters = {
       status: filterStatus || undefined,
       priority: filterPriority || undefined,
-      customer_id: filterCustomer || undefined,
+      customer_id: filterCompanyIndividual || undefined,
       contract_id: filterContract || undefined,
     }
     if (format === 'csv') {
@@ -88,13 +88,13 @@ export default function JobOrdersPage() {
   return (
     <div>
       <h1>Job Orders</h1>
-      <p className="muted">Customer &rarr; Job Order &rarr; Assignment &rarr; Service Work</p>
+      <p className="muted">CompanyIndividual &rarr; Job Order &rarr; Assignment &rarr; Service Work</p>
 
       <div className="card" style={{ marginTop: 20 }}>
         <h2>New job order</h2>
         <form onSubmit={onCreate}>
           <div className="form-row">
-            <label>Customer</label>
+            <label>Company / Individual</label>
             <select
               value={customerId}
               onChange={(e) => {
@@ -115,7 +115,7 @@ export default function JobOrdersPage() {
             <label>Contract</label>
             <select value={contractId} onChange={(e) => setContractId(e.target.value)} required>
               <option value="">Select...</option>
-              {contractsForCustomer.map((c) => (
+              {contractsForCompanyIndividual.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.status} -- {c.remaining_hours.toFixed(1)}h remaining
                 </option>
@@ -180,8 +180,8 @@ export default function JobOrdersPage() {
             </select>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <label>Customer</label>
-            <select value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)}>
+            <label>Company / Individual</label>
+            <select value={filterCompanyIndividual} onChange={(e) => setFilterCompanyIndividual(e.target.value)}>
               <option value="">All</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -220,7 +220,7 @@ export default function JobOrdersPage() {
             <tr>
               <th>Number</th>
               <th>Subject</th>
-              <th>Customer</th>
+              <th>Company / Individual</th>
               <th>Priority</th>
               <th>Status</th>
               <th>Due</th>

@@ -47,7 +47,7 @@ class Invoice(Base):
     )
     # Multi-company: the entity that issued this invoice.
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
-    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("company_individuals.id"), nullable=False)
     contract_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("contracts.id"), nullable=True
     )
@@ -72,7 +72,7 @@ class Invoice(Base):
     total_amount_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
 
     # AR: due date comes from the customer's payment terms (confirmed
-    # 2026-09-10: terms vary per customer -- see Customer.payment_terms_days).
+    # 2026-09-10: terms vary per customer -- see CompanyIndividual.payment_terms_days).
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[InvoiceStatus] = mapped_column(
         Enum(InvoiceStatus, name="invoice_status"), default=InvoiceStatus.OUTSTANDING
@@ -85,7 +85,7 @@ class Invoice(Base):
 
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    customer: Mapped["Customer"] = relationship()  # noqa: F821
+    customer: Mapped["CompanyIndividual"] = relationship()  # noqa: F821
 
     @property
     def outstanding_sgd(self) -> Decimal:

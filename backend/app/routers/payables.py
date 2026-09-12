@@ -1,8 +1,8 @@
 """
 Accounts Payable API -- purchase orders, supplier invoices (2-way
 matched per PUR-002) and Payment Vouchers. The supplier party itself is
-a Customer (Company/Individual) record flagged is_supplier=True -- see
-app/models/payables.py's module docstring and app/routers/customers.py
+a Company/Individual record flagged is_supplier=True -- see
+app/models/payables.py's module docstring and app/routers/company_individuals.py
 for supplier CRUD, which lives there, not here (2026-09-12).
 
 See app/services/payables.py for the rules themselves.
@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.models.core import Company, User
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.models.payables import (
     BillStatus,
@@ -66,13 +66,13 @@ AP_AGING_EXPORT_FIELDS = [
 ]
 
 
-def _supplier_or_404(db: Session, supplier_id: uuid.UUID, company_id: uuid.UUID) -> Customer:
-    """A "supplier" is a Customer (Company/Individual) record flagged
+def _supplier_or_404(db: Session, supplier_id: uuid.UUID, company_id: uuid.UUID) -> CompanyIndividual:
+    """A "supplier" is a Company/Individual record flagged
     is_supplier=True (2026-09-12) -- not a separate master. Manage the
     flag itself on the Accounts Payable/Company-Individual page; this
     only accepts records already ticked, so a PO/bill/payment can never
     be raised against a party nobody has marked as a supplier yet."""
-    s = db.get(Customer, supplier_id)
+    s = db.get(CompanyIndividual, supplier_id)
     if not s or s.company_id != company_id or not s.is_supplier:
         raise HTTPException(
             status_code=404,
@@ -144,7 +144,7 @@ def export_purchase_orders_csv(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     orders = _filter_purchase_orders(db, current_user.company_id, supplier_id, status)
-    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == current_user.company_id)}
     rows = [_purchase_order_row(po, suppliers.get(po.supplier_id, "")) for po in orders]
     csv_text = exports.rows_to_csv(PURCHASE_ORDER_EXPORT_FIELDS, rows)
     return StreamingResponse(
@@ -162,7 +162,7 @@ def export_purchase_orders_excel(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     orders = _filter_purchase_orders(db, current_user.company_id, supplier_id, status)
-    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == current_user.company_id)}
     rows = [_purchase_order_row(po, suppliers.get(po.supplier_id, "")) for po in orders]
     data = exports.rows_to_excel(PURCHASE_ORDER_EXPORT_FIELDS, rows, sheet_name="Purchase Orders")
     return StreamingResponse(
@@ -425,7 +425,7 @@ def export_bills_csv(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     bills = _filter_bills(db, current_user.company_id, supplier_id, status)
-    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == current_user.company_id)}
     rows = [_bill_row(b, suppliers.get(b.supplier_id, "")) for b in bills]
     csv_text = exports.rows_to_csv(BILL_EXPORT_FIELDS, rows)
     return StreamingResponse(
@@ -443,7 +443,7 @@ def export_bills_excel(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     bills = _filter_bills(db, current_user.company_id, supplier_id, status)
-    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == current_user.company_id)}
     rows = [_bill_row(b, suppliers.get(b.supplier_id, "")) for b in bills]
     data = exports.rows_to_excel(BILL_EXPORT_FIELDS, rows, sheet_name="Bills")
     return StreamingResponse(
@@ -566,7 +566,7 @@ def export_supplier_payments_csv(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     payments = _filter_supplier_payments(db, current_user.company_id, supplier_id)
-    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == current_user.company_id)}
     rows = [_payment_row(p, suppliers.get(p.supplier_id, "")) for p in payments]
     csv_text = exports.rows_to_csv(PAYMENT_EXPORT_FIELDS, rows)
     return StreamingResponse(
@@ -583,7 +583,7 @@ def export_supplier_payments_excel(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     payments = _filter_supplier_payments(db, current_user.company_id, supplier_id)
-    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
+    suppliers = {s.id: s.name for s in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == current_user.company_id)}
     rows = [_payment_row(p, suppliers.get(p.supplier_id, "")) for p in payments]
     data = exports.rows_to_excel(PAYMENT_EXPORT_FIELDS, rows, sheet_name="Payment Vouchers")
     return StreamingResponse(
@@ -809,7 +809,7 @@ def _ap_aging_rows(db: Session, company_id: uuid.UUID, as_at: date | None) -> tu
     )
     suppliers = {
         s.id: s.name
-        for s in db.query(Customer).filter(Customer.company_id == company_id).all()
+        for s in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id).all()
     }
 
     buckets: dict[uuid.UUID, dict[str, Decimal]] = {}

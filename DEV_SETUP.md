@@ -1,6 +1,6 @@
 # Local Development Setup
 
-Status: first working slice -- the **Service Operations core** (Customer,
+Status: first working slice -- the **Service Operations core** (Company/Individual,
 Service Contract, Job Order, Service Record, Excess Usage Review,
 Billing/Invoice), plus Module Control / multi-company licensing and a
 summary dashboard, implementing the confirmed SRV-001..018 and BILL-001/

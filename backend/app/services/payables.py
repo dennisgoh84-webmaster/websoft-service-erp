@@ -19,7 +19,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.models.core import Company, User, UserRole
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.payables import (
     BillMatchStatus,
     BillStatus,
@@ -140,7 +140,7 @@ def match_bill_to_po(db: Session, bill: SupplierInvoice) -> SupplierInvoice:
 def due_date_for_bill(db: Session, supplier_id: uuid.UUID, invoice_date):
     """From the supplier's agreed terms. None when none are agreed --
     same treatment customers get."""
-    supplier = db.get(Customer, supplier_id)
+    supplier = db.get(CompanyIndividual, supplier_id)
     if supplier is None or supplier.payment_terms_days is None:
         return None
     return invoice_date + timedelta(days=supplier.payment_terms_days)

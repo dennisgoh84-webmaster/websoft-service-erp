@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.contracts import Contract, ContractKind, ContractProduct, ContractStatus, ExcessUsageRecord
 from app.models.core import User
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.schemas.schemas import (
     ContractCreate,
@@ -201,7 +201,7 @@ def _contracts_for_export(
         db, company_id, status, customer_id, contract_kind, sales_staff_id,
         product_id, coverage_start, coverage_end,
     )
-    customer_names = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == company_id)}
+    customer_names = {c.id: c.name for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)}
     staff_names = {u.id: u.full_name for u in db.query(User).all()}
     return [
         _contract_row(c, customer_names.get(c.customer_id, ""), staff_names.get(c.sales_staff_id, ""))

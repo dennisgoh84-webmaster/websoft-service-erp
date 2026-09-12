@@ -1,6 +1,6 @@
-"""Customer Groups -- a lightweight tag linking separate Customer
+"""CompanyIndividual Groups -- a lightweight tag linking separate CompanyIndividual
 records that belong to the same group of companies. See
-app/models/customers.py's CustomerGroup docstring: each tagged
+app/models/company_individuals.py's CompanyIndividualGroup docstring: each tagged
 customer stays its own full account (own contracts/invoices/AR); this
 is deliberately not a merged/consolidated-billing hierarchy. Confirmed
 2026-09-10."""
@@ -11,42 +11,42 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.core import User
-from app.models.customers import CustomerGroup
+from app.models.company_individuals import CompanyIndividualGroup
 from app.models.groups import AccessLevel
-from app.schemas.schemas import CustomerGroupCreate, CustomerGroupOut, CustomerGroupUpdate
+from app.schemas.schemas import CompanyIndividualGroupCreate, CompanyIndividualGroupOut, CompanyIndividualGroupUpdate
 from app.services import audit
 from app.services.authority import require_module_access
 
-router = APIRouter(prefix="/api/customer-groups", tags=["customer-groups"])
-MODULE = "customer_management"
+router = APIRouter(prefix="/api/company-individual-groups", tags=["company-individual-groups"])
+MODULE = "company_individual_management"
 
 
-def _group_or_404(db: Session, group_id: uuid.UUID, company_id: uuid.UUID) -> CustomerGroup:
-    group = db.get(CustomerGroup, group_id)
+def _group_or_404(db: Session, group_id: uuid.UUID, company_id: uuid.UUID) -> CompanyIndividualGroup:
+    group = db.get(CompanyIndividualGroup, group_id)
     if not group or group.company_id != company_id:
-        raise HTTPException(status_code=404, detail="Customer group not found")
+        raise HTTPException(status_code=404, detail="Company / Individual group not found")
     return group
 
 
-@router.get("", response_model=list[CustomerGroupOut])
+@router.get("", response_model=list[CompanyIndividualGroupOut])
 def list_customer_groups(
     include_inactive: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    query = db.query(CustomerGroup).filter(CustomerGroup.company_id == current_user.company_id)
+    query = db.query(CompanyIndividualGroup).filter(CompanyIndividualGroup.company_id == current_user.company_id)
     if not include_inactive:
-        query = query.filter(CustomerGroup.is_active)
-    return query.order_by(CustomerGroup.name).all()
+        query = query.filter(CompanyIndividualGroup.is_active)
+    return query.order_by(CompanyIndividualGroup.name).all()
 
 
-@router.post("", response_model=CustomerGroupOut)
+@router.post("", response_model=CompanyIndividualGroupOut)
 def create_customer_group(
-    payload: CustomerGroupCreate,
+    payload: CompanyIndividualGroupCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
-    group = CustomerGroup(company_id=current_user.company_id, name=payload.name, description=payload.description)
+    group = CompanyIndividualGroup(company_id=current_user.company_id, name=payload.name, description=payload.description)
     db.add(group)
     db.flush()
     audit.record(
@@ -63,10 +63,10 @@ def create_customer_group(
     return group
 
 
-@router.patch("/{group_id}", response_model=CustomerGroupOut)
+@router.patch("/{group_id}", response_model=CompanyIndividualGroupOut)
 def update_customer_group(
     group_id: uuid.UUID,
-    payload: CustomerGroupUpdate,
+    payload: CompanyIndividualGroupUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):

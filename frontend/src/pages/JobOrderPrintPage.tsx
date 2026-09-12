@@ -7,14 +7,14 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, type Contract, type CurrentUser, type Customer, type JobOrder, type ServiceRecord } from '../lib/api'
+import { api, type Contract, type CurrentUser, type CompanyIndividual, type JobOrder, type ServiceRecord } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
 export default function JobOrderPrintPage() {
   const { id } = useParams<{ id: string }>()
   const { activeCompany } = useAuth()
   const [jobOrder, setJobOrder] = useState<JobOrder | null>(null)
-  const [customer, setCustomer] = useState<Customer | null>(null)
+  const [customer, setCustomer] = useState<CompanyIndividual | null>(null)
   const [contract, setContract] = useState<Contract | null>(null)
   const [records, setRecords] = useState<ServiceRecord[]>([])
   const [users, setUsers] = useState<CurrentUser[]>([])
@@ -24,7 +24,7 @@ export default function JobOrderPrintPage() {
     if (!id) return
     api.getJobOrder(id).then((jo) => {
       setJobOrder(jo)
-      api.getCustomer(jo.customer_id).then(setCustomer)
+      api.getCompanyIndividual(jo.customer_id).then(setCustomer)
       if (jo.contract_id) api.getContract(jo.contract_id).then(setContract)
     })
     api.listServiceRecords({ job_order_id: id }).then(setRecords)
@@ -68,7 +68,7 @@ export default function JobOrderPrintPage() {
 
       <div className="form-meta">
         <div>
-          <div className="form-section-label">Customer</div>
+          <div className="form-section-label">Company / Individual</div>
           <div className="form-customer-name">{customer.name}</div>
           {customerAddress && <div>{customerAddress}</div>}
           {customer.uen && <div>UEN: {customer.uen}</div>}
@@ -149,7 +149,7 @@ export default function JobOrderPrintPage() {
 
       <div className="form-signature-row">
         <div>
-          Customer Signature
+          CompanyIndividual Signature
           <div className="form-signature-line" />
         </div>
         <div>

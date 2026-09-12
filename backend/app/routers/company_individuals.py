@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.core import AuditLogEntry, User
-from app.models.customers import Branch, Contact, Customer, CustomerGroup, CustomerRelationship
+from app.models.company_individuals import Branch, Contact, CompanyIndividual, CompanyIndividualGroup, CompanyIndividualRelationship
 from app.models.groups import AccessLevel
 from app.models.setup import SetupListItem, SetupListType
 from app.schemas.schemas import (
@@ -18,17 +18,17 @@ from app.schemas.schemas import (
     ContactCreate,
     ContactOut,
     ContactUpdate,
-    CustomerCreate,
-    CustomerOut,
-    CustomerRelationshipCreate,
-    CustomerRelationshipOut,
-    CustomerUpdate,
+    CompanyIndividualCreate,
+    CompanyIndividualOut,
+    CompanyIndividualRelationshipCreate,
+    CompanyIndividualRelationshipOut,
+    CompanyIndividualUpdate,
 )
 from app.services import audit, exports
 from app.services.authority import require_module_access
 
-router = APIRouter(prefix="/api/customers", tags=["customers"])
-MODULE = "customer_management"
+router = APIRouter(prefix="/api/company-individuals", tags=["company-individuals"])
+MODULE = "company_individual_management"
 
 CUSTOMER_EXPORT_FIELDS = [
     "name", "customer_type", "customer_group", "industry", "legacy_customer_code",
@@ -64,22 +64,22 @@ CUSTOMER_FIELDS = (
 )
 
 
-def _customer_or_404(db: Session, customer_id: uuid.UUID, company_id: uuid.UUID) -> Customer:
-    customer = db.get(Customer, customer_id)
+def _customer_or_404(db: Session, customer_id: uuid.UUID, company_id: uuid.UUID) -> CompanyIndividual:
+    customer = db.get(CompanyIndividual, customer_id)
     # Multi-company: another company's customer is "not found" here.
     if not customer or customer.company_id != company_id:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Company / Individual not found")
     return customer
 
 
-def _contact_or_404(db: Session, customer: Customer, contact_id: uuid.UUID) -> Contact:
+def _contact_or_404(db: Session, customer: CompanyIndividual, contact_id: uuid.UUID) -> Contact:
     contact = db.get(Contact, contact_id)
     if not contact or contact.customer_id != customer.id:
         raise HTTPException(status_code=404, detail="Contact not found")
     return contact
 
 
-def _branch_or_404(db: Session, customer: Customer, branch_id: uuid.UUID) -> Branch:
+def _branch_or_404(db: Session, customer: CompanyIndividual, branch_id: uuid.UUID) -> Branch:
     branch = db.get(Branch, branch_id)
     if not branch or branch.customer_id != customer.id:
         raise HTTPException(status_code=404, detail="Branch not found")
@@ -88,7 +88,7 @@ def _branch_or_404(db: Session, customer: Customer, branch_id: uuid.UUID) -> Bra
 
 def _company_contact_or_404(db: Session, contact_id: uuid.UUID, company_id: uuid.UUID) -> Contact:
     """Unlike _contact_or_404 above, a relationship's target Contact can
-    belong to ANY Customer in this company -- not necessarily the one
+    belong to ANY CompanyIndividual in this company -- not necessarily the one
     the relationship is being added from."""
     contact = db.get(Contact, contact_id)
     if not contact or contact.customer.company_id != company_id:
@@ -96,8 +96,8 @@ def _company_contact_or_404(db: Session, contact_id: uuid.UUID, company_id: uuid
     return contact
 
 
-def _relationship_out(rel: CustomerRelationship) -> CustomerRelationshipOut:
-    return CustomerRelationshipOut(
+def _relationship_out(rel: CompanyIndividualRelationship) -> CompanyIndividualRelationshipOut:
+    return CompanyIndividualRelationshipOut(
         id=rel.id,
         from_customer_id=rel.from_customer_id,
         to_customer_id=rel.to_customer_id,
@@ -114,14 +114,14 @@ def _relationship_out(rel: CustomerRelationship) -> CustomerRelationshipOut:
     )
 
 
-@router.post("", response_model=CustomerOut)
+@router.post("", response_model=CompanyIndividualOut)
 def create_customer(
-    payload: CustomerCreate,
+    payload: CompanyIndividualCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
     fields = payload.model_dump()
-    customer = Customer(company_id=current_user.company_id, **fields)
+    customer = CompanyIndividual(company_id=current_user.company_id, **fields)
     db.add(customer)
     db.flush()
     audit.record(
@@ -138,10 +138,10 @@ def create_customer(
     return customer
 
 
-@router.patch("/{customer_id}", response_model=CustomerOut)
+@router.patch("/{customer_id}", response_model=CompanyIndividualOut)
 def update_customer(
     customer_id: uuid.UUID,
-    payload: CustomerUpdate,
+    payload: CompanyIndividualUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
@@ -175,7 +175,7 @@ def update_customer(
     return customer
 
 
-@router.post("/{customer_id}/deactivate", response_model=CustomerOut)
+@router.post("/{customer_id}/deactivate", response_model=CompanyIndividualOut)
 def deactivate_customer(
     customer_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -197,7 +197,7 @@ def deactivate_customer(
     return customer
 
 
-@router.post("/{customer_id}/reactivate", response_model=CustomerOut)
+@router.post("/{customer_id}/reactivate", response_model=CompanyIndividualOut)
 def reactivate_customer(
     customer_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -228,7 +228,7 @@ def _filter_customers(
     industry_code: str | None = None,
     is_supplier: bool | None = None,
 ):
-    """Dynamic filter for the Customer master: free-text `q` matches
+    """Dynamic filter for the CompanyIndividual master: free-text `q` matches
     across name/email/phone/mobile/UEN/legacy code/tags,
     `customer_group_id` narrows to one group of companies at a time --
     so you can search for a particular customer or pull up a whole
@@ -238,33 +238,33 @@ def _filter_customers(
     Order/AP pick from this same file rather than a separate list).
     Shared by list_customers and the export endpoints so "export what
     I'm looking at" always matches what's on screen."""
-    query = db.query(Customer).filter(Customer.company_id == company_id)
+    query = db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)
     if not include_inactive:
-        query = query.filter(Customer.is_active)
+        query = query.filter(CompanyIndividual.is_active)
     if customer_group_id:
-        query = query.filter(Customer.customer_group_id == customer_group_id)
+        query = query.filter(CompanyIndividual.customer_group_id == customer_group_id)
     if industry_code:
-        query = query.filter(Customer.industry_code == industry_code)
+        query = query.filter(CompanyIndividual.industry_code == industry_code)
     if is_supplier is not None:
-        query = query.filter(Customer.is_supplier == is_supplier)
+        query = query.filter(CompanyIndividual.is_supplier == is_supplier)
     if q:
         like = f"%{q}%"
         query = query.filter(
             or_(
-                Customer.name.ilike(like),
-                Customer.billing_email.ilike(like),
-                Customer.phone.ilike(like),
-                Customer.mobile.ilike(like),
-                Customer.contact_person.ilike(like),
-                Customer.uen.ilike(like),
-                Customer.legacy_customer_code.ilike(like),
-                Customer.tags.ilike(like),
+                CompanyIndividual.name.ilike(like),
+                CompanyIndividual.billing_email.ilike(like),
+                CompanyIndividual.phone.ilike(like),
+                CompanyIndividual.mobile.ilike(like),
+                CompanyIndividual.contact_person.ilike(like),
+                CompanyIndividual.uen.ilike(like),
+                CompanyIndividual.legacy_customer_code.ilike(like),
+                CompanyIndividual.tags.ilike(like),
             )
         )
-    return query.order_by(Customer.name).all()
+    return query.order_by(CompanyIndividual.name).all()
 
 
-@router.get("", response_model=list[CustomerOut])
+@router.get("", response_model=list[CompanyIndividualOut])
 def list_customers(
     q: str | None = None,
     customer_group_id: uuid.UUID | None = None,
@@ -279,7 +279,7 @@ def list_customers(
     )
 
 
-def _customer_row(customer: Customer, group_name: str, industry_name: str) -> dict:
+def _customer_row(customer: CompanyIndividual, group_name: str, industry_name: str) -> dict:
     address = ", ".join(
         filter(
             None,
@@ -318,7 +318,7 @@ def _customers_for_export(
     customers = _filter_customers(
         db, company_id, q, customer_group_id, include_inactive, industry_code
     )
-    group_names = {g.id: g.name for g in db.query(CustomerGroup).filter(CustomerGroup.company_id == company_id)}
+    group_names = {g.id: g.name for g in db.query(CompanyIndividualGroup).filter(CompanyIndividualGroup.company_id == company_id)}
     industry_names = {
         i.code: i.name
         for i in db.query(SetupListItem).filter(SetupListItem.list_type == SetupListType.INDUSTRY)
@@ -361,7 +361,7 @@ def export_customers_excel(
     rows = _customers_for_export(
         db, current_user.company_id, q, customer_group_id, include_inactive, industry_code
     )
-    data = exports.rows_to_excel(CUSTOMER_EXPORT_FIELDS, rows, sheet_name="Customers")
+    data = exports.rows_to_excel(CUSTOMER_EXPORT_FIELDS, rows, sheet_name="Company Individuals")
     return StreamingResponse(
         iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -369,7 +369,7 @@ def export_customers_excel(
     )
 
 
-@router.get("/{customer_id}", response_model=CustomerOut)
+@router.get("/{customer_id}", response_model=CompanyIndividualOut)
 def get_customer(
     customer_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -384,7 +384,7 @@ def get_customer_audit_log(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    """Recent Customer Management activity for this account (created,
+    """Recent CompanyIndividual Management activity for this account (created,
     field changes, deactivate/reactivate) -- the audit trail CLAUDE.md
     requires for business-record-affecting actions."""
     _customer_or_404(db, customer_id, current_user.company_id)
@@ -400,7 +400,7 @@ def get_customer_audit_log(
 # ---- Contacts (contact people at a customer) -------------------------
 # Modeled but previously unbuilt: no API or UI existed for these at all
 # until this touch-up. Scoped under the parent customer, gated by the
-# same customer_management module authority.
+# same company_individual_management module authority.
 
 
 @router.get("/{customer_id}/contacts", response_model=list[ContactOut])
@@ -667,9 +667,9 @@ def reactivate_branch(
 
 
 # ---- Relationships (company/individual/contact links, confirmed 2026-09-11) ----
-# See CustomerRelationship's own docstring in app/models/customers.py
+# See CompanyIndividualRelationship's own docstring in app/models/company_individuals.py
 # for why there's no separate "level" field and why this is undirected.
-@router.get("/{customer_id}/relationships", response_model=list[CustomerRelationshipOut])
+@router.get("/{customer_id}/relationships", response_model=list[CompanyIndividualRelationshipOut])
 def list_customer_relationships(
     customer_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -677,19 +677,19 @@ def list_customer_relationships(
 ):
     customer = _customer_or_404(db, customer_id, current_user.company_id)
     rels = (
-        db.query(CustomerRelationship)
-        .filter(CustomerRelationship.from_customer_id == customer.id)
-        .filter(CustomerRelationship.is_active)
-        .order_by(CustomerRelationship.created_at.desc())
+        db.query(CompanyIndividualRelationship)
+        .filter(CompanyIndividualRelationship.from_customer_id == customer.id)
+        .filter(CompanyIndividualRelationship.is_active)
+        .order_by(CompanyIndividualRelationship.created_at.desc())
         .all()
     )
     return [_relationship_out(r) for r in rels]
 
 
-@router.post("/{customer_id}/relationships", response_model=CustomerRelationshipOut)
+@router.post("/{customer_id}/relationships", response_model=CompanyIndividualRelationshipOut)
 def create_customer_relationship(
     customer_id: uuid.UUID,
-    payload: CustomerRelationshipCreate,
+    payload: CompanyIndividualRelationshipCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
@@ -705,7 +705,7 @@ def create_customer_relationship(
     if payload.to_contact_id:
         _company_contact_or_404(db, payload.to_contact_id, current_user.company_id)
 
-    rel = CustomerRelationship(
+    rel = CompanyIndividualRelationship(
         company_id=current_user.company_id,
         from_customer_id=customer.id,
         to_customer_id=payload.to_customer_id,
@@ -734,7 +734,7 @@ def create_customer_relationship(
     return _relationship_out(rel)
 
 
-@router.post("/{customer_id}/relationships/{relationship_id}/deactivate", response_model=CustomerRelationshipOut)
+@router.post("/{customer_id}/relationships/{relationship_id}/deactivate", response_model=CompanyIndividualRelationshipOut)
 def deactivate_customer_relationship(
     customer_id: uuid.UUID,
     relationship_id: uuid.UUID,
@@ -742,7 +742,7 @@ def deactivate_customer_relationship(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
     customer = _customer_or_404(db, customer_id, current_user.company_id)
-    rel = db.get(CustomerRelationship, relationship_id)
+    rel = db.get(CompanyIndividualRelationship, relationship_id)
     if not rel or rel.from_customer_id != customer.id:
         raise HTTPException(status_code=404, detail="Relationship not found")
     rel.is_active = False

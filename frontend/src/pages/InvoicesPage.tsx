@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type AgingReport, type Customer, type CustomerStatement, type Invoice, type InvoiceStatus } from '../lib/api'
+import { api, downloadBlob, type AgingReport, type CompanyIndividual, type CompanyIndividualStatement, type Invoice, type InvoiceStatus } from '../lib/api'
 
 const STATUS_BADGE: Record<InvoiceStatus, string> = {
   outstanding: 'draft',
@@ -15,10 +15,10 @@ const money = (n: number) => n.toFixed(2)
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CompanyIndividual[]>([])
   const [aging, setAging] = useState<AgingReport | null>(null)
-  const [statement, setStatement] = useState<CustomerStatement | null>(null)
-  const [filterCustomer, setFilterCustomer] = useState('')
+  const [statement, setStatement] = useState<CompanyIndividualStatement | null>(null)
+  const [filterCompanyIndividual, setFilterCompanyIndividual] = useState('')
   const [filterType, setFilterType] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -26,12 +26,12 @@ export default function InvoicesPage() {
   const [busyInvoiceId, setBusyInvoiceId] = useState<string | null>(null)
 
   function refresh() {
-    api.listInvoices({ customer_id: filterCustomer || undefined }).then(setInvoices)
-    api.listCustomers().then(setCustomers)
+    api.listInvoices({ customer_id: filterCompanyIndividual || undefined }).then(setInvoices)
+    api.listCompanyIndividuals().then(setCustomers)
     api.arAging().then(setAging).catch((e) => setError(e.message))
   }
 
-  useEffect(refresh, [filterCustomer])
+  useEffect(refresh, [filterCompanyIndividual])
 
   const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? id.slice(0, 8)
   const visible = filterType ? invoices.filter((i) => i.invoice_type === filterType) : invoices
@@ -48,7 +48,7 @@ export default function InvoicesPage() {
     if (!statement) return
     setError(null)
     downloadBlob(
-      await api.exportCustomerStatementDocx(statement.customer_id),
+      await api.exportCompanyIndividualStatementDocx(statement.customer_id),
       `Statement-${statement.customer_name}-${statement.as_at}.docx`,
     )
   }
@@ -59,7 +59,7 @@ export default function InvoicesPage() {
     setMessage(null)
     setStatementBusy(true)
     try {
-      const result = await api.emailCustomerStatement(statement.customer_id)
+      const result = await api.emailCompanyIndividualStatement(statement.customer_id)
       setMessage(`Statement for ${statement.customer_name} emailed to ${result.to}.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to email statement')
@@ -83,9 +83,9 @@ export default function InvoicesPage() {
   async function onExport(format: string) {
     setError(null)
     if (format === 'csv') {
-      downloadBlob(await api.exportInvoicesCsv({ customer_id: filterCustomer || undefined }), 'invoices.csv')
+      downloadBlob(await api.exportInvoicesCsv({ customer_id: filterCompanyIndividual || undefined }), 'invoices.csv')
     } else {
-      downloadBlob(await api.exportInvoicesExcel({ customer_id: filterCustomer || undefined }), 'invoices.xlsx')
+      downloadBlob(await api.exportInvoicesExcel({ customer_id: filterCompanyIndividual || undefined }), 'invoices.xlsx')
     }
   }
 
@@ -217,7 +217,7 @@ export default function InvoicesPage() {
           <table>
             <thead>
               <tr>
-                <th>Customer</th>
+                <th>Company / Individual</th>
                 <th>Current</th>
                 <th>1-30</th>
                 <th>31-60</th>
@@ -357,8 +357,8 @@ export default function InvoicesPage() {
       <div className="card">
         <div className="filter-bar">
           <div className="form-row" style={{ margin: 0 }}>
-            <label>Customer</label>
-            <select value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)}>
+            <label>Company / Individual</label>
+            <select value={filterCompanyIndividual} onChange={(e) => setFilterCompanyIndividual(e.target.value)}>
               <option value="">All</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -379,7 +379,7 @@ export default function InvoicesPage() {
             type="button"
             className="secondary"
             onClick={() => {
-              setFilterCustomer('')
+              setFilterCompanyIndividual('')
               setFilterType('')
             }}
           >
@@ -405,7 +405,7 @@ export default function InvoicesPage() {
           <thead>
             <tr>
               <th>Invoice no.</th>
-              <th>Customer</th>
+              <th>Company / Individual</th>
               <th>Description</th>
               <th>Net</th>
               <th>GST</th>

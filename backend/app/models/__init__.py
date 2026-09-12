@@ -41,13 +41,13 @@ from app.models.core import (  # noqa: F401
     UserCompanyAccess,
     UserRole,
 )
-from app.models.customers import (  # noqa: F401
+from app.models.company_individuals import (  # noqa: F401
     Branch,
     Contact,
-    Customer,
-    CustomerGroup,
-    CustomerRelationship,
-    CustomerType,
+    CompanyIndividual,
+    CompanyIndividualGroup,
+    CompanyIndividualRelationship,
+    CompanyIndividualType,
 )
 from app.models.catalog import Product, ProductType  # noqa: F401
 from app.models.quotations import Quotation, QuotationLine, QuotationStatus  # noqa: F401

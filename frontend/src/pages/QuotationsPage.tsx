@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Customer, type Product, type Quotation, type QuotationStatus } from '../lib/api'
+import { api, downloadBlob, type CompanyIndividual, type Product, type Quotation, type QuotationStatus } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -33,14 +33,14 @@ function emptyLine(): DraftLine {
 
 export default function QuotationsPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CompanyIndividual[]>([])
   const [catalog, setCatalog] = useState<Product[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
   const [filterStatus, setFilterStatus] = useState('')
-  const [filterCustomer, setFilterCustomer] = useState('')
+  const [filterCompanyIndividual, setFilterCompanyIndividual] = useState('')
 
   // New quotation form
   const [customerId, setCustomerId] = useState('')
@@ -52,14 +52,14 @@ export default function QuotationsPage() {
 
   function refresh() {
     api
-      .listQuotations({ status: filterStatus || undefined, customer_id: filterCustomer || undefined })
+      .listQuotations({ status: filterStatus || undefined, customer_id: filterCompanyIndividual || undefined })
       .then(setQuotations)
       .catch((e) => setError(e.message))
-    api.listCustomers().then(setCustomers).catch((e) => setError(e.message))
+    api.listCompanyIndividuals().then(setCustomers).catch((e) => setError(e.message))
     api.listCatalog().then(setCatalog).catch((e) => setError(e.message))
   }
 
-  useEffect(refresh, [filterStatus, filterCustomer])
+  useEffect(refresh, [filterStatus, filterCompanyIndividual])
 
   const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? id.slice(0, 8)
   const customerOf = (id: string) => customers.find((c) => c.id === id)
@@ -131,7 +131,7 @@ export default function QuotationsPage() {
 
   async function onExport(format: string) {
     setError(null)
-    const filters = { status: filterStatus || undefined, customer_id: filterCustomer || undefined }
+    const filters = { status: filterStatus || undefined, customer_id: filterCompanyIndividual || undefined }
     if (format === 'csv') {
       downloadBlob(await api.exportQuotationsCsv(filters), 'quotations.csv')
     } else {
@@ -216,7 +216,7 @@ export default function QuotationsPage() {
         <h2>New quotation</h2>
         <form onSubmit={onCreate}>
           <div className="form-row">
-            <label>Customer</label>
+            <label>Company / Individual</label>
             <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
               <option value="">Select...</option>
               {customers.map((c) => (
@@ -345,8 +345,8 @@ export default function QuotationsPage() {
             </select>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <label>Customer</label>
-            <select value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)}>
+            <label>Company / Individual</label>
+            <select value={filterCompanyIndividual} onChange={(e) => setFilterCompanyIndividual(e.target.value)}>
               <option value="">All</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -360,7 +360,7 @@ export default function QuotationsPage() {
             className="secondary"
             onClick={() => {
               setFilterStatus('')
-              setFilterCustomer('')
+              setFilterCompanyIndividual('')
             }}
           >
             Reset filters
@@ -381,7 +381,7 @@ export default function QuotationsPage() {
             <thead>
               <tr>
                 <th>Quotation</th>
-                <th>Customer</th>
+                <th>Company / Individual</th>
                 <th>Date</th>
                 <th>Valid until</th>
                 <th>Total (incl. GST)</th>

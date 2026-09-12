@@ -1,7 +1,7 @@
 """
 Websoft Service ERP Solution -- API entrypoint.
 
-Scope for this build: the Service Operations core slice (Customer,
+Scope for this build: the Service Operations core slice (Company/Individual,
 Service Contract, Job Order, Service Record, Excess Usage Review,
 Billing/Invoice) implementing the confirmed SRV-001..018 business rules,
 plus Module Control / multi-company licensing and a summary dashboard.
@@ -26,9 +26,9 @@ from app.routers import (
     auth,
     billing,
     companies,
+    company_individual_groups,
+    company_individuals,
     contracts,
-    customer_groups,
-    customers,
     dashboard,
     event_logs,
     excess_usage,
@@ -81,8 +81,8 @@ app.include_router(companies.router)
 app.include_router(groups.router)
 app.include_router(modules.router)
 app.include_router(event_logs.router)
-app.include_router(customers.router)
-app.include_router(customer_groups.router)
+app.include_router(company_individuals.router)
+app.include_router(company_individual_groups.router)
 app.include_router(catalog.router)
 app.include_router(quotations.router)
 app.include_router(contracts.router)

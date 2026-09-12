@@ -5,11 +5,11 @@ import {
   type AuditLogEntry,
   type Branch,
   type Contact,
-  type Customer,
-  type CustomerGroup,
-  type CustomerProductUsageRow,
-  type CustomerRelationship,
-  type CustomerType,
+  type CompanyIndividual,
+  type CompanyIndividualGroup,
+  type CompanyIndividualProductUsageRow,
+  type CompanyIndividualRelationship,
+  type CompanyIndividualType,
   type SetupListItem,
 } from '../lib/api'
 
@@ -22,7 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 function emptyForm() {
   return {
-    customer_type: 'company' as CustomerType,
+    customer_type: 'company' as CompanyIndividualType,
     name: '',
     customer_group_id: '',
     industry_code: '',
@@ -60,20 +60,20 @@ function emptyBranchForm() {
   }
 }
 
-export default function CustomerDetailPage() {
+export default function CompanyIndividualDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  const [customer, setCustomer] = useState<Customer | null>(null)
+  const [customer, setCustomer] = useState<CompanyIndividual | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [branches, setBranches] = useState<Branch[]>([])
-  const [relationships, setRelationships] = useState<CustomerRelationship[]>([])
-  const [allCustomers, setAllCustomers] = useState<Customer[]>([])
+  const [relationships, setRelationships] = useState<CompanyIndividualRelationship[]>([])
+  const [allCompanyIndividuals, setAllCompanyIndividuals] = useState<CompanyIndividual[]>([])
   const [relTargetContacts, setRelTargetContacts] = useState<Contact[]>([])
-  const [groups, setGroups] = useState<CustomerGroup[]>([])
+  const [groups, setGroups] = useState<CompanyIndividualGroup[]>([])
   const [industries, setIndustries] = useState<SetupListItem[]>([])
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([])
-  const [productUsage, setProductUsage] = useState<CustomerProductUsageRow[]>([])
+  const [productUsage, setProductUsage] = useState<CompanyIndividualProductUsageRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -96,7 +96,7 @@ export default function CustomerDetailPage() {
   const [branchForm, setBranchForm] = useState(emptyBranchForm())
 
   // New-relationship form
-  const [relTargetCustomerId, setRelTargetCustomerId] = useState('')
+  const [relTargetCompanyIndividualId, setRelTargetCompanyIndividualId] = useState('')
   const [relTargetContactId, setRelTargetContactId] = useState('')
   const [relType, setRelType] = useState('')
   const [relNote, setRelNote] = useState('')
@@ -108,7 +108,7 @@ export default function CustomerDetailPage() {
   function refresh() {
     if (!id) return
     api
-      .getCustomer(id)
+      .getCompanyIndividual(id)
       .then((c) => {
         setCustomer(c)
         setForm({
@@ -143,16 +143,16 @@ export default function CustomerDetailPage() {
       .catch(() => setNotFound(true))
     api.listContacts(id, true).then(setContacts).catch((e) => setError(e.message))
     api.listBranches(id, true).then(setBranches).catch((e) => setError(e.message))
-    api.listCustomerRelationships(id).then(setRelationships).catch((e) => setError(e.message))
-    api.getCustomerAuditLog(id).then(setAuditLog).catch((e) => setError(e.message))
-    api.reportCustomerProductUsage({ customer_id: id }).then(setProductUsage).catch(() => setProductUsage([]))
+    api.listCompanyIndividualRelationships(id).then(setRelationships).catch((e) => setError(e.message))
+    api.getCompanyIndividualAuditLog(id).then(setAuditLog).catch((e) => setError(e.message))
+    api.reportCompanyIndividualProductUsage({ customer_id: id }).then(setProductUsage).catch(() => setProductUsage([]))
   }
 
   useEffect(refresh, [id])
   useEffect(() => {
-    api.listCustomerGroups().then(setGroups).catch((e) => setError(e.message))
+    api.listCompanyIndividualGroups().then(setGroups).catch((e) => setError(e.message))
     api.listSetupItems({ list_type: 'industry' }).then(setIndustries).catch(() => setIndustries([]))
-    api.listCustomers().then(setAllCustomers).catch(() => setAllCustomers([]))
+    api.listCompanyIndividuals().then(setAllCompanyIndividuals).catch(() => setAllCompanyIndividuals([]))
   }, [])
 
   // Fetch the chosen target's contacts so "relate to a specific
@@ -160,12 +160,12 @@ export default function CustomerDetailPage() {
   // ("company contacts relationship also").
   useEffect(() => {
     setRelTargetContactId('')
-    if (!relTargetCustomerId) {
+    if (!relTargetCompanyIndividualId) {
       setRelTargetContacts([])
       return
     }
-    api.listContacts(relTargetCustomerId).then(setRelTargetContacts).catch(() => setRelTargetContacts([]))
-  }, [relTargetCustomerId])
+    api.listContacts(relTargetCompanyIndividualId).then(setRelTargetContacts).catch(() => setRelTargetContacts([]))
+  }, [relTargetCompanyIndividualId])
 
   async function onSave(e: FormEvent) {
     e.preventDefault()
@@ -173,7 +173,7 @@ export default function CustomerDetailPage() {
     setError(null)
     setSaving(true)
     try {
-      await api.updateCustomer(id, {
+      await api.updateCompanyIndividual(id, {
         customer_type: form.customer_type,
         name: form.name,
         customer_group_id: form.customer_group_id || null,
@@ -213,8 +213,8 @@ export default function CustomerDetailPage() {
     if (!id || !customer) return
     setError(null)
     try {
-      if (customer.is_active) await api.deactivateCustomer(id)
-      else await api.reactivateCustomer(id)
+      if (customer.is_active) await api.deactivateCompanyIndividual(id)
+      else await api.reactivateCompanyIndividual(id)
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update customer status')
@@ -292,13 +292,13 @@ export default function CustomerDetailPage() {
     if (!id) return
     setError(null)
     try {
-      await api.createCustomerRelationship(id, {
-        to_customer_id: relTargetContactId ? undefined : relTargetCustomerId,
+      await api.createCompanyIndividualRelationship(id, {
+        to_customer_id: relTargetContactId ? undefined : relTargetCompanyIndividualId,
         to_contact_id: relTargetContactId || undefined,
         relationship_type: relType,
         note: relNote || undefined,
       })
-      setRelTargetCustomerId('')
+      setRelTargetCompanyIndividualId('')
       setRelTargetContactId('')
       setRelType('')
       setRelNote('')
@@ -312,7 +312,7 @@ export default function CustomerDetailPage() {
     if (!id) return
     setError(null)
     try {
-      await api.deactivateCustomerRelationship(id, relationshipId)
+      await api.deactivateCompanyIndividualRelationship(id, relationshipId)
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove relationship')
@@ -323,7 +323,7 @@ export default function CustomerDetailPage() {
     e.preventDefault()
     setError(null)
     try {
-      const group = await api.createCustomerGroup({ name: newGroupName })
+      const group = await api.createCompanyIndividualGroup({ name: newGroupName })
       setNewGroupName('')
       setGroups((prev) => [...prev, group])
       setForm((p) => ({ ...p, customer_group_id: group.id }))
@@ -332,7 +332,7 @@ export default function CustomerDetailPage() {
     }
   }
 
-  if (notFound) return <p>Not found. <Link to="/customers">Back to Company / Individual</Link></p>
+  if (notFound) return <p>Not found. <Link to="/company-individuals">Back to Company / Individual</Link></p>
   if (!customer) return <p>Loading...</p>
 
   function field(key: keyof ReturnType<typeof emptyForm>) {
@@ -354,7 +354,7 @@ export default function CustomerDetailPage() {
   return (
     <div>
       <p>
-        <Link to="/customers">&larr; Customers</Link>
+        <Link to="/company-individuals">&larr; Company / Individual</Link>
       </p>
       <h1>{customer.name}</h1>
       <p>
@@ -376,7 +376,7 @@ export default function CustomerDetailPage() {
             <label>Type</label>
             <select
               value={form.customer_type}
-              onChange={(e) => setForm((p) => ({ ...p, customer_type: e.target.value as CustomerType }))}
+              onChange={(e) => setForm((p) => ({ ...p, customer_type: e.target.value as CompanyIndividualType }))}
             >
               <option value="company">Company</option>
               <option value="individual">Individual</option>
@@ -569,7 +569,7 @@ export default function CustomerDetailPage() {
 
       <div className="card">
         <h2>Contact Person</h2>
-        <p className="muted">Individual contacts at this customer -- separate from the quick "Contact person" field above.</p>
+        <p className="muted">Individual contacts at this Company / Individual -- separate from the quick "Contact person" field above.</p>
         <table>
           <thead>
             <tr>
@@ -733,13 +733,13 @@ export default function CustomerDetailPage() {
               <tr key={r.id}>
                 <td>
                   {r.to_customer_id ? (
-                    <Link to={`/customers/${r.to_customer_id}`}>{r.to_customer_name}</Link>
+                    <Link to={`/company-individuals/${r.to_customer_id}`}>{r.to_customer_name}</Link>
                   ) : (
                     <>
                       {r.to_contact_name}{' '}
                       <span className="muted">
                         (
-                        <Link to={`/customers/${r.to_contact_customer_id}`}>{r.to_contact_customer_name}</Link>
+                        <Link to={`/company-individuals/${r.to_contact_customer_id}`}>{r.to_contact_customer_name}</Link>
                         )
                       </span>
                     </>
@@ -771,12 +771,12 @@ export default function CustomerDetailPage() {
           <div className="form-row">
             <label>Related Company / Individual</label>
             <select
-              value={relTargetCustomerId}
-              onChange={(e) => setRelTargetCustomerId(e.target.value)}
+              value={relTargetCompanyIndividualId}
+              onChange={(e) => setRelTargetCompanyIndividualId(e.target.value)}
               required
             >
               <option value="">Select...</option>
-              {allCustomers
+              {allCompanyIndividuals
                 .filter((c) => c.id !== id)
                 .map((c) => (
                   <option key={c.id} value={c.id}>
@@ -869,13 +869,13 @@ export default function CustomerDetailPage() {
       </div>
 
       <div className="card">
-        <h2>Customer status</h2>
+        <h2>Company / Individual status</h2>
         <p className="muted">
-          Deactivating a customer keeps their history intact -- contracts, job orders and invoices stay
+          Deactivating a record keeps their history intact -- contracts, job orders and invoices stay
           exactly as they are (per CLAUDE.md: never permanently delete business records).
         </p>
         <button className="secondary" onClick={onToggleActive}>
-          {customer.is_active ? 'Deactivate customer' : 'Reactivate customer'}
+          {customer.is_active ? 'Deactivate' : 'Reactivate'}
         </button>
       </div>
 
@@ -910,8 +910,8 @@ export default function CustomerDetailPage() {
         </table>
       </div>
 
-      <button className="secondary" onClick={() => navigate('/customers')}>
-        Back to Customers
+      <button className="secondary" onClick={() => navigate('/company-individuals')}>
+        Back to Company / Individual
       </button>
     </div>
   )

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Customer, type Payment } from '../lib/api'
+import { api, downloadBlob, type CompanyIndividual, type Payment } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
 const money = (n: number) => n.toFixed(2)
@@ -21,14 +21,14 @@ export default function ReceiptPrintPage() {
   const { id } = useParams<{ id: string }>()
   const { activeCompany } = useAuth()
   const [payment, setPayment] = useState<Payment | null>(null)
-  const [customer, setCustomer] = useState<Customer | null>(null)
+  const [customer, setCustomer] = useState<CompanyIndividual | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
     api.getPayment(id).then((p) => {
       setPayment(p)
-      api.getCustomer(p.customer_id).then(setCustomer)
+      api.getCompanyIndividual(p.customer_id).then(setCustomer)
     })
   }, [id])
 

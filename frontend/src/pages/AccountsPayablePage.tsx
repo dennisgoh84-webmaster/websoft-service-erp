@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type APAgingReport, type Customer, type PurchaseOrder, type SupplierInvoice } from '../lib/api'
+import { api, downloadBlob, type APAgingReport, type CompanyIndividual, type PurchaseOrder, type SupplierInvoice } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -14,7 +14,7 @@ const BILL_BADGE: Record<string, string> = {
 }
 
 export default function AccountsPayablePage() {
-  const [suppliers, setSuppliers] = useState<Customer[]>([])
+  const [suppliers, setSuppliers] = useState<CompanyIndividual[]>([])
   const [pos, setPos] = useState<PurchaseOrder[]>([])
   const [bills, setBills] = useState<SupplierInvoice[]>([])
   const [aging, setAging] = useState<APAgingReport | null>(null)
@@ -32,7 +32,7 @@ export default function AccountsPayablePage() {
   function refresh() {
     // 2026-09-12: a supplier is a Company/Individual record flagged
     // is_supplier=true -- managed on that page, just read here.
-    api.listCustomers({ is_supplier: true }).then(setSuppliers).catch((e) => setError(e.message))
+    api.listCompanyIndividuals({ is_supplier: true }).then(setSuppliers).catch((e) => setError(e.message))
     api.listPurchaseOrders().then(setPos).catch((e) => setError(e.message))
     api.listBills().then(setBills).catch((e) => setError(e.message))
     api.apAging().then(setAging).catch((e) => setError(e.message))
@@ -160,7 +160,7 @@ export default function AccountsPayablePage() {
           <h2 style={{ margin: 0 }}>Suppliers ({suppliers.length})</h2>
         </div>
         <p className="muted">
-          A supplier is a <Link to="/customers">Company / Individual</Link> record ticked "Is
+          A supplier is a <Link to="/company-individuals">Company / Individual</Link> record ticked "Is
           Supplier" there -- add or edit suppliers (including email and phone, used by Purchase
           Order's Email/WhatsApp) on that page, not here.
         </p>

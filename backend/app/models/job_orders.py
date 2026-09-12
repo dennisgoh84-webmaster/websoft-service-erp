@@ -52,7 +52,7 @@ class JobOrder(Base):
     # queries filter on it directly instead of joining out through the
     # customer -- and can never accidentally return another entity's data.
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
-    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("company_individuals.id"), nullable=False)
     contract_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("contracts.id"), nullable=True
     )
@@ -93,5 +93,5 @@ class JobOrder(Base):
     # this now simply records when CLOSED was reached.
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    customer: Mapped["Customer"] = relationship()  # noqa: F821
+    customer: Mapped["CompanyIndividual"] = relationship()  # noqa: F821
     contract: Mapped["Contract | None"] = relationship()  # noqa: F821

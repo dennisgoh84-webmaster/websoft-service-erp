@@ -8,7 +8,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Customer, type PurchaseOrder } from '../lib/api'
+import { api, downloadBlob, type CompanyIndividual, type PurchaseOrder } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -25,7 +25,7 @@ function waNumber(phone: string): string {
 }
 
 export default function PurchaseOrdersPage() {
-  const [suppliers, setSuppliers] = useState<Customer[]>([])
+  const [suppliers, setSuppliers] = useState<CompanyIndividual[]>([])
   const [pos, setPos] = useState<PurchaseOrder[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -37,7 +37,7 @@ export default function PurchaseOrdersPage() {
   const [poAmount, setPoAmount] = useState('')
 
   function refresh() {
-    api.listCustomers({ is_supplier: true }).then(setSuppliers).catch((e) => setError(e.message))
+    api.listCompanyIndividuals({ is_supplier: true }).then(setSuppliers).catch((e) => setError(e.message))
     api.listPurchaseOrders().then(setPos).catch((e) => setError(e.message))
   }
 
@@ -139,7 +139,7 @@ export default function PurchaseOrdersPage() {
         approval -- with none set, every PO does. Once approved, "Import to AP" turns a PO
         straight into its matching bill (2-way matched, PUR-002/003) instead of re-typing it on
         the <Link to="/accounts-payable">Accounts Payable</Link> page. A supplier is a{' '}
-        <Link to="/customers">Company / Individual</Link> record ticked "Is Supplier" there --
+        <Link to="/company-individuals">Company / Individual</Link> record ticked "Is Supplier" there --
         add or edit suppliers (including email and phone for Email/WhatsApp) on that page.
       </p>
       {error && <div className="error-banner">{error}</div>}

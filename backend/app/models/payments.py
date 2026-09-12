@@ -42,7 +42,7 @@ class Payment(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
-    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("company_individuals.id"), nullable=False)
 
     # Receipt Voucher number (RV-YYYY-nnnn) -- the document reference
     # Finance and the customer both quote.
@@ -61,7 +61,7 @@ class Payment(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    customer: Mapped["Customer"] = relationship()  # noqa: F821
+    customer: Mapped["CompanyIndividual"] = relationship()  # noqa: F821
     allocations: Mapped[list["PaymentAllocation"]] = relationship(
         back_populates="payment", cascade="all, delete-orphan"
     )

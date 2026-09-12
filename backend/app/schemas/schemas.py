@@ -13,7 +13,7 @@ from app.models.accounting import AccountType, JournalStatus, VoucherType
 from app.models.catalog import ProductType
 from app.models.payables import BillMatchStatus, BillStatus, PurchaseOrder, PurchaseOrderStatus
 from app.models.contracts import ContractKind, ContractStatus, ExcessTreatment
-from app.models.customers import CustomerType
+from app.models.company_individuals import CompanyIndividualType
 from app.models.quotations import QuotationStatus
 from app.models.core import UserRole
 from app.models.groups import AccessLevel
@@ -215,19 +215,19 @@ class GroupAuthoritiesUpdateRequest(BaseModel):
     authorities: list[GroupAuthoritySet]
 
 
-# ---- Customer Groups (tag linking separate companies in one group) --
-class CustomerGroupCreate(BaseModel):
+# ---- CompanyIndividual Groups (tag linking separate companies in one group) --
+class CompanyIndividualGroupCreate(BaseModel):
     name: str
     description: str | None = None
 
 
-class CustomerGroupUpdate(BaseModel):
+class CompanyIndividualGroupUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     is_active: bool | None = None
 
 
-class CustomerGroupOut(BaseModel):
+class CompanyIndividualGroupOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     name: str
@@ -236,9 +236,9 @@ class CustomerGroupOut(BaseModel):
     created_at: datetime
 
 
-# ---- Customers ----
-class CustomerCreate(BaseModel):
-    customer_type: CustomerType = CustomerType.company
+# ---- CompanyIndividuals ----
+class CompanyIndividualCreate(BaseModel):
+    customer_type: CompanyIndividualType = CompanyIndividualType.company
     name: str
     customer_group_id: uuid.UUID | None = None
     legacy_customer_code: str | None = None
@@ -266,15 +266,15 @@ class CustomerCreate(BaseModel):
     # date until they are.
     payment_terms_days: int | None = Field(default=None, ge=0)
     # Role flags (2026-09-12): a record can be a customer, a supplier, or
-    # both -- see Customer model docstring. is_customer defaults True
+    # both -- see CompanyIndividual model docstring. is_customer defaults True
     # since that's the page's usual purpose; tick is_supplier to also
     # make this record selectable on Purchase Order / AP.
     is_customer: bool = True
     is_supplier: bool = False
 
 
-class CustomerUpdate(BaseModel):
-    customer_type: CustomerType | None = None
+class CompanyIndividualUpdate(BaseModel):
+    customer_type: CompanyIndividualType | None = None
     name: str | None = None
     customer_group_id: uuid.UUID | None = None
     legacy_customer_code: str | None = None
@@ -302,10 +302,10 @@ class CustomerUpdate(BaseModel):
     is_supplier: bool | None = None
 
 
-class CustomerOut(BaseModel):
+class CompanyIndividualOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
-    customer_type: CustomerType
+    customer_type: CompanyIndividualType
     name: str
     customer_group_id: uuid.UUID | None
     legacy_customer_code: str | None
@@ -400,10 +400,10 @@ class BranchOut(BaseModel):
     is_active: bool
 
 
-class CustomerRelationshipCreate(BaseModel):
+class CompanyIndividualRelationshipCreate(BaseModel):
     # Exactly one of these two (validated in the router) -- company-
     # level and individual-level relationships both use to_customer_id
-    # (the level follows from that Customer's own customer_type);
+    # (the level follows from that CompanyIndividual's own customer_type);
     # to_contact_id is the company-contact level.
     to_customer_id: uuid.UUID | None = None
     to_contact_id: uuid.UUID | None = None
@@ -411,13 +411,13 @@ class CustomerRelationshipCreate(BaseModel):
     note: str | None = None
 
 
-class CustomerRelationshipOut(BaseModel):
+class CompanyIndividualRelationshipOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     from_customer_id: uuid.UUID
     to_customer_id: uuid.UUID | None
     to_customer_name: str | None
-    to_customer_type: CustomerType | None
+    to_customer_type: CompanyIndividualType | None
     to_contact_id: uuid.UUID | None
     to_contact_name: str | None
     to_contact_customer_id: uuid.UUID | None
@@ -787,7 +787,7 @@ class StatementLine(BaseModel):
     days_overdue: int
 
 
-class CustomerStatement(BaseModel):
+class CompanyIndividualStatement(BaseModel):
     customer_id: uuid.UUID
     customer_name: str
     as_at: date
@@ -915,9 +915,9 @@ class TrialBalance(BaseModel):
 
 
 # ---- Accounts Payable ----
-# Supplier CRUD schemas were removed 2026-09-12: a supplier is a Customer
+# Supplier CRUD schemas were removed 2026-09-12: a supplier is a CompanyIndividual
 # (Company/Individual) record flagged is_supplier=True -- see
-# CustomerCreate/CustomerUpdate/CustomerOut above, and
+# CompanyIndividualCreate/CompanyIndividualUpdate/CompanyIndividualOut above, and
 # app/models/payables.py's module docstring.
 class PurchaseOrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

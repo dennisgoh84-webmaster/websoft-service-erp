@@ -910,8 +910,8 @@ records, contract hours) plus several features/terms not yet built.
    Contracts, Invoices, etc.) keeps that wording -- only the Customers
    module's own nav/page labels changed, to keep this a bounded rename
    rather than an app-wide sweep.
-   *Where implemented:* `backend/app/models/customers.py`
-   (`CustomerRelationship`), `backend/app/routers/customers.py`,
+   *Where implemented:* `backend/app/models/company_individuals.py`
+   (`CustomerRelationship`), `backend/app/routers/company_individuals.py`,
    `backend/app/schemas/schemas.py`, `frontend/src/pages/
    CustomerDetailPage.tsx`, `frontend/src/pages/CustomersPage.tsx`,
    `frontend/src/components/Layout.tsx`. Migration: `c2b41b06fd17`.
@@ -1125,12 +1125,12 @@ straight away.
    `purchase_orders`/`supplier_invoices`/`supplier_payments.supplier_id`
    value kept working unchanged -- only the foreign key's target table
    moved, from `suppliers` to `customers` (migration `e2f33975e091`).
-   Finance Team's `customer_management` Group Authority was raised from
+   Finance Team's `company_individual_management` Group Authority was raised from
    VIEW to FULL (seed_demo.py), since onboarding a new supplier now
    needs edit rights on Company/Individual, matching what
    `accounts_payable: FULL` implied before the merge.
-   *Where implemented:* `app/models/customers.py` (`is_customer`,
-   `is_supplier`), `app/models/payables.py` module docstring, `app/routers/customers.py`
+   *Where implemented:* `app/models/company_individuals.py` (`is_customer`,
+   `is_supplier`), `app/models/payables.py` module docstring, `app/routers/company_individuals.py`
    (`is_supplier` filter), `app/routers/payables.py` (`_supplier_or_404`),
    `frontend/src/pages/CustomersPage.tsx` / `CustomerDetailPage.tsx`
    ("Is Supplier" checkbox + Roles column), `PurchaseOrdersPage.tsx`,
@@ -1180,7 +1180,59 @@ Voucher, Payment Voucher, and Statement of Accounts.
 
 ---
 
-## How to use this document
+## 25. `Customer` renamed to `CompanyIndividual` throughout the source code (raised 2026-09-12)
+
+Requested as: "Can u change all Customer labeling in the source code to
+Company/Individual also... if not later more confusing...." -- item 20.1
+(#20 in the earlier list, i.e. the Supplier-consolidation work) had
+already introduced "Company/Individual" as the user-facing name; this
+extends that rename to the identifiers themselves.
+
+25.1. **DECIDED.** The `Customer` model, its file
+   (`app/models/customers.py` -> `app/models/company_individuals.py`),
+   its router (`app/routers/customers.py` -> `company_individuals.py`,
+   `app/routers/customer_groups.py` -> `company_individual_groups.py`),
+   the frontend pages (`CustomersPage.tsx` -> `CompanyIndividualsPage.tsx`,
+   `CustomerDetailPage.tsx` -> `CompanyIndividualDetailPage.tsx`), and
+   every compound identifier built on the name (`CustomerType`,
+   `CustomerGroup`, `CustomerRelationship`, `CustomerStatement`, the
+   `api.*Customer*` functions, etc.) are renamed to the `CompanyIndividual`
+   family. The DB tables (`customers`, `customer_groups`,
+   `customer_relationships`) are renamed to match (migration
+   `95d1cda707de`, table renames only -- no data touched, so every
+   existing row and id is preserved). The API route prefix moves from
+   `/api/customers` / `/api/customer-groups` to `/api/company-individuals`
+   / `/api/company-individual-groups`, and the frontend route from
+   `/customers` to `/company-individuals`.
+
+25.2. **What deliberately did NOT change, DECIDED by implementation, to
+   bound the blast radius (same precedent as item 23's Supplier merge):**
+   - Every FK/role-style **column** name stays as-is: `customer_id`,
+     `supplier_id`, `from_customer_id`, `to_customer_id`,
+     `customer_group_id`, `legacy_customer_code`, `is_customer`,
+     `customer_type` (and its Postgres enum, still named `customer_type`).
+     Only the table a FK column *points at* moved.
+   - The internal Group Authority module **key** moved to
+     `company_individual_management` (migration `95d1cda707de` also
+     repoints every existing `modules`/`company_modules`/
+     `group_module_authorities` row so no group silently loses access),
+     but the module's confirmed **display name stays "Customer
+     Management"** -- that name is the one already used throughout
+     [module-map.md](module-map.md) #4 and the other requirements docs,
+     and this rename is about source-code identifiers, not renaming an
+     already-confirmed business-area name.
+   - Generic English prose that uses "customer" as a role/relationship
+     word (an invoice's "customer", "email the customer", code comments
+     describing that role) is left alone -- only text that named the
+     master file/screen itself (labels, headings, button text, API error
+     details that read as one squashed word straight after a mechanical
+     find-and-replace, e.g. a stray "CompanyIndividual Management" or
+     "Add customer") was corrected, to "Company / Individual" matching
+     the already-established nav label.
+
+25.3. **Migration program (item 64/planned-work.md #6) mapping updated
+   to match:** its table now points at `app/models/company_individuals.py`
+   / `CompanyIndividual` rather than the pre-rename path/name.
 
 - Do not start detailed schema or workflow design for an area until the
   decisions that affect it are resolved, or an explicit interim

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.billing import Invoice
 from app.models.core import Company, User
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.schemas.schemas import InvoiceOut
 from app.services import audit, docx_forms, document_email
@@ -49,7 +49,7 @@ def _list_invoices_for_export(
     if contract_id:
         query = query.filter(Invoice.contract_id == contract_id)
     invoices = query.order_by(Invoice.issued_at.desc()).all()
-    customer_names = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == company_id)}
+    customer_names = {c.id: c.name for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)}
     return [_invoice_row(inv, customer_names.get(inv.customer_id, "")) for inv in invoices]
 
 
@@ -121,7 +121,7 @@ def export_invoice_docx(
     invoice = db.get(Invoice, invoice_id)
     if not invoice or invoice.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    customer = db.get(Customer, invoice.customer_id)
+    customer = db.get(CompanyIndividual, invoice.customer_id)
     company = db.get(Company, current_user.company_id)
     data = docx_forms.invoice_to_docx(invoice, customer, company)
     return StreamingResponse(
@@ -142,7 +142,7 @@ def email_invoice(
     invoice = db.get(Invoice, invoice_id)
     if not invoice or invoice.company_id != current_user.company_id:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    customer = db.get(Customer, invoice.customer_id)
+    customer = db.get(CompanyIndividual, invoice.customer_id)
     if not customer or not customer.billing_email:
         raise HTTPException(
             status_code=422,

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Customer, type Invoice, type Payment } from '../lib/api'
+import { api, downloadBlob, type CompanyIndividual, type Invoice, type Payment } from '../lib/api'
 
 const METHODS = [
   { value: 'bank_transfer', label: 'Bank transfer' },
@@ -16,7 +16,7 @@ const METHODS = [
 const money = (n: number) => n.toFixed(2)
 
 export default function ReceiptsPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CompanyIndividual[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -37,7 +37,7 @@ export default function ReceiptsPage() {
   function refresh() {
     api.listPayments().then(setPayments).catch((e) => setError(e.message))
     api.listInvoices().then(setInvoices).catch((e) => setError(e.message))
-    api.listCustomers().then(setCustomers).catch((e) => setError(e.message))
+    api.listCompanyIndividuals().then(setCustomers).catch((e) => setError(e.message))
   }
 
   useEffect(refresh, [])
@@ -142,7 +142,7 @@ export default function ReceiptsPage() {
         <h2>Record a receipt</h2>
         <form onSubmit={onRecordPayment}>
           <div className="form-row">
-            <label>Customer</label>
+            <label>Company / Individual</label>
             <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
               <option value="">Select...</option>
               {customers.map((c) => (
@@ -209,7 +209,7 @@ export default function ReceiptsPage() {
             <tr>
               <th>Voucher</th>
               <th>Date</th>
-              <th>Customer</th>
+              <th>Company / Individual</th>
               <th>Amount</th>
               <th>Unallocated</th>
               <th>Reference</th>

@@ -12,8 +12,8 @@ import {
   type Contract,
   type ContractKind,
   type ContractStatus,
-  type Customer,
-  type CustomerProductUsageRow,
+  type CompanyIndividual,
+  type CompanyIndividualProductUsageRow,
   type JobOrder,
   type JobOrderStatus,
   type Product,
@@ -29,7 +29,7 @@ type ReportType = 'contracts' | 'job-orders' | 'service-records' | 'customer-pro
 
 export default function OperationsReportsPage() {
   const [reportType, setReportType] = useState<ReportType>('contracts')
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CompanyIndividual[]>([])
   const [staff, setStaff] = useState<StaffUser[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [industries, setIndustries] = useState<SetupListItem[]>([])
@@ -58,7 +58,7 @@ export default function OperationsReportsPage() {
   const [contracts, setContracts] = useState<Contract[]>([])
   const [jobOrders, setJobOrders] = useState<JobOrder[]>([])
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([])
-  const [productUsage, setProductUsage] = useState<CustomerProductUsageRow[]>([])
+  const [productUsage, setProductUsage] = useState<CompanyIndividualProductUsageRow[]>([])
 
   // All job orders, unfiltered -- used only to resolve a service record's
   // customer via its job order (Service Records has no customer_id of
@@ -66,7 +66,7 @@ export default function OperationsReportsPage() {
   const [allJobOrders, setAllJobOrders] = useState<JobOrder[]>([])
 
   useEffect(() => {
-    api.listCustomers().then(setCustomers).catch(() => setCustomers([]))
+    api.listCompanyIndividuals().then(setCustomers).catch(() => setCustomers([]))
     api.listStaff().then(setStaff).catch(() => setStaff([]))
     api.listJobOrders().then(setAllJobOrders).catch(() => setAllJobOrders([]))
     api.listCatalog().then(setProducts).catch(() => setProducts([]))
@@ -129,7 +129,7 @@ export default function OperationsReportsPage() {
         .catch((e) => setError(e.message))
     } else {
       api
-        .reportCustomerProductUsage({
+        .reportCompanyIndividualProductUsage({
           customer_id: customerId || undefined,
           product_id: productId || undefined,
           industry_code: industryCode || undefined,
@@ -191,8 +191,8 @@ export default function OperationsReportsPage() {
       }
       const blob =
         format === 'csv'
-          ? await api.exportCustomerProductUsageCsv(filters)
-          : await api.exportCustomerProductUsageExcel(filters)
+          ? await api.exportCompanyIndividualProductUsageCsv(filters)
+          : await api.exportCompanyIndividualProductUsageExcel(filters)
       downloadBlob(blob, `customer-product-usage.${format === 'csv' ? 'csv' : 'xlsx'}`)
     }
   }
@@ -214,12 +214,12 @@ export default function OperationsReportsPage() {
               <option value="contracts">Service Contracts</option>
               <option value="job-orders">Job Orders</option>
               <option value="service-records">Service Records</option>
-              <option value="customer-product-usage">Customer Product Usage</option>
+              <option value="customer-product-usage">CompanyIndividual Product Usage</option>
             </select>
           </div>
 
           <div className="form-row" style={{ margin: 0 }}>
-            <label>Customer</label>
+            <label>Company / Individual</label>
             <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
               <option value="">All</option>
               {customers.map((c) => (
@@ -399,7 +399,7 @@ export default function OperationsReportsPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Customer</th>
+                  <th>Company / Individual</th>
                   <th>Status</th>
                   <th>Kind</th>
                   <th>Contracted</th>
@@ -441,7 +441,7 @@ export default function OperationsReportsPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Customer</th>
+                  <th>Company / Individual</th>
                   <th>Subject</th>
                   <th>Priority</th>
                   <th>Status</th>
@@ -492,7 +492,7 @@ export default function OperationsReportsPage() {
               <thead>
                 <tr>
                   <th>Work date</th>
-                  <th>Customer</th>
+                  <th>Company / Individual</th>
                   <th>Employee</th>
                   <th>Hours</th>
                   <th>Status</th>
@@ -527,7 +527,7 @@ export default function OperationsReportsPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Customer</th>
+                  <th>Company / Individual</th>
                   <th>Industry</th>
                   <th>Product</th>
                   <th>Contract</th>

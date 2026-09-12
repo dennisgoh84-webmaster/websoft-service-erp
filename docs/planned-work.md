@@ -278,7 +278,7 @@ a migration program") -- explicitly a future need, not to be built now.
 
 | Odoo | Websoft Service ERP |
 |---|---|
-| Contacts | Company/Individual (`app/models/customers.py` `Customer`) |
+| Contacts | Company/Individual (`app/models/company_individuals.py` `CompanyIndividual`) |
 | Subscriptions | Contracts (`app/models/contracts.py` `ServiceContract`) |
 | Timesheets | Service Records (`app/models/service_records.py`) |
 | Sales Quotations | Sales Quote (`app/models/quotations.py` `Quotation`) |

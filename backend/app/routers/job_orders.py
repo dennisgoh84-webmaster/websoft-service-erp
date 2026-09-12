@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.core import User, UserRole
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrder, JobOrderStatus
 from app.schemas.schemas import (
@@ -109,7 +109,7 @@ def _job_orders_for_export(
     contract_id: uuid.UUID | None,
 ) -> list[dict]:
     job_orders = _filter_job_orders(db, company_id, status, priority, customer_id, contract_id)
-    customer_names = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == company_id)}
+    customer_names = {c.id: c.name for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)}
     # Looked up by the exact ids referenced, not "users in this company" --
     # a user's User.company_id is only their *current* company (see
     # models/core.py), so a staff member since switched elsewhere would

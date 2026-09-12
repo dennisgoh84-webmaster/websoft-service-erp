@@ -4,18 +4,18 @@ import ExportControl from '../components/ExportControl'
 import {
   api,
   downloadBlob,
-  type Customer,
-  type CustomerGroup,
-  type CustomerType,
+  type CompanyIndividual,
+  type CompanyIndividualGroup,
+  type CompanyIndividualType,
   type SetupListItem,
 } from '../lib/api'
 
-export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [groups, setGroups] = useState<CustomerGroup[]>([])
+export default function CompanyIndividualsPage() {
+  const [customers, setCustomers] = useState<CompanyIndividual[]>([])
+  const [groups, setGroups] = useState<CompanyIndividualGroup[]>([])
   const [industries, setIndustries] = useState<SetupListItem[]>([])
   const [name, setName] = useState('')
-  const [customerType, setCustomerType] = useState<CustomerType>('company')
+  const [customerType, setCompanyIndividualType] = useState<CompanyIndividualType>('company')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [terms, setTerms] = useState('')
@@ -32,7 +32,7 @@ export default function CustomersPage() {
 
   function refresh() {
     api
-      .listCustomers({
+      .listCompanyIndividuals({
         q: q || undefined,
         customer_group_id: filterGroup || undefined,
         industry_code: filterIndustry || undefined,
@@ -44,7 +44,7 @@ export default function CustomersPage() {
 
   useEffect(refresh, [q, filterGroup, filterIndustry, showInactive])
   useEffect(() => {
-    api.listCustomerGroups().then(setGroups).catch((e) => setError(e.message))
+    api.listCompanyIndividualGroups().then(setGroups).catch((e) => setError(e.message))
     api.listSetupItems({ list_type: 'industry' }).then(setIndustries).catch(() => setIndustries([]))
   }, [])
 
@@ -74,9 +74,9 @@ export default function CustomersPage() {
       include_inactive: showInactive,
     }
     if (format === 'csv') {
-      downloadBlob(await api.exportCustomersCsv(filters), 'customers.csv')
+      downloadBlob(await api.exportCompanyIndividualsCsv(filters), 'company-individuals.csv')
     } else {
-      downloadBlob(await api.exportCustomersExcel(filters), 'customers.xlsx')
+      downloadBlob(await api.exportCompanyIndividualsExcel(filters), 'company-individuals.xlsx')
     }
   }
 
@@ -84,7 +84,7 @@ export default function CustomersPage() {
     e.preventDefault()
     setError(null)
     try {
-      await api.createCustomer({
+      await api.createCompanyIndividual({
         name,
         customer_type: customerType,
         billing_email: email || undefined,
@@ -93,7 +93,7 @@ export default function CustomersPage() {
         is_supplier: isSupplier,
       })
       setName('')
-      setCustomerType('company')
+      setCompanyIndividualType('company')
       setEmail('')
       setPhone('')
       setTerms('')
@@ -116,15 +116,15 @@ export default function CustomersPage() {
       </p>
 
       <div className="card" style={{ marginTop: 20 }}>
-        <h2>Add customer</h2>
+        <h2>Add Company / Individual</h2>
         <p className="muted">
           This is a quick add -- everything else (address, UEN, GST no., contact people, branches,
-          terms &amp; conditions) is filled in from the customer's own page after it's created.
+          terms &amp; conditions) is filled in from its own page after it's created.
         </p>
         <form onSubmit={onCreate}>
           <div className="form-row">
             <label>Type</label>
-            <select value={customerType} onChange={(e) => setCustomerType(e.target.value as CustomerType)}>
+            <select value={customerType} onChange={(e) => setCompanyIndividualType(e.target.value as CompanyIndividualType)}>
               <option value="company">Company</option>
               <option value="individual">Individual</option>
             </select>
@@ -163,7 +163,7 @@ export default function CustomersPage() {
             </label>
           </div>
           {error && <div className="error-banner">{error}</div>}
-          <button type="submit">Add customer</button>
+          <button type="submit">Add Company / Individual</button>
         </form>
       </div>
 
@@ -237,7 +237,7 @@ export default function CustomersPage() {
             {customers.map((c) => (
               <tr key={c.id}>
                 <td>
-                  <Link to={`/customers/${c.id}`}>{c.name}</Link>
+                  <Link to={`/company-individuals/${c.id}`}>{c.name}</Link>
                 </td>
                 <td className="muted">{groupName(c.customer_group_id) ?? '-'}</td>
                 <td className="muted">{industryName(c.industry_code) ?? '-'}</td>
@@ -263,7 +263,7 @@ export default function CustomersPage() {
                   </span>
                 </td>
                 <td style={{ display: 'flex', gap: 10 }}>
-                  <Link to={`/customers/${c.id}`}>Open</Link>
+                  <Link to={`/company-individuals/${c.id}`}>Open</Link>
                   <Link to={`/contracts?customer=${c.id}`}>Service Contracts</Link>
                 </td>
               </tr>

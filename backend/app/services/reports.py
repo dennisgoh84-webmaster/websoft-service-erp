@@ -22,9 +22,9 @@ from sqlalchemy.orm import Session
 from app.models.billing import Invoice, InvoiceStatus
 from app.models.catalog import Product
 from app.models.contracts import Contract, ContractKind, ContractProduct, ContractStatus
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.job_orders import JobOrder, JobOrderStatus
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.payables import BillStatus, SupplierInvoice
 from app.models.service_records import ServiceRecord, ServiceRecordOutcome, ServiceRecordStatus
 from app.models.setup import SetupListItem, SetupListType
@@ -147,7 +147,7 @@ def list_customer_product_usage(
 ) -> list[dict]:
     """Confirmed 2026-09-11: "check customer using which product" --
     one row per (customer, product) currently covered under a
-    contract's Product Coverage (ContractProduct). Filter by Customer
+    contract's Product Coverage (ContractProduct). Filter by CompanyIndividual
     to see everything they have; filter by Product to see who has it
     (and, by comparison against the full customer list, who doesn't)
     -- the starting point for a manual add-on/renewal conversation.
@@ -155,19 +155,19 @@ def list_customer_product_usage(
     "gap" flagging or renewal reminders yet (separate, not-yet-scoped
     follow-up)."""
     query = (
-        db.query(Contract, Customer, Product)
+        db.query(Contract, CompanyIndividual, Product)
         .join(ContractProduct, ContractProduct.contract_id == Contract.id)
-        .join(Customer, Contract.customer_id == Customer.id)
+        .join(CompanyIndividual, Contract.customer_id == CompanyIndividual.id)
         .join(Product, ContractProduct.product_id == Product.id)
         .filter(Contract.company_id == company_id)
     )
     if customer_id is not None:
-        query = query.filter(Customer.id == customer_id)
+        query = query.filter(CompanyIndividual.id == customer_id)
     if product_id is not None:
         query = query.filter(Product.id == product_id)
     if industry_code is not None:
-        query = query.filter(Customer.industry_code == industry_code)
-    rows = query.order_by(Customer.name, Product.name).all()
+        query = query.filter(CompanyIndividual.industry_code == industry_code)
+    rows = query.order_by(CompanyIndividual.name, Product.name).all()
 
     industry_names = {
         i.code: i.name
@@ -209,7 +209,7 @@ def ar_aging_rows(db: Session, company_id: uuid.UUID, as_at: date | None = None)
         )
         .all()
     )
-    customers = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == company_id)}
+    customers = {c.id: c.name for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)}
 
     buckets: dict[uuid.UUID, dict[str, Decimal]] = {}
     for invoice in invoices:
@@ -244,7 +244,7 @@ def ap_aging_rows(db: Session, company_id: uuid.UUID, as_at: date | None = None)
         .filter(SupplierInvoice.company_id == company_id, SupplierInvoice.status != BillStatus.PAID)
         .all()
     )
-    suppliers = {s.id: s.name for s in db.query(Customer).filter(Customer.company_id == company_id)}
+    suppliers = {s.id: s.name for s in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)}
 
     buckets: dict[uuid.UUID, dict[str, Decimal]] = {}
     for bill in bills:

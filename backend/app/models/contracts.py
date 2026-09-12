@@ -99,7 +99,7 @@ class Contract(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
-    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("company_individuals.id"), nullable=False)
 
     # System-generated running number (confirmed 2026-09-11: "all main
     # documents need to have a system generated running number to be
@@ -146,7 +146,7 @@ class Contract(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    customer: Mapped["Customer"] = relationship()  # noqa: F821
+    customer: Mapped["CompanyIndividual"] = relationship()  # noqa: F821
     excess_usage_records: Mapped[list["ExcessUsageRecord"]] = relationship(
         back_populates="contract"
     )

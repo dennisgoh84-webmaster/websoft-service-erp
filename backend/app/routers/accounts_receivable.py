@@ -15,14 +15,14 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.models.billing import Invoice, InvoiceStatus
 from app.models.core import Company, User
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.models.payments import Payment, PaymentMethod
 from app.schemas.schemas import (
     AgingReport,
     AgingRow,
     AllocateRequest,
-    CustomerStatement,
+    CompanyIndividualStatement,
     InvoiceDisputeRequest,
     InvoiceWriteOffRequest,
     InvoiceOut,
@@ -86,9 +86,9 @@ def record_payment(
     """Record money received. Allocation is optional here -- AR-001 makes
     it a manual decision, so a receipt can sit unallocated on the
     customer's account until Finance decides what it settles."""
-    customer = db.get(Customer, payload.customer_id)
+    customer = db.get(CompanyIndividual, payload.customer_id)
     if not customer or customer.company_id != current_user.company_id:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Company / Individual not found")
 
     try:
         method = PaymentMethod(payload.method)
@@ -193,7 +193,7 @@ def export_payments_csv(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     payments = _filter_payments(db, current_user.company_id, customer_id, unallocated_only)
-    customers = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
+    customers = {c.id: c.name for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == current_user.company_id)}
     rows = [_payment_row(p, customers.get(p.customer_id, "")) for p in payments]
     csv_text = exports.rows_to_csv(PAYMENT_EXPORT_FIELDS, rows)
     return StreamingResponse(
@@ -211,7 +211,7 @@ def export_payments_excel(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     payments = _filter_payments(db, current_user.company_id, customer_id, unallocated_only)
-    customers = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == current_user.company_id)}
+    customers = {c.id: c.name for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == current_user.company_id)}
     rows = [_payment_row(p, customers.get(p.customer_id, "")) for p in payments]
     data = exports.rows_to_excel(PAYMENT_EXPORT_FIELDS, rows, sheet_name="Receipts")
     return StreamingResponse(
@@ -238,7 +238,7 @@ def export_payment_docx(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     payment = _payment_or_404(db, payment_id, current_user.company_id)
-    customer = db.get(Customer, payment.customer_id)
+    customer = db.get(CompanyIndividual, payment.customer_id)
     company = db.get(Company, current_user.company_id)
     data = docx_forms.receipt_to_docx(payment, customer, company, _invoice_numbers(db, current_user.company_id))
     return StreamingResponse(
@@ -257,7 +257,7 @@ def email_receipt(
     """Email Receipt Voucher (2026-09-12) -- same real-send pattern as
     Purchase Order's Email button."""
     payment = _payment_or_404(db, payment_id, current_user.company_id)
-    customer = db.get(Customer, payment.customer_id)
+    customer = db.get(CompanyIndividual, payment.customer_id)
     if not customer or not customer.billing_email:
         raise HTTPException(
             status_code=422,
@@ -407,7 +407,7 @@ def _ar_aging_rows(db: Session, company_id: uuid.UUID, as_at: date | None) -> tu
     )
     customers = {
         c.id: c.name
-        for c in db.query(Customer).filter(Customer.company_id == company_id).all()
+        for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id).all()
     }
 
     buckets: dict[uuid.UUID, dict[str, Decimal]] = {}
@@ -510,8 +510,8 @@ def export_ar_aging_excel(
 
 
 def _build_customer_statement(
-    db: Session, customer: Customer, company_id: uuid.UUID, as_at: date | None
-) -> CustomerStatement:
+    db: Session, customer: CompanyIndividual, company_id: uuid.UUID, as_at: date | None
+) -> CompanyIndividualStatement:
     """Shared by the JSON endpoint below and the docx/email export --
     "export what's on screen" always matches (2026-09-12)."""
     as_at = as_at or date.today()
@@ -554,7 +554,7 @@ def _build_customer_statement(
     )
     unallocated = sum((p.unallocated_sgd for p in payments), start=Decimal("0.00"))
 
-    return CustomerStatement(
+    return CompanyIndividualStatement(
         customer_id=customer.id,
         customer_name=customer.name,
         as_at=as_at,
@@ -565,7 +565,7 @@ def _build_customer_statement(
     )
 
 
-@router.get("/statement/{customer_id}", response_model=CustomerStatement)
+@router.get("/statement/{customer_id}", response_model=CompanyIndividualStatement)
 def customer_statement(
     customer_id: uuid.UUID,
     as_at: date | None = None,
@@ -574,9 +574,9 @@ def customer_statement(
 ):
     """Everything this customer currently owes, plus any receipt money
     still sitting unallocated on their account."""
-    customer = db.get(Customer, customer_id)
+    customer = db.get(CompanyIndividual, customer_id)
     if not customer or customer.company_id != current_user.company_id:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Company / Individual not found")
     return _build_customer_statement(db, customer, current_user.company_id, as_at)
 
 
@@ -587,9 +587,9 @@ def export_customer_statement_docx(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    customer = db.get(Customer, customer_id)
+    customer = db.get(CompanyIndividual, customer_id)
     if not customer or customer.company_id != current_user.company_id:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Company / Individual not found")
     statement = _build_customer_statement(db, customer, current_user.company_id, as_at)
     company = db.get(Company, current_user.company_id)
     data = docx_forms.statement_to_docx(statement, customer, company)
@@ -611,9 +611,9 @@ def email_customer_statement(
 ):
     """Email Statement of Accounts (2026-09-12) -- same real-send pattern
     as Purchase Order's Email button."""
-    customer = db.get(Customer, customer_id)
+    customer = db.get(CompanyIndividual, customer_id)
     if not customer or customer.company_id != current_user.company_id:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Company / Individual not found")
     if not customer.billing_email:
         raise HTTPException(
             status_code=422,

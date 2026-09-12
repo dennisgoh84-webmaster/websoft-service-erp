@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Customer, type CurrentUser, type JobOrder, type ServiceRecord } from '../lib/api'
+import { api, downloadBlob, type CompanyIndividual, type CurrentUser, type JobOrder, type ServiceRecord } from '../lib/api'
 
 // wa.me needs digits only (country code + number, no "+", spaces or dashes).
 function waNumber(phone: string): string {
@@ -12,7 +12,7 @@ function waNumber(phone: string): string {
 export default function ServiceRecordsPage() {
   const [records, setRecords] = useState<ServiceRecord[]>([])
   const [jobOrders, setJobOrders] = useState<JobOrder[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CompanyIndividual[]>([])
   const [users, setUsers] = useState<CurrentUser[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -27,7 +27,7 @@ export default function ServiceRecordsPage() {
       .then(setRecords)
       .catch((e) => setError(e.message))
     api.listJobOrders().then(setJobOrders).catch((e) => setError(e.message))
-    api.listCustomers().then(setCustomers).catch((e) => setError(e.message))
+    api.listCompanyIndividuals().then(setCustomers).catch((e) => setError(e.message))
     api.listUsers().then(setUsers).catch((e) => setError(e.message))
   }
 

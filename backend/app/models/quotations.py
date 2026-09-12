@@ -40,7 +40,7 @@ class Quotation(Base):
     )
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
     quotation_number: Mapped[str] = mapped_column(String(50), nullable=False)
-    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("company_individuals.id"), nullable=False)
     quotation_date: Mapped[date] = mapped_column(Date, nullable=False)
     valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[QuotationStatus] = mapped_column(

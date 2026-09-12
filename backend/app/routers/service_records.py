@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.core import Company, User
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrder
 from app.models.service_records import ServiceRecord, ServiceRecordStatus
@@ -233,7 +233,7 @@ def export_service_record_docx(
 ):
     record = _record_or_404(db, record_id, current_user.company_id)
     job_order = db.get(JobOrder, record.job_order_id)
-    customer = db.get(Customer, job_order.customer_id) if job_order else None
+    customer = db.get(CompanyIndividual, job_order.customer_id) if job_order else None
     company = db.get(Company, current_user.company_id)
     data = docx_forms.service_record_to_docx(record, job_order, customer, company)
     return StreamingResponse(
@@ -254,7 +254,7 @@ def email_service_record(
     Order this record was logged against."""
     record = _record_or_404(db, record_id, current_user.company_id)
     job_order = db.get(JobOrder, record.job_order_id)
-    customer = db.get(Customer, job_order.customer_id) if job_order else None
+    customer = db.get(CompanyIndividual, job_order.customer_id) if job_order else None
     if not customer or not customer.billing_email:
         raise HTTPException(
             status_code=422,

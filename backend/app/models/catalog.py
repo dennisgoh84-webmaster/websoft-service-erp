@@ -3,7 +3,7 @@
 Confirmed 2026-09-10 from the Odoo Products screens Dennis shared: a
 catalog of sellable items a Sales Quotation line can be drawn from,
 instead of free text, with Product Category, Internal Reference, Sales
-Price, Cost, Unit of Measure, Tags and a Customer Tax code.
+Price, Cost, Unit of Measure, Tags and a CompanyIndividual Tax code.
 
 Several fields visible on those Odoo screens are deliberately left out
 of this first build -- Can be Sold/Purchased, Invoicing Policy, "Create
@@ -42,7 +42,7 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     internal_reference: Mapped[str | None] = mapped_column(String(50), nullable=True)
     product_category: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # Simple free-text, comma-separated -- matches Customer.tags (no
+    # Simple free-text, comma-separated -- matches CompanyIndividual.tags (no
     # dedicated tag table exists anywhere in this system yet).
     tags: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sales_price_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)

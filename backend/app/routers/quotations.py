@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.models.core import Company, User
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.models.quotations import Quotation, QuotationLine, QuotationStatus
 from app.schemas.schemas import QuotationActionResult, QuotationCreate, QuotationOut
@@ -82,7 +82,7 @@ def _quotations_for_export(
     db: Session, company_id: uuid.UUID, customer_id: uuid.UUID | None, status: QuotationStatus | None
 ) -> list[dict]:
     quotations = _filter_quotations(db, company_id, customer_id, status)
-    customer_names = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == company_id)}
+    customer_names = {c.id: c.name for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)}
     return [_quotation_row(q, customer_names.get(q.customer_id, "")) for q in quotations]
 
 
@@ -134,7 +134,7 @@ def export_quotation_docx(
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
     quotation = _quotation_or_404(db, quotation_id, current_user.company_id)
-    customer = db.get(Customer, quotation.customer_id)
+    customer = db.get(CompanyIndividual, quotation.customer_id)
     company = db.get(Company, current_user.company_id)
     data = docx_forms.quotation_to_docx(quotation, customer, company)
     return StreamingResponse(
@@ -153,7 +153,7 @@ def email_quotation(
     """Email Sales Quotation (2026-09-12) -- same real-send pattern as
     Purchase Order's Email button."""
     quotation = _quotation_or_404(db, quotation_id, current_user.company_id)
-    customer = db.get(Customer, quotation.customer_id)
+    customer = db.get(CompanyIndividual, quotation.customer_id)
     if not customer or not customer.billing_email:
         raise HTTPException(
             status_code=422,
@@ -196,9 +196,9 @@ def create_quotation(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
-    customer = db.get(Customer, payload.customer_id)
+    customer = db.get(CompanyIndividual, payload.customer_id)
     if not customer or customer.company_id != current_user.company_id:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Company / Individual not found")
     if not payload.lines:
         raise HTTPException(status_code=422, detail="A quotation needs at least one line.")
 

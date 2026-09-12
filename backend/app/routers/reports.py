@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.contracts import ContractKind, ContractStatus
 from app.models.core import User
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrderStatus
 from app.models.service_records import ServiceRecordOutcome, ServiceRecordStatus
@@ -65,7 +65,7 @@ def _audit_export(db: Session, current_user: User, report_name: str, fmt: str, r
 
 
 def _customer_names(db: Session, company_id: uuid.UUID) -> dict:
-    return {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == company_id)}
+    return {c.id: c.name for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)}
 
 
 def _user_names(db: Session, company_id: uuid.UUID) -> dict:
@@ -430,7 +430,7 @@ def customer_product_usage_export_csv(
     rows = _customer_product_usage_rows(
         db, current_user, customer_id=customer_id, product_id=product_id, industry_code=industry_code,
     )
-    _audit_export(db, current_user, "Operations Report: Customer Product Usage", "csv", len(rows))
+    _audit_export(db, current_user, "Operations Report: CompanyIndividual Product Usage", "csv", len(rows))
     csv_text = exports.rows_to_csv(CUSTOMER_PRODUCT_USAGE_EXPORT_FIELDS, rows)
     return StreamingResponse(
         iter([csv_text]),
@@ -450,8 +450,8 @@ def customer_product_usage_export_excel(
     rows = _customer_product_usage_rows(
         db, current_user, customer_id=customer_id, product_id=product_id, industry_code=industry_code,
     )
-    _audit_export(db, current_user, "Operations Report: Customer Product Usage", "excel", len(rows))
-    data = exports.rows_to_excel(CUSTOMER_PRODUCT_USAGE_EXPORT_FIELDS, rows, sheet_name="Customer Product Usage")
+    _audit_export(db, current_user, "Operations Report: CompanyIndividual Product Usage", "excel", len(rows))
+    data = exports.rows_to_excel(CUSTOMER_PRODUCT_USAGE_EXPORT_FIELDS, rows, sheet_name="Company Individual Product Usage")
     return StreamingResponse(
         iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.contracts import Contract, ExcessUsageRecord
 from app.models.core import User
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.schemas.schemas import ExcessUsageDecision, ExcessUsageOut, InvoiceOut
 from app.services import exports
@@ -42,7 +42,7 @@ def _excess_usage_for_export(db: Session, company_id: uuid.UUID, pending_only: b
         c.id: c.customer_id
         for c in db.query(Contract).filter(Contract.id.in_({r.contract_id for r in records}))
     } if records else {}
-    customer_names = {c.id: c.name for c in db.query(Customer).filter(Customer.company_id == company_id)}
+    customer_names = {c.id: c.name for c in db.query(CompanyIndividual).filter(CompanyIndividual.company_id == company_id)}
     rows = []
     for r in records:
         out = ExcessUsageOut.from_model(r)

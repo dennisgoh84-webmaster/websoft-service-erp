@@ -2,12 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Customer, type SupplierInvoice, type SupplierPayment } from '../lib/api'
+import { api, downloadBlob, type CompanyIndividual, type SupplierInvoice, type SupplierPayment } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
 export default function PaymentVoucherPage() {
-  const [suppliers, setSuppliers] = useState<Customer[]>([])
+  const [suppliers, setSuppliers] = useState<CompanyIndividual[]>([])
   const [bills, setBills] = useState<SupplierInvoice[]>([])
   const [payments, setPayments] = useState<SupplierPayment[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +21,7 @@ export default function PaymentVoucherPage() {
   const [allocFor, setAllocFor] = useState<Record<string, { billId: string; amount: string }>>({})
 
   function refresh() {
-    api.listCustomers({ is_supplier: true }).then(setSuppliers).catch((e) => setError(e.message))
+    api.listCompanyIndividuals({ is_supplier: true }).then(setSuppliers).catch((e) => setError(e.message))
     api.listBills().then(setBills).catch((e) => setError(e.message))
     api.listSupplierPayments().then(setPayments).catch((e) => setError(e.message))
   }

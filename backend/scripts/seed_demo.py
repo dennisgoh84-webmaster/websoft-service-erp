@@ -23,7 +23,7 @@ Sets up:
   rule (Nico, or Cherish as backup, decides excess usage) is enforced
   separately by role, not by group, so Wei Ling still can't approve a
   Service Record or decide excess usage despite sharing Nico's group.
-- Customer: Acme Manufacturing Pte Ltd
+- Company/Individual: Acme Manufacturing Pte Ltd
 - One Active 10-hour contract (SGD 3,000), already invoiced annually
 - A job order with Service Records already approved, deliberately left
   just short of exhausting the contract, PLUS one final SUBMITTED
@@ -46,7 +46,7 @@ from sqlalchemy import text
 
 from app.core.database import Base, SessionLocal, engine
 from app.models.core import Company, User, UserCompanyAccess, UserRole
-from app.models.customers import Branch, Contact, Customer, CustomerGroup, CustomerType
+from app.models.company_individuals import Branch, Contact, CompanyIndividual, CompanyIndividualGroup, CompanyIndividualType
 from app.models.groups import AccessLevel, Group, GroupModuleAuthority
 from app.models.job_orders import JobOrder, JobOrderPriority, JobOrderStatus
 from app.models.licensing import CompanyModule, LicenseType, Module
@@ -89,7 +89,7 @@ MODULE_CATALOG = [
     ("event_logs", "Event Logs", True, True),
     ("crm", "CRM", False, False),
     ("sales", "Sales (Quotations, Product/Service Catalog)", True, True),
-    ("customer_management", "Customer Management", True, True),
+    ("company_individual_management", "Customer Management", True, True),
     ("service_contracts", "Service Contracts", True, True),
     ("service_operations", "Helpdesk / Service Operations (Job Orders)", True, True),
     ("projects", "Projects", False, False),
@@ -136,7 +136,7 @@ GROUP_CATALOG = {
             for key in (
                 "core_administration",
                 "event_logs",
-                "customer_management",
+                "company_individual_management",
                 "accounts_receivable",
                 "accounts_payable",
                 "purchasing",
@@ -161,7 +161,7 @@ GROUP_CATALOG = {
             "service_operations": FULL,
             "service_records": FULL,
             "service_contracts": FULL,  # incl. excess-usage review; SRV-004 role check still applies
-            "customer_management": VIEW,
+            "company_individual_management": VIEW,
             "billing": VIEW,
             "operations_reports": VIEW,
             "core_administration": NONE,
@@ -173,7 +173,7 @@ GROUP_CATALOG = {
         "Cherish (Sales Manager) -- owns customers and contracts, and is the "
         "SRV-004/SRV-011 backup decider for excess usage.",
         {
-            "customer_management": FULL,
+            "company_individual_management": FULL,
             "service_contracts": FULL,
             "sales": FULL,
             "service_operations": VIEW,
@@ -204,7 +204,7 @@ GROUP_CATALOG = {
             # separate AP-only master, so onboarding a new supplier
             # needs edit rights here, same as accounts_payable FULL
             # implied before the merge.
-            "customer_management": FULL,
+            "company_individual_management": FULL,
             "sales": VIEW,
             "accounting_reports": FULL,
             "service_operations": NONE,
@@ -699,16 +699,16 @@ def main():
         # Logistics are both tagged into it, showing how "search for a
         # particular customer or a group of customers" works when a
         # group actually has more than one member.
-        acme_group = CustomerGroup(
+        acme_group = CompanyIndividualGroup(
             company_id=company.id, name="Acme Holdings Group",
             description="Acme Manufacturing and its related entities.",
         )
         db.add(acme_group)
         db.flush()
 
-        customer = Customer(
+        customer = CompanyIndividual(
             company_id=company.id, name="Acme Manufacturing Pte Ltd",
-            customer_type=CustomerType.company,
+            customer_type=CompanyIndividualType.company,
             customer_group_id=acme_group.id,
             legacy_customer_code="100CASE01",  # carried over from Odoo
             contact_person="Mr Tan Wei Ming",
@@ -723,11 +723,11 @@ def main():
             payment_terms_days=30,  # terms vary per customer (confirmed)
             industry_code="MFG",
         )
-        # More company-1 customers, so the Customer list/filter has
+        # More company-1 customers, so the CompanyIndividual list/filter has
         # enough rows to be worth demoing on screen.
-        acme_logistics = Customer(
+        acme_logistics = CompanyIndividual(
             company_id=company.id, name="Acme Logistics Pte Ltd",
-            customer_type=CustomerType.company,
+            customer_type=CompanyIndividualType.company,
             customer_group_id=acme_group.id,  # same group as Acme Manufacturing
             uen="201012346B",
             contact_person="Mr Koh Boon Huat",
@@ -738,9 +738,9 @@ def main():
             payment_terms_days=30,
             industry_code="LOGISTICS",
         )
-        beacon = Customer(
+        beacon = CompanyIndividual(
             company_id=company.id, name="Beacon Software Solutions Pte Ltd",
-            customer_type=CustomerType.company,
+            customer_type=CompanyIndividualType.company,
             uen="201567890C",
             contact_person="Ms Chloe Ng",
             billing_email="finance@beacon-software.test",
@@ -750,9 +750,9 @@ def main():
             payment_terms_days=45,
             industry_code="TECH",
         )
-        crestview = Customer(
+        crestview = CompanyIndividual(
             company_id=company.id, name="Crestview Engineering Pte Ltd",
-            customer_type=CustomerType.company,
+            customer_type=CompanyIndividualType.company,
             uen="201245678D",
             contact_person="Mr Rajesh Kumar",
             billing_email="ap@crestview-eng.test",
@@ -762,9 +762,9 @@ def main():
             payment_terms_days=None,  # terms not agreed yet
             industry_code="ENG",
         )
-        tan_ah_kow = Customer(
+        tan_ah_kow = CompanyIndividual(
             company_id=company.id, name="Tan Ah Kow",
-            customer_type=CustomerType.individual,
+            customer_type=CompanyIndividualType.individual,
             billing_email="tanahkow@example.test",
             mobile="9111 2233",
             address_line1="Blk 123 Bishan St 12", address_city="Singapore",
@@ -775,9 +775,9 @@ def main():
         )
         # Company 2's own customer -- switching companies swaps the whole
         # dataset, so this is what Dennis sees under Websoft Digital.
-        customer2 = Customer(
+        customer2 = CompanyIndividual(
             company_id=company2.id, name="Northwind Retail Pte Ltd",
-            customer_type=CustomerType.company,
+            customer_type=CompanyIndividualType.company,
             contact_person="Ms Lim Hui Fen",
             billing_email="ap@northwind-retail.test",
             phone="6555 2020",
@@ -998,7 +998,7 @@ def main():
         # module's demo data).
         dennis_cat1 = OpsTaskCategory(
             company_id=company.id, owner_user_id=dennis.id,
-            name="Customer Follow-ups", cadence_label="Weekly", sort_order=0,
+            name="CompanyIndividual Follow-ups", cadence_label="Weekly", sort_order=0,
         )
         dennis_cat2 = OpsTaskCategory(
             company_id=company.id, owner_user_id=dennis.id,
@@ -1079,11 +1079,11 @@ def main():
         # --- Accounts Payable demo: a supplier, a PO, a matched bill,
         # and a payment voucher settling it -- proves the 2-way match
         # (PUR-002) auto-approves for payment (PUR-003) end to end.
-        # 2026-09-12: a supplier is a Customer (Company/Individual)
+        # 2026-09-12: a supplier is a CompanyIndividual (Company/Individual)
         # record flagged is_supplier=True, not a separate master.
-        supplier = Customer(
+        supplier = CompanyIndividual(
             company_id=company.id, name="CloudHost Infrastructure Pte Ltd",
-            customer_type=CustomerType.company, is_customer=False, is_supplier=True,
+            customer_type=CompanyIndividualType.company, is_customer=False, is_supplier=True,
             billing_email="billing@cloudhost.test", phone="+65 6100 2200", payment_terms_days=30,
         )
         db.add(supplier)
@@ -1150,7 +1150,7 @@ def main():
         print("\n=== Demo dataset ready ===")
         print(f"Company 1: {company.name} (logo set)")
         print(f"Company 2: {company2.name} (logo set) -- customer: {customer2.name}")
-        print(f"Customer: {customer.name} ({customer.id})")
+        print(f"Company/Individual: {customer.name} ({customer.id})")
         print(f"Contract: {contract.id} -- {contract.consumed_minutes}/{contract.contracted_minutes} min consumed")
         print(f"Job order: {job_order.id} -- {job_order.subject}")
         print(f"Pending service record (approve live in demo): {final_record.id} -- {final_record.raw_minutes} raw min -> {final_record.rounded_minutes} rounded min")

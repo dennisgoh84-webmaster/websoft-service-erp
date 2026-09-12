@@ -13,7 +13,7 @@ from docx.shared import Pt
 
 from app.models.billing import Invoice
 from app.models.core import Company
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.models.job_orders import JobOrder
 from app.models.payables import PurchaseOrder, SupplierPayment
 from app.models.payments import Payment
@@ -21,7 +21,7 @@ from app.models.quotations import Quotation
 from app.models.service_records import ServiceRecord
 
 
-def invoice_to_docx(invoice: Invoice, customer: Customer, company: Company) -> bytes:
+def invoice_to_docx(invoice: Invoice, customer: CompanyIndividual, company: Company) -> bytes:
     doc = Document()
 
     header = doc.add_paragraph()
@@ -102,7 +102,7 @@ def invoice_to_docx(invoice: Invoice, customer: Customer, company: Company) -> b
     return buf.getvalue()
 
 
-def quotation_to_docx(quotation: Quotation, customer: Customer, company: Company) -> bytes:
+def quotation_to_docx(quotation: Quotation, customer: CompanyIndividual, company: Company) -> bytes:
     doc = Document()
 
     header = doc.add_paragraph()
@@ -193,7 +193,7 @@ def quotation_to_docx(quotation: Quotation, customer: Customer, company: Company
 
 
 def receipt_to_docx(
-    payment: Payment, customer: Customer, company: Company, invoice_numbers: dict
+    payment: Payment, customer: CompanyIndividual, company: Company, invoice_numbers: dict
 ) -> bytes:
     doc = Document()
 
@@ -251,7 +251,7 @@ def receipt_to_docx(
     return buf.getvalue()
 
 
-def purchase_order_to_docx(po: PurchaseOrder, supplier: Customer, company: Company) -> bytes:
+def purchase_order_to_docx(po: PurchaseOrder, supplier: CompanyIndividual, company: Company) -> bytes:
     """Same layout as frontend/src/pages/PurchaseOrderPrintPage.tsx --
     also what "Email PO" (2026-09-12) converts to PDF and attaches."""
     doc = Document()
@@ -331,7 +331,7 @@ def purchase_order_to_docx(po: PurchaseOrder, supplier: Customer, company: Compa
 
 
 def payment_voucher_to_docx(
-    payment: SupplierPayment, supplier: Customer, company: Company, bill_numbers: dict
+    payment: SupplierPayment, supplier: CompanyIndividual, company: Company, bill_numbers: dict
 ) -> bytes:
     doc = Document()
 
@@ -389,7 +389,7 @@ def payment_voucher_to_docx(
     return buf.getvalue()
 
 
-def service_record_to_docx(record: ServiceRecord, job_order: JobOrder, customer: Customer, company: Company) -> bytes:
+def service_record_to_docx(record: ServiceRecord, job_order: JobOrder, customer: CompanyIndividual, company: Company) -> bytes:
     """Same layout as frontend/src/pages/ServiceRecordPrintPage.tsx --
     also what "Email" (2026-09-12) converts to PDF and attaches."""
     doc = Document()
@@ -413,7 +413,7 @@ def service_record_to_docx(record: ServiceRecord, job_order: JobOrder, customer:
     meta.add_run(f"Work Date: {record.work_date.isoformat()}\n")
     meta.add_run(f"Status: {record.status.value.title()}\n")
 
-    doc.add_paragraph().add_run("Customer").italic = True
+    doc.add_paragraph().add_run("Company / Individual").italic = True
     to_p = doc.add_paragraph()
     to_p.add_run(customer.name)
 
@@ -443,8 +443,8 @@ def service_record_to_docx(record: ServiceRecord, job_order: JobOrder, customer:
     return buf.getvalue()
 
 
-def statement_to_docx(statement, customer: Customer, company: Company) -> bytes:
-    """`statement` is a CustomerStatement (see app/schemas/schemas.py) --
+def statement_to_docx(statement, customer: CompanyIndividual, company: Company) -> bytes:
+    """`statement` is a CompanyIndividualStatement (see app/schemas/schemas.py) --
     accepted duck-typed rather than imported, so this services module
     doesn't take a dependency on the API schema layer. Same layout as
     frontend/src/pages/StatementPrintPage.tsx; also what "Email" converts

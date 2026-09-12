@@ -181,9 +181,9 @@ export interface Group {
   member_count: number
 }
 
-export type CustomerType = 'individual' | 'company'
+export type CompanyIndividualType = 'individual' | 'company'
 
-export interface CustomerGroup {
+export interface CompanyIndividualGroup {
   id: string
   name: string
   description: string | null
@@ -191,9 +191,9 @@ export interface CustomerGroup {
   created_at: string
 }
 
-export interface Customer {
+export interface CompanyIndividual {
   id: string
-  customer_type: CustomerType
+  customer_type: CompanyIndividualType
   name: string
   /** Tag linking this customer to others in the same group of
    * companies -- each stays its own full account. */
@@ -262,12 +262,12 @@ export interface Branch {
   is_active: boolean
 }
 
-export interface CustomerRelationship {
+export interface CompanyIndividualRelationship {
   id: string
   from_customer_id: string
   to_customer_id: string | null
   to_customer_name: string | null
-  to_customer_type: CustomerType | null
+  to_customer_type: CompanyIndividualType | null
   to_contact_id: string | null
   to_contact_name: string | null
   to_contact_customer_id: string | null
@@ -278,8 +278,8 @@ export interface CustomerRelationship {
   created_at: string
 }
 
-export type CustomerFields = Partial<{
-  customer_type: CustomerType
+export type CompanyIndividualFields = Partial<{
+  customer_type: CompanyIndividualType
   name: string
   customer_group_id: string | null
   legacy_customer_code: string | null
@@ -397,14 +397,14 @@ export interface ServiceRecordReportFilters {
 /** Confirmed 2026-09-11: "check customer using which product" --
  * visibility only, one row per (customer, product) currently covered
  * under a contract's Product Coverage. */
-export interface CustomerProductUsageFilters {
+export interface CompanyIndividualProductUsageFilters {
   customer_id?: string
   product_id?: string
   industry_code?: string
   [key: string]: string | number | boolean | undefined
 }
 
-export interface CustomerProductUsageRow {
+export interface CompanyIndividualProductUsageRow {
   customer_id: string
   customer_name: string
   industry_code: string | null
@@ -613,7 +613,7 @@ export interface StatementLine {
   days_overdue: number
 }
 
-export interface CustomerStatement {
+export interface CompanyIndividualStatement {
   customer_id: string
   customer_name: string
   as_at: string
@@ -860,10 +860,10 @@ export type PurchaseOrderStatus = 'draft' | 'pending_approval' | 'approved' | 'c
 export type BillMatchStatus = 'not_matched' | 'matched' | 'exception'
 export type BillStatus = 'awaiting_match' | 'exception' | 'approved' | 'partially_paid' | 'paid'
 
-// Supplier is NOT a separate type (2026-09-12): a supplier is a Customer
+// Supplier is NOT a separate type (2026-09-12): a supplier is a CompanyIndividual
 // (Company/Individual) record flagged is_supplier=true -- see the
-// Customer interface below. PurchaseOrder/SupplierInvoice/SupplierPayment
-// keep the field name `supplier_id`, but it's a Customer id.
+// CompanyIndividual interface below. PurchaseOrder/SupplierInvoice/SupplierPayment
+// keep the field name `supplier_id`, but it's a CompanyIndividual id.
 
 export interface PurchaseOrder {
   id: string
@@ -1118,7 +1118,7 @@ export const api = {
   // companies together; industry_code narrows to one industry
   // (confirmed 2026-09-11: customer grouping by industry); includeInactive
   // reveals deactivated customers.
-  listCustomers: (
+  listCompanyIndividuals: (
     filters: {
       q?: string
       customer_group_id?: string
@@ -1129,8 +1129,8 @@ export const api = {
       is_supplier?: boolean
     } = {},
   ) =>
-    request<Customer[]>(
-      `/customers${qs({
+    request<CompanyIndividual[]>(
+      `/company-individuals${qs({
         q: filters.q,
         customer_group_id: filters.customer_group_id,
         industry_code: filters.industry_code,
@@ -1138,67 +1138,67 @@ export const api = {
         is_supplier: filters.is_supplier === undefined ? undefined : filters.is_supplier ? 'true' : 'false',
       })}`,
     ),
-  exportCustomersCsv: (
+  exportCompanyIndividualsCsv: (
     filters: { q?: string; customer_group_id?: string; industry_code?: string; include_inactive?: boolean } = {},
   ) =>
     requestBlob(
-      `/customers/export.csv${qs({
+      `/company-individuals/export.csv${qs({
         q: filters.q,
         customer_group_id: filters.customer_group_id,
         industry_code: filters.industry_code,
         include_inactive: filters.include_inactive ? 'true' : undefined,
       })}`,
     ),
-  exportCustomersExcel: (
+  exportCompanyIndividualsExcel: (
     filters: { q?: string; customer_group_id?: string; industry_code?: string; include_inactive?: boolean } = {},
   ) =>
     requestBlob(
-      `/customers/export.xlsx${qs({
+      `/company-individuals/export.xlsx${qs({
         q: filters.q,
         customer_group_id: filters.customer_group_id,
         industry_code: filters.industry_code,
         include_inactive: filters.include_inactive ? 'true' : undefined,
       })}`,
     ),
-  getCustomer: (id: string) => request<Customer>(`/customers/${id}`),
-  createCustomer: (payload: CustomerFields & { name: string }) =>
-    request<Customer>('/customers', { method: 'POST', body: JSON.stringify(payload) }),
-  updateCustomer: (id: string, payload: CustomerFields) =>
-    request<Customer>(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
-  deactivateCustomer: (id: string) => request<Customer>(`/customers/${id}/deactivate`, { method: 'POST' }),
-  reactivateCustomer: (id: string) => request<Customer>(`/customers/${id}/reactivate`, { method: 'POST' }),
-  getCustomerAuditLog: (id: string) => request<AuditLogEntry[]>(`/customers/${id}/audit-log`),
+  getCompanyIndividual: (id: string) => request<CompanyIndividual>(`/company-individuals/${id}`),
+  createCompanyIndividual: (payload: CompanyIndividualFields & { name: string }) =>
+    request<CompanyIndividual>('/company-individuals', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCompanyIndividual: (id: string, payload: CompanyIndividualFields) =>
+    request<CompanyIndividual>(`/company-individuals/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deactivateCompanyIndividual: (id: string) => request<CompanyIndividual>(`/company-individuals/${id}/deactivate`, { method: 'POST' }),
+  reactivateCompanyIndividual: (id: string) => request<CompanyIndividual>(`/company-individuals/${id}/reactivate`, { method: 'POST' }),
+  getCompanyIndividualAuditLog: (id: string) => request<AuditLogEntry[]>(`/company-individuals/${id}/audit-log`),
 
-  // Customer Groups (tag linking separate companies in one group)
-  listCustomerGroups: (includeInactive = false) =>
-    request<CustomerGroup[]>(`/customer-groups${includeInactive ? '?include_inactive=true' : ''}`),
-  createCustomerGroup: (payload: { name: string; description?: string }) =>
-    request<CustomerGroup>('/customer-groups', { method: 'POST', body: JSON.stringify(payload) }),
-  updateCustomerGroup: (id: string, payload: { name?: string; description?: string; is_active?: boolean }) =>
-    request<CustomerGroup>(`/customer-groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  // CompanyIndividual Groups (tag linking separate companies in one group)
+  listCompanyIndividualGroups: (includeInactive = false) =>
+    request<CompanyIndividualGroup[]>(`/company-individual-groups${includeInactive ? '?include_inactive=true' : ''}`),
+  createCompanyIndividualGroup: (payload: { name: string; description?: string }) =>
+    request<CompanyIndividualGroup>('/company-individual-groups', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCompanyIndividualGroup: (id: string, payload: { name?: string; description?: string; is_active?: boolean }) =>
+    request<CompanyIndividualGroup>(`/company-individual-groups/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
   listContacts: (customerId: string, includeInactive = false) =>
-    request<Contact[]>(`/customers/${customerId}/contacts${includeInactive ? '?include_inactive=true' : ''}`),
+    request<Contact[]>(`/company-individuals/${customerId}/contacts${includeInactive ? '?include_inactive=true' : ''}`),
   createContact: (
     customerId: string,
     payload: { name: string; email?: string; phone?: string; direct_line?: string },
-  ) => request<Contact>(`/customers/${customerId}/contacts`, { method: 'POST', body: JSON.stringify(payload) }),
+  ) => request<Contact>(`/company-individuals/${customerId}/contacts`, { method: 'POST', body: JSON.stringify(payload) }),
   updateContact: (
     customerId: string,
     contactId: string,
     payload: { name?: string; email?: string | null; phone?: string | null; direct_line?: string | null },
   ) =>
-    request<Contact>(`/customers/${customerId}/contacts/${contactId}`, {
+    request<Contact>(`/company-individuals/${customerId}/contacts/${contactId}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }),
   deactivateContact: (customerId: string, contactId: string) =>
-    request<Contact>(`/customers/${customerId}/contacts/${contactId}/deactivate`, { method: 'POST' }),
+    request<Contact>(`/company-individuals/${customerId}/contacts/${contactId}/deactivate`, { method: 'POST' }),
   reactivateContact: (customerId: string, contactId: string) =>
-    request<Contact>(`/customers/${customerId}/contacts/${contactId}/reactivate`, { method: 'POST' }),
+    request<Contact>(`/company-individuals/${customerId}/contacts/${contactId}/reactivate`, { method: 'POST' }),
 
   listBranches: (customerId: string, includeInactive = false) =>
-    request<Branch[]>(`/customers/${customerId}/branches${includeInactive ? '?include_inactive=true' : ''}`),
+    request<Branch[]>(`/company-individuals/${customerId}/branches${includeInactive ? '?include_inactive=true' : ''}`),
   createBranch: (
     customerId: string,
     payload: {
@@ -1212,7 +1212,7 @@ export const api = {
       address_country?: string
       phone?: string
     },
-  ) => request<Branch>(`/customers/${customerId}/branches`, { method: 'POST', body: JSON.stringify(payload) }),
+  ) => request<Branch>(`/company-individuals/${customerId}/branches`, { method: 'POST', body: JSON.stringify(payload) }),
   updateBranch: (
     customerId: string,
     branchId: string,
@@ -1228,27 +1228,27 @@ export const api = {
       phone: string | null
     }>,
   ) =>
-    request<Branch>(`/customers/${customerId}/branches/${branchId}`, {
+    request<Branch>(`/company-individuals/${customerId}/branches/${branchId}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }),
   deactivateBranch: (customerId: string, branchId: string) =>
-    request<Branch>(`/customers/${customerId}/branches/${branchId}/deactivate`, { method: 'POST' }),
+    request<Branch>(`/company-individuals/${customerId}/branches/${branchId}/deactivate`, { method: 'POST' }),
   reactivateBranch: (customerId: string, branchId: string) =>
-    request<Branch>(`/customers/${customerId}/branches/${branchId}/reactivate`, { method: 'POST' }),
+    request<Branch>(`/company-individuals/${customerId}/branches/${branchId}/reactivate`, { method: 'POST' }),
 
-  listCustomerRelationships: (customerId: string) =>
-    request<CustomerRelationship[]>(`/customers/${customerId}/relationships`),
-  createCustomerRelationship: (
+  listCompanyIndividualRelationships: (customerId: string) =>
+    request<CompanyIndividualRelationship[]>(`/company-individuals/${customerId}/relationships`),
+  createCompanyIndividualRelationship: (
     customerId: string,
     payload: { to_customer_id?: string; to_contact_id?: string; relationship_type: string; note?: string },
   ) =>
-    request<CustomerRelationship>(`/customers/${customerId}/relationships`, {
+    request<CompanyIndividualRelationship>(`/company-individuals/${customerId}/relationships`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  deactivateCustomerRelationship: (customerId: string, relationshipId: string) =>
-    request<CustomerRelationship>(`/customers/${customerId}/relationships/${relationshipId}/deactivate`, {
+  deactivateCompanyIndividualRelationship: (customerId: string, relationshipId: string) =>
+    request<CompanyIndividualRelationship>(`/company-individuals/${customerId}/relationships/${relationshipId}/deactivate`, {
       method: 'POST',
     }),
 
@@ -1495,8 +1495,8 @@ export const api = {
   exportTrialBalanceCsv: (as_at?: string) => requestBlob(`/ledger/trial-balance/export.csv${qs({ as_at })}`),
   exportTrialBalanceExcel: (as_at?: string) => requestBlob(`/ledger/trial-balance/export.xlsx${qs({ as_at })}`),
 
-  // Accounts Payable -- suppliers are managed via listCustomers/
-  // createCustomer/updateCustomer above (is_supplier=true), not here.
+  // Accounts Payable -- suppliers are managed via listCompanyIndividuals/
+  // createCompanyIndividual/updateCompanyIndividual above (is_supplier=true), not here.
   listPurchaseOrders: (filters: { supplier_id?: string; status?: string } = {}) =>
     request<PurchaseOrder[]>(`/accounts-payable/purchase-orders${qs(filters)}`),
   getPurchaseOrder: (id: string) => request<PurchaseOrder>(`/accounts-payable/purchase-orders/${id}`),
@@ -1594,10 +1594,10 @@ export const api = {
   exportArAgingCsv: (as_at?: string) => requestBlob(`/accounts-receivable/aging/export.csv${qs({ as_at })}`),
   exportArAgingExcel: (as_at?: string) => requestBlob(`/accounts-receivable/aging/export.xlsx${qs({ as_at })}`),
   customerStatement: (customerId: string) =>
-    request<CustomerStatement>(`/accounts-receivable/statement/${customerId}`),
-  exportCustomerStatementDocx: (customerId: string) =>
+    request<CompanyIndividualStatement>(`/accounts-receivable/statement/${customerId}`),
+  exportCompanyIndividualStatementDocx: (customerId: string) =>
     requestBlob(`/accounts-receivable/statement/${customerId}/export.docx`),
-  emailCustomerStatement: (customerId: string) =>
+  emailCompanyIndividualStatement: (customerId: string) =>
     request<{ sent: boolean; to: string }>(`/accounts-receivable/statement/${customerId}/email`, { method: 'POST' }),
   writeOffInvoice: (invoiceId: string, reason: string) =>
     request<Invoice>(`/accounts-receivable/invoices/${invoiceId}/write-off`, {
@@ -1700,11 +1700,11 @@ export const api = {
   exportServiceRecordsReportExcel: (filters: ServiceRecordReportFilters = {}) =>
     requestBlob(`/reports/operations/service-records/export.xlsx${qs(filters)}`),
 
-  reportCustomerProductUsage: (filters: CustomerProductUsageFilters = {}) =>
-    request<CustomerProductUsageRow[]>(`/reports/operations/customer-product-usage${qs(filters)}`),
-  exportCustomerProductUsageCsv: (filters: CustomerProductUsageFilters = {}) =>
+  reportCompanyIndividualProductUsage: (filters: CompanyIndividualProductUsageFilters = {}) =>
+    request<CompanyIndividualProductUsageRow[]>(`/reports/operations/customer-product-usage${qs(filters)}`),
+  exportCompanyIndividualProductUsageCsv: (filters: CompanyIndividualProductUsageFilters = {}) =>
     requestBlob(`/reports/operations/customer-product-usage/export.csv${qs(filters)}`),
-  exportCustomerProductUsageExcel: (filters: CustomerProductUsageFilters = {}) =>
+  exportCompanyIndividualProductUsageExcel: (filters: CompanyIndividualProductUsageFilters = {}) =>
     requestBlob(`/reports/operations/customer-product-usage/export.xlsx${qs(filters)}`),
 
   // ---- Accounting Reports ----

@@ -6,7 +6,7 @@ import {
   downloadBlob,
   type Contract,
   type ContractKind,
-  type Customer,
+  type CompanyIndividual,
   type Product,
   type StaffUser,
 } from '../lib/api'
@@ -20,13 +20,13 @@ const KIND_LABELS: Record<ContractKind, string> = {
 
 export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CompanyIndividual[]>([])
   const [staff, setStaff] = useState<StaffUser[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [searchParams] = useSearchParams()
-  const preselectedCustomer = searchParams.get('customer') ?? ''
+  const preselectedCompanyIndividual = searchParams.get('customer') ?? ''
 
-  const [customerId, setCustomerId] = useState(preselectedCustomer)
+  const [customerId, setCustomerId] = useState(preselectedCompanyIndividual)
   const [kind, setKind] = useState<ContractKind>('service_support')
   const [hours, setHours] = useState('10')
   const [value, setValue] = useState('2400')
@@ -37,7 +37,7 @@ export default function ContractsPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') ?? '')
-  const [filterCustomer, setFilterCustomer] = useState(preselectedCustomer)
+  const [filterCompanyIndividual, setFilterCompanyIndividual] = useState(preselectedCompanyIndividual)
   const [filterKind, setFilterKind] = useState<ContractKind | ''>('')
   const [filterSalesStaff, setFilterSalesStaff] = useState('')
   const [filterProduct, setFilterProduct] = useState('')
@@ -48,7 +48,7 @@ export default function ContractsPage() {
     api
       .listContracts({
         status: filterStatus || undefined,
-        customer_id: filterCustomer || undefined,
+        customer_id: filterCompanyIndividual || undefined,
         contract_kind: filterKind || undefined,
         sales_staff_id: filterSalesStaff || undefined,
         product_id: filterProduct || undefined,
@@ -56,19 +56,19 @@ export default function ContractsPage() {
         coverage_end: filterCoverageEnd || undefined,
       })
       .then(setContracts)
-    api.listCustomers().then(setCustomers)
+    api.listCompanyIndividuals().then(setCustomers)
     api.listStaff().then(setStaff)
     api.listCatalog().then(setProducts)
   }
 
-  useEffect(refresh, [filterStatus, filterCustomer, filterKind, filterSalesStaff, filterProduct, filterCoverageStart, filterCoverageEnd])
+  useEffect(refresh, [filterStatus, filterCompanyIndividual, filterKind, filterSalesStaff, filterProduct, filterCoverageStart, filterCoverageEnd])
 
   const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? id.slice(0, 8)
   const staffName = (id: string | null) => (id ? staff.find((s) => s.id === id)?.full_name ?? id.slice(0, 8) : '-')
 
   function resetFilters() {
     setFilterStatus('')
-    setFilterCustomer('')
+    setFilterCompanyIndividual('')
     setFilterKind('')
     setFilterSalesStaff('')
     setFilterProduct('')
@@ -101,7 +101,7 @@ export default function ContractsPage() {
     setError(null)
     const filters = {
       status: filterStatus || undefined,
-      customer_id: filterCustomer || undefined,
+      customer_id: filterCompanyIndividual || undefined,
       contract_kind: filterKind || undefined,
       sales_staff_id: filterSalesStaff || undefined,
       product_id: filterProduct || undefined,
@@ -126,9 +126,9 @@ export default function ContractsPage() {
         <h2>New contract</h2>
         <form onSubmit={onCreate}>
           <div className="form-row">
-            <label>Customer</label>
+            <label>Company / Individual</label>
             <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
-              <option value="">Select a customer...</option>
+              <option value="">Select a Company / Individual...</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -222,8 +222,8 @@ export default function ContractsPage() {
             </select>
           </div>
           <div className="form-row" style={{ margin: 0 }}>
-            <label>Customer</label>
-            <select value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)}>
+            <label>Company / Individual</label>
+            <select value={filterCompanyIndividual} onChange={(e) => setFilterCompanyIndividual(e.target.value)}>
               <option value="">All</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -298,7 +298,7 @@ export default function ContractsPage() {
             <thead>
               <tr>
                 <th>Number</th>
-                <th>Customer</th>
+                <th>Company / Individual</th>
                 <th>Type</th>
                 <th>Status</th>
                 <th>Hours (used / total)</th>

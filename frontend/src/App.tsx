@@ -15,8 +15,8 @@ import GLTypesPage from './pages/GLTypesPage'
 import CompanySetupPage from './pages/CompanySetupPage'
 import ContractDetailPage from './pages/ContractDetailPage'
 import ContractsPage from './pages/ContractsPage'
-import CustomerDetailPage from './pages/CustomerDetailPage'
-import CustomersPage from './pages/CustomersPage'
+import CompanyIndividualDetailPage from './pages/CompanyIndividualDetailPage'
+import CompanyIndividualsPage from './pages/CompanyIndividualsPage'
 import DashboardPage from './pages/DashboardPage'
 import EventLogsPage from './pages/EventLogsPage'
 import ExcessReviewPage from './pages/ExcessReviewPage'
@@ -70,8 +70,8 @@ function AppRoutes() {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/ops-dashboard" element={<OpsDashboardPage />} />
-        <Route path="/customers" element={<CustomersPage />} />
-        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+        <Route path="/company-individuals" element={<CompanyIndividualsPage />} />
+        <Route path="/company-individuals/:id" element={<CompanyIndividualDetailPage />} />
         <Route path="/contracts" element={<ContractsPage />} />
         <Route path="/contracts/:id" element={<ContractDetailPage />} />
         <Route path="/job-orders" element={<JobOrdersPage />} />

@@ -217,7 +217,7 @@ export default function AccountingReportsPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Customer</th>
+                    <th>Company / Individual</th>
                     <th>Current</th>
                     <th>1-30</th>
                     <th>31-60</th>

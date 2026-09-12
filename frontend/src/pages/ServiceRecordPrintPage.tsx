@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Customer, type JobOrder, type ServiceRecord } from '../lib/api'
+import { api, downloadBlob, type CompanyIndividual, type JobOrder, type ServiceRecord } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 
 export default function ServiceRecordPrintPage() {
@@ -13,7 +13,7 @@ export default function ServiceRecordPrintPage() {
   const { activeCompany } = useAuth()
   const [record, setRecord] = useState<ServiceRecord | null>(null)
   const [jobOrder, setJobOrder] = useState<JobOrder | null>(null)
-  const [customer, setCustomer] = useState<Customer | null>(null)
+  const [customer, setCustomer] = useState<CompanyIndividual | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function ServiceRecordPrintPage() {
       setRecord(r)
       api.getJobOrder(r.job_order_id).then((jo) => {
         setJobOrder(jo)
-        api.getCustomer(jo.customer_id).then(setCustomer)
+        api.getCompanyIndividual(jo.customer_id).then(setCustomer)
       })
     })
   }, [id])
@@ -65,7 +65,7 @@ export default function ServiceRecordPrintPage() {
 
       <div className="form-meta">
         <div>
-          <div className="form-section-label">Customer</div>
+          <div className="form-section-label">Company / Individual</div>
           <div className="form-customer-name">{customer.name}</div>
         </div>
         <div className="form-meta-right">
@@ -125,7 +125,7 @@ export default function ServiceRecordPrintPage() {
 
       <div className="form-signature-row">
         <div>
-          Customer Signature
+          CompanyIndividual Signature
           <div className="form-signature-line" />
         </div>
         <div>

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.models.billing import Invoice, InvoiceType
 from app.models.contracts import Contract, ExcessUsageRecord
-from app.models.customers import Customer
+from app.models.company_individuals import CompanyIndividual
 from app.services import audit
 from app.services.numbering import next_document_number
 from app.services.tax import apply_gst
@@ -25,8 +25,8 @@ from app.services.tax import apply_gst
 
 def _due_date_for(db: Session, customer_id: uuid.UUID, issued_on: date) -> date | None:
     """Invoice due date from the customer's agreed payment terms. None
-    when no terms have been agreed -- see Customer.payment_terms_days."""
-    customer = db.get(Customer, customer_id)
+    when no terms have been agreed -- see CompanyIndividual.payment_terms_days."""
+    customer = db.get(CompanyIndividual, customer_id)
     if customer is None or customer.payment_terms_days is None:
         return None
     return issued_on + timedelta(days=customer.payment_terms_days)
