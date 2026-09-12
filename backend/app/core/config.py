@@ -35,5 +35,10 @@ class Settings(BaseSettings):
     smtp_from_email: str | None = None
     smtp_from_name: str = "Web Master Consultancy"
 
+    # File uploads (2026-09-12: Mobile Web App attachments -- photos,
+    # videos, chop photos). Stored on local disk; in Docker this is a
+    # named volume so files persist across container restarts.
+    uploads_dir: str = "/app/uploads"
+
 
 settings = Settings()

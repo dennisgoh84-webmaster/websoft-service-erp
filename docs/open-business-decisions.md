@@ -1711,6 +1711,57 @@ the real target record (confirmed 2026-09-11), not just an assignment.
 
 ---
 
+## 37. Mobile Web App for Support Staff (raised 2026-09-11, all settled 2026-09-12)
+
+All 8 open questions from planned-work.md #1 were settled with Dennis
+before building. Implementation is in `app/routers/mobile.py`,
+`app/models/attachments.py`, `app/services/file_storage.py`, and
+`frontend/src/pages/MobileApp.tsx`.
+
+37.1. **DECIDED.** Auth model: same login credentials (existing
+   User/Group Authority account), filtered to own assigned Job Orders
+   only (OPEN/ASSIGNED status). Mobile app has its own login screen at
+   `/mobile`, separate from the desktop layout.
+
+37.2. **DECIDED.** Time in/out replaces manual minutes: `time_in` is
+   captured on the service record when the staff "clocks in" on-site;
+   `time_out` is captured when they finish. `raw_minutes` is auto-
+   computed from elapsed time and `rounded_minutes` via the existing
+   `round_up_to_nearest()` rounding logic.
+
+37.3. **DECIDED.** "What is done" field: free-text `work_description`
+   entered at time-out alongside completion status and after-hours flag.
+   Supplements (does not replace) the existing service record fields.
+
+37.4. **DECIDED.** Photo/video attachments: no limit on count or size
+   (nginx set to 500MB). Stored as files on a Docker volume (`/app/
+   uploads/`), not base64 inline. Camera-only capture (`capture=
+   "environment"`) plus file chooser for gallery/multiple.
+
+37.5. **DECIDED.** Signature: finger-drawn on-screen (canvas-based
+   touch/mouse drawing), stored as a PNG data URI. Customer in-charge
+   name is free-text (not tied to an existing Contact record).
+
+37.6. **DECIDED.** Chop photo no-reuse enforcement: camera-only capture
+   (no gallery re-pick for chop specifically), plus a Pillow-generated
+   watermark overlay on each chop photo. The watermark includes the
+   Service Record number as semi-transparent diagonal text plus a solid
+   bottom strip with SR number and timestamp. This binds each chop
+   image visually and permanently to one specific Service Record, making
+   re-use immediately detectable.
+
+37.7. **DECIDED.** Storage and retention: attachments use soft-delete
+   (`is_deleted` flag, never physically removed), consistent with the
+   project's never-permanently-delete audit-trail rules. Signoff records
+   (signature + chop) have no delete mechanism at all -- once signed,
+   the signoff is permanent and one-per-service-record (unique
+   constraint on `service_record_id`).
+
+37.8. **DECIDED.** Live connection assumed. No offline mode or local
+   queue. All actions require a working network connection.
+
+---
+
 ## How to use this document
 
 - Do not start detailed schema or workflow design for an area until the

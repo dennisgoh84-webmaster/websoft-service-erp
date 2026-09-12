@@ -34,12 +34,15 @@ services:
     environment:
       database_url: postgresql+psycopg://websoft_app:${POSTGRES_PASSWORD:?set a real password in .env}@db:5432/websoft_service_erp
       jwt_secret_key: ${JWT_SECRET_KEY:?set a real random secret in .env}
+      uploads_dir: /app/uploads
       smtp_host: ${SMTP_HOST:-}
       smtp_port: ${SMTP_PORT:-587}
       smtp_username: ${SMTP_USERNAME:-}
       smtp_password: ${SMTP_PASSWORD:-}
       smtp_from_email: ${SMTP_FROM_EMAIL:-}
       smtp_from_name: ${SMTP_FROM_NAME:-Web Master Consultancy}
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -56,3 +59,4 @@ services:
 
 volumes:
   db_data:
+  uploads_data:

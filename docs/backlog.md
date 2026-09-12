@@ -19,11 +19,11 @@ shipped and when.
 
 ## Confirmed scope, not yet built
 
-- [ ] **Mobile web app for Support Staff** -- on-site Job Order/Service
-  Record capture: time in/out, work description, photo/video
-  attachments, company-chop sign-off (with a hard "chop photos can't be
-  reused" requirement). 8 open questions flagged.
-  → [planned-work.md #1](planned-work.md#1-mobile-web-app-for-support-staff----on-site-job-order--service-record-capture-raised-2026-09-11-targeted-for-next-week)
+- [x] **Mobile web app for Support Staff** -- built 2026-09-12. Time
+  in/out, work description, camera photo/video attachments, finger-drawn
+  signature + watermarked chop photo sign-off. All 8 open questions
+  settled. Route: `/mobile`.
+  → [planned-work.md #1](planned-work.md#1-mobile-web-app-for-support-staff----on-site-job-order--service-record-capture-raised-2026-09-11-built-2026-09-12)
 - [x] **Incident Module** -- built 2026-09-12. In-app screen (log,
   route to Quotation/Job Order/Software Task, or a callback status) is
   live; the Outlook Add-in half is scaffolded only -- not deployable/

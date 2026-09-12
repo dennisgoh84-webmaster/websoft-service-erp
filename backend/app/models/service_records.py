@@ -110,6 +110,13 @@ class ServiceRecord(Base):
     # 2026-09-12, docs/open-business-decisions.md #35).
     work_description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Mobile web app time tracking (2026-09-12, planned-work.md #1):
+    # replaces manual minutes entry when used from mobile. Minutes are
+    # auto-computed from time_out - time_in. If only time_in is set
+    # (staff forgot to tap Time Out), the record stays open until they do.
+    time_in: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    time_out: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_by_user_id: Mapped[uuid.UUID | None] = mapped_column(

@@ -30,6 +30,7 @@ import JobOrderPrintPage from './pages/JobOrderPrintPage'
 import IncidentsPage from './pages/IncidentsPage'
 import JobOrdersPage from './pages/JobOrdersPage'
 import Login from './pages/Login'
+import MobileApp from './pages/MobileApp'
 import ModulesPage from './pages/ModulesPage'
 import OperationsReportsPage from './pages/OperationsReportsPage'
 import OpsDashboardPage from './pages/OpsDashboardPage'
@@ -65,6 +66,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* Mobile web app: separate entry point, no sidebar/desktop layout */}
+      <Route path="/mobile" element={<MobileApp />} />
       <Route
         element={
           <RequireAuth>
