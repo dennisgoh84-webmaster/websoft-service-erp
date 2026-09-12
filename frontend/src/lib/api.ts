@@ -1285,6 +1285,105 @@ export interface Quotation {
   lines: QuotationLine[]
 }
 
+// ---- eDocument Attachments + eSignature ----
+
+export type DocumentEntityType =
+  | 'quotation'
+  | 'invoice'
+  | 'receipt_voucher'
+  | 'payment_voucher'
+  | 'purchase_order'
+  | 'supplier_invoice'
+  | 'journal_entry'
+  | 'job_order'
+  | 'service_record'
+  | 'contract'
+  | 'incident'
+
+export interface DocumentAttachment {
+  id: string
+  company_id: string
+  entity_type: DocumentEntityType
+  entity_id: string
+  uploaded_by_user_id: string
+  original_filename: string
+  content_type: string
+  file_size_bytes: number
+  description: string | null
+  uploaded_at: string
+}
+
+export interface DocumentSignature {
+  id: string
+  company_id: string
+  entity_type: DocumentEntityType
+  entity_id: string
+  signer_user_id: string
+  signer_name: string
+  role_label: string | null
+  signed_at: string
+}
+
+// ---- eApproval Master ----
+
+export type ApprovalMode = 'any_one' | 'all_must'
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
+export type ApprovalDecisionValue = 'approved' | 'rejected'
+
+export interface ApprovalAuthorityMember {
+  id: string
+  authority_id: string
+  user_id: string
+  added_at: string
+}
+
+export interface ApprovalRule {
+  id: string
+  authority_id: string
+  entity_type: DocumentEntityType
+  threshold_amount: number | null
+  priority: number
+  is_active: boolean
+  created_at: string
+}
+
+export interface ApprovalAuthority {
+  id: string
+  company_id: string
+  name: string
+  description: string | null
+  mode: ApprovalMode
+  bank_account_id: string | null
+  is_active: boolean
+  created_at: string
+  members: ApprovalAuthorityMember[]
+  rules: ApprovalRule[]
+}
+
+export interface ApprovalDecision {
+  id: string
+  request_id: string
+  user_id: string
+  decision: ApprovalDecisionValue
+  comment: string | null
+  decided_at: string
+}
+
+export interface ApprovalRequest {
+  id: string
+  company_id: string
+  entity_type: DocumentEntityType
+  entity_id: string
+  rule_id: string
+  authority_id: string
+  status: ApprovalStatus
+  requested_by_user_id: string
+  requested_at: string
+  resolved_at: string | null
+  decisions: ApprovalDecision[]
+}
+
+
 export const api = {
   me: () => request<CurrentUser>('/auth/me'),
   listUsers: () => request<CurrentUser[]>('/users'),
@@ -2324,4 +2423,72 @@ export const api = {
     }>,
   ) => request<OpsTask>(`/ops-dashboard/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   archiveOpsTask: (id: string) => request<OpsTask>(`/ops-dashboard/tasks/${id}/archive`, { method: 'POST' }),
+
+  // ---- eDocument Attachments ----
+  uploadDocumentAttachment: async (entityType: DocumentEntityType, entityId: string, file: File, description?: string): Promise<DocumentAttachment> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (description) formData.append('description', description)
+    const token = getToken()
+    const res = await fetch(`/api/documents/${entityType}/${entityId}/attachments`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'X-Device-Id': getDeviceId(),
+      },
+      body: formData,
+    })
+    if (!res.ok) {
+      let detail = res.statusText
+      try { const b = await res.json(); detail = b.detail ?? detail } catch { /* */ }
+      throw new Error(detail)
+    }
+    return res.json()
+  },
+  listDocumentAttachments: (entityType: DocumentEntityType, entityId: string) =>
+    request<DocumentAttachment[]>(`/documents/${entityType}/${entityId}/attachments`),
+  downloadDocumentAttachmentUrl: (entityType: DocumentEntityType, entityId: string, attachmentId: string) =>
+    `/api/documents/${entityType}/${entityId}/attachments/${attachmentId}/download`,
+  deleteDocumentAttachment: (entityType: DocumentEntityType, entityId: string, attachmentId: string) =>
+    request<void>(`/documents/${entityType}/${entityId}/attachments/${attachmentId}`, { method: 'DELETE' }),
+
+  // ---- eSignature ----
+  addDocumentSignature: (entityType: DocumentEntityType, entityId: string, payload: {
+    signer_name: string
+    signature_data_uri: string
+    role_label?: string
+  }) =>
+    request<DocumentSignature>(`/documents/${entityType}/${entityId}/signatures`, {
+      method: 'POST',
+      body: JSON.stringify({ entity_type: entityType, entity_id: entityId, ...payload }),
+    }),
+  listDocumentSignatures: (entityType: DocumentEntityType, entityId: string) =>
+    request<DocumentSignature[]>(`/documents/${entityType}/${entityId}/signatures`),
+
+  // ---- eApproval Master ----
+  listApprovalAuthorities: () => request<ApprovalAuthority[]>('/approvals/authorities'),
+  getApprovalAuthority: (id: string) => request<ApprovalAuthority>(`/approvals/authorities/${id}`),
+  createApprovalAuthority: (payload: { name: string; description?: string; mode?: ApprovalMode; bank_account_id?: string }) =>
+    request<ApprovalAuthority>('/approvals/authorities', { method: 'POST', body: JSON.stringify(payload) }),
+  updateApprovalAuthority: (id: string, payload: Partial<{ name: string; description: string; mode: ApprovalMode; bank_account_id: string; is_active: boolean }>) =>
+    request<ApprovalAuthority>(`/approvals/authorities/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  addApprovalMember: (authorityId: string, userId: string) =>
+    request<ApprovalAuthorityMember>(`/approvals/authorities/${authorityId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    }),
+  removeApprovalMember: (authorityId: string, memberId: string) =>
+    request<void>(`/approvals/authorities/${authorityId}/members/${memberId}`, { method: 'DELETE' }),
+  createApprovalRule: (payload: { authority_id: string; entity_type: DocumentEntityType; threshold_amount?: number; priority?: number }) =>
+    request<ApprovalRule>('/approvals/rules', { method: 'POST', body: JSON.stringify(payload) }),
+  updateApprovalRule: (id: string, payload: Partial<{ entity_type: DocumentEntityType; threshold_amount: number; priority: number; is_active: boolean }>) =>
+    request<ApprovalRule>(`/approvals/rules/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteApprovalRule: (id: string) => request<void>(`/approvals/rules/${id}`, { method: 'DELETE' }),
+  submitForApproval: (payload: { entity_type: DocumentEntityType; entity_id: string; amount?: number }) =>
+    request<ApprovalRequest[]>('/approvals/submit', { method: 'POST', body: JSON.stringify(payload) }),
+  recordApprovalDecision: (requestId: string, payload: { decision: ApprovalDecisionValue; comment?: string }) =>
+    request<ApprovalRequest>(`/approvals/requests/${requestId}/decide`, { method: 'POST', body: JSON.stringify(payload) }),
+  listPendingApprovals: () => request<ApprovalRequest[]>('/approvals/pending'),
+  listApprovalsForEntity: (entityType: DocumentEntityType, entityId: string) =>
+    request<ApprovalRequest[]>(`/approvals/entity/${entityType}/${entityId}`),
 }

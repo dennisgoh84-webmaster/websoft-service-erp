@@ -24,6 +24,8 @@ from app.models.service_records import ServiceRecordCompletion, ServiceRecordOut
 from app.models.setup import SetupListType
 from app.models.periods import PeriodDocType, PeriodOperation, PeriodStatus
 from app.models.ops_tasks import OpsTaskStatus
+from app.models.documents import DocumentEntityType
+from app.models.approvals import ApprovalDecisionValue, ApprovalMode, ApprovalStatus
 
 
 # ---- Auth ----
@@ -2027,3 +2029,145 @@ class PublicAdBanner(BaseModel):
 
     video_url: str | None
     items: list[AnnouncementOut]
+
+
+# ── eDocument Attachments + eSignature ─────────────────────────────
+
+
+class DocumentAttachmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    company_id: uuid.UUID
+    entity_type: DocumentEntityType
+    entity_id: uuid.UUID
+    uploaded_by_user_id: uuid.UUID
+    original_filename: str
+    content_type: str
+    file_size_bytes: int
+    description: str | None
+    uploaded_at: datetime
+
+
+class DocumentSignatureCreate(BaseModel):
+    entity_type: DocumentEntityType
+    entity_id: uuid.UUID
+    signer_name: str = Field(min_length=1, max_length=255)
+    signature_data_uri: str = Field(min_length=1)
+    role_label: str | None = Field(default=None, max_length=100)
+
+
+class DocumentSignatureOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    company_id: uuid.UUID
+    entity_type: DocumentEntityType
+    entity_id: uuid.UUID
+    signer_user_id: uuid.UUID
+    signer_name: str
+    role_label: str | None
+    signed_at: datetime
+
+
+# ── eApproval Master ───────────────────────────────────────────────
+
+
+class ApprovalAuthorityMemberOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    authority_id: uuid.UUID
+    user_id: uuid.UUID
+    added_at: datetime
+
+
+class ApprovalRuleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    authority_id: uuid.UUID
+    entity_type: DocumentEntityType
+    threshold_amount: float | None
+    priority: int
+    is_active: bool
+    created_at: datetime
+
+
+class ApprovalAuthorityOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    company_id: uuid.UUID
+    name: str
+    description: str | None
+    mode: ApprovalMode
+    bank_account_id: uuid.UUID | None
+    is_active: bool
+    created_at: datetime
+    members: list[ApprovalAuthorityMemberOut] = []
+    rules: list[ApprovalRuleOut] = []
+
+
+class ApprovalAuthorityCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=500)
+    mode: ApprovalMode = ApprovalMode.ANY_ONE
+    bank_account_id: uuid.UUID | None = None
+
+
+class ApprovalAuthorityUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=500)
+    mode: ApprovalMode | None = None
+    bank_account_id: uuid.UUID | None = None
+    is_active: bool | None = None
+
+
+class ApprovalAuthorityMemberAdd(BaseModel):
+    user_id: uuid.UUID
+
+
+class ApprovalRuleCreate(BaseModel):
+    authority_id: uuid.UUID
+    entity_type: DocumentEntityType
+    threshold_amount: float | None = None
+    priority: int = 0
+
+
+class ApprovalRuleUpdate(BaseModel):
+    entity_type: DocumentEntityType | None = None
+    threshold_amount: float | None = None
+    priority: int | None = None
+    is_active: bool | None = None
+
+
+class ApprovalDecisionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    request_id: uuid.UUID
+    user_id: uuid.UUID
+    decision: ApprovalDecisionValue
+    comment: str | None
+    decided_at: datetime
+
+
+class ApprovalRequestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    company_id: uuid.UUID
+    entity_type: DocumentEntityType
+    entity_id: uuid.UUID
+    rule_id: uuid.UUID
+    authority_id: uuid.UUID
+    status: ApprovalStatus
+    requested_by_user_id: uuid.UUID
+    requested_at: datetime
+    resolved_at: datetime | None
+    decisions: list[ApprovalDecisionOut] = []
+
+
+class ApprovalSubmitRequest(BaseModel):
+    entity_type: DocumentEntityType
+    entity_id: uuid.UUID
+    amount: float | None = None
+
+
+class ApprovalDecisionRequest(BaseModel):
+    decision: ApprovalDecisionValue
+    comment: str | None = Field(default=None, max_length=1000)

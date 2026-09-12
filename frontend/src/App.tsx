@@ -4,6 +4,8 @@ import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { ThemeProvider } from './lib/ThemeContext'
 import AccountingPeriodsPage from './pages/AccountingPeriodsPage'
+import ApprovalAuthoritiesPage from './pages/ApprovalAuthoritiesPage'
+import ApprovalCenterPage from './pages/ApprovalCenterPage'
 import AccountingReportsPage from './pages/AccountingReportsPage'
 import AnnouncementsPage from './pages/AnnouncementsPage'
 import AccountsPayablePage from './pages/AccountsPayablePage'
@@ -123,6 +125,8 @@ function AppRoutes() {
         <Route path="/product-catalog" element={<ProductCatalogPage />} />
         <Route path="/setup-lists" element={<SetupListsPage />} />
         <Route path="/document-control" element={<DocumentControlPage />} />
+        <Route path="/approval-authorities" element={<ApprovalAuthoritiesPage />} />
+        <Route path="/approval-center" element={<ApprovalCenterPage />} />
         <Route path="/event-logs" element={<EventLogsPage />} />
       </Route>
     </Routes>

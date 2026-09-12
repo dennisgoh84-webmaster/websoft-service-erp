@@ -90,6 +90,7 @@ export default function Layout() {
       label: 'Service Record Approval',
       visible: can('service_records'),
     },
+    { key: 'approval-center', path: '/approval-center', label: 'Approval Center', visible: can('core_administration') },
     { key: 'excess-review', path: '/excess-review', label: 'Excess Review', visible: can('service_contracts') },
     { key: 'software-tasks', path: '/software-tasks', label: 'Software Tasks', visible: can('software_development') },
     { key: 'operations-reports', path: '/operations-reports', label: 'Operations Reports', visible: can('operations_reports') },
@@ -146,6 +147,7 @@ export default function Layout() {
     { key: 'tax-types', path: '/tax-types', label: 'Tax Types', visible: can('finance_accounting') },
     { key: 'currency-rates', path: '/currency-rates', label: 'Currency Rate Table', visible: can('finance_accounting') },
     { key: 'document-control', path: '/document-control', label: 'Document Control', visible: can('core_administration') },
+    { key: 'approval-authorities', path: '/approval-authorities', label: 'Approval Authority', visible: can('core_administration') },
     { key: 'event-logs', path: '/event-logs', label: 'Event Logs', visible: can('event_logs') },
   ]
 
