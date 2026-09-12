@@ -222,10 +222,17 @@ def create_quotation(
         # always wins; otherwise fall back to the chosen product's own
         # default (Product.default_reference_code_id), if any.
         reference_code_id = line.reference_code_id
-        if reference_code_id is None and line.product_id:
-            product = db.get(Product, line.product_id)
-            if product and product.company_id == current_user.company_id:
-                reference_code_id = product.default_reference_code_id
+        product = db.get(Product, line.product_id) if line.product_id else None
+        if product and product.company_id != current_user.company_id:
+            product = None
+        if reference_code_id is None and product:
+            reference_code_id = product.default_reference_code_id
+        # Costing: same pattern -- an explicit cost_sgd on the line always
+        # wins (this is the only source of cost for a non-product line);
+        # otherwise default from the chosen product's own Product.cost_sgd.
+        cost_sgd = Decimal(str(line.cost_sgd)) if line.cost_sgd is not None else None
+        if cost_sgd is None and product and product.cost_sgd is not None:
+            cost_sgd = Decimal(product.cost_sgd)
         db.add(
             QuotationLine(
                 quotation_id=quotation.id,
@@ -236,6 +243,7 @@ def create_quotation(
                 unit_price_sgd=price,
                 line_total_sgd=(qty * price).quantize(Decimal("0.01")),
                 reference_code_id=reference_code_id,
+                cost_sgd=cost_sgd,
             )
         )
     db.flush()

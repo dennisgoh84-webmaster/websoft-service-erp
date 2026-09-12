@@ -94,3 +94,21 @@ class PaymentAllocation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     payment: Mapped["Payment"] = relationship(back_populates="allocations")
+
+
+class CommissionSettings(Base):
+    """Singleton-per-company settings row for the commission report
+    (2026-09-12, docs/open-business-decisions.md #32): confirmed formula
+    is a flat percentage of gross profit, applied to the portion of an
+    invoice a receipt has actually settled -- but the percentage itself
+    is Dennis's to set, not a number to invent, so it lives here as a
+    plain admin-editable rate rather than being hardcoded into the
+    report. See app/services/reports.py's commission_rows."""
+
+    __tablename__ = "commission_settings"
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), primary_key=True)
+    rate_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

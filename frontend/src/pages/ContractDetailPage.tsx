@@ -1,7 +1,21 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api, type Contract, type ExcessUsageRecord, type Invoice, type Product, type StaffUser } from '../lib/api'
+import {
+  api,
+  type Contract,
+  type ExcessUsageRecord,
+  type Invoice,
+  type LicenseDeploymentType,
+  type Product,
+  type StaffUser,
+} from '../lib/api'
 import { formatMoney as money } from '../lib/format'
+
+const LICENSE_TYPE_LABEL: Record<LicenseDeploymentType, string> = {
+  local: 'Local',
+  rdp: 'RDP',
+  web: 'Web',
+}
 
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -21,12 +35,26 @@ export default function ContractDetailPage() {
   const [productIds, setProductIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
+  // License tracking (2026-09-12) drafts, keyed by product_id -- kept
+  // separate from the coverage editor above since saving one product's
+  // license fields shouldn't require re-submitting the whole coverage list.
+  const [licenseDrafts, setLicenseDrafts] = useState<Record<string, { type: string; count: string }>>({})
+  const [savingLicenseFor, setSavingLicenseFor] = useState<string | null>(null)
+
   function refresh() {
     if (!id) return
     api.getContract(id).then((c) => {
       setContract(c)
       setSalesStaffId(c.sales_staff_id ?? '')
       setProductIds(c.products.map((p) => p.product_id))
+      setLicenseDrafts(
+        Object.fromEntries(
+          c.products.map((p) => [
+            p.product_id,
+            { type: p.license_type ?? '', count: p.number_of_licenses != null ? String(p.number_of_licenses) : '' },
+          ]),
+        ),
+      )
     })
     api.listContractExcessUsage(id).then(setExcessUsage)
     api.listInvoices({ contract_id: id }).then(setInvoices)
@@ -78,6 +106,24 @@ export default function ContractDetailPage() {
       setError(err instanceof Error ? err.message : 'Failed to update')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function onSaveLicense(productId: string) {
+    if (!id) return
+    const draft = licenseDrafts[productId]
+    setError(null)
+    setSavingLicenseFor(productId)
+    try {
+      await api.updateContractProductLicense(id, productId, {
+        license_type: (draft?.type as LicenseDeploymentType) || null,
+        number_of_licenses: draft?.count ? parseInt(draft.count, 10) : null,
+      })
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update license')
+    } finally {
+      setSavingLicenseFor(null)
     }
   }
 
@@ -204,14 +250,77 @@ export default function ContractDetailPage() {
             <p>
               <strong>Sales staff:</strong> {staffName(contract.sales_staff_id) ?? <span className="muted">Unassigned</span>}
             </p>
-            <p>
-              <strong>Products covered:</strong>{' '}
-              {contract.products.length > 0 ? (
-                contract.products.map((p) => p.product_name).join(', ')
-              ) : (
-                <span className="muted">None specified</span>
-              )}
+            <p style={{ marginBottom: 6 }}>
+              <strong>Products covered:</strong>
             </p>
+            {contract.products.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>License type</th>
+                      <th>No. of licenses</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contract.products.map((p) => {
+                      const draft = licenseDrafts[p.product_id] ?? { type: '', count: '' }
+                      return (
+                        <tr key={p.product_id}>
+                          <td>{p.product_name}</td>
+                          <td>
+                            <select
+                              value={draft.type}
+                              onChange={(e) =>
+                                setLicenseDrafts((prev) => ({
+                                  ...prev,
+                                  [p.product_id]: { ...draft, type: e.target.value },
+                                }))
+                              }
+                            >
+                              <option value="">Not a licensed item</option>
+                              {(Object.keys(LICENSE_TYPE_LABEL) as LicenseDeploymentType[]).map((t) => (
+                                <option key={t} value={t}>
+                                  {LICENSE_TYPE_LABEL[t]}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min="1"
+                              value={draft.count}
+                              onChange={(e) =>
+                                setLicenseDrafts((prev) => ({
+                                  ...prev,
+                                  [p.product_id]: { ...draft, count: e.target.value },
+                                }))
+                              }
+                              style={{ width: 70 }}
+                            />
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => onSaveLicense(p.product_id)}
+                              disabled={savingLicenseFor === p.product_id}
+                            >
+                              {savingLicenseFor === p.product_id ? 'Saving...' : 'Save'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="muted">None specified</p>
+            )}
           </>
         )}
       </div>

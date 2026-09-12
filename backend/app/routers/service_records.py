@@ -45,6 +45,7 @@ def submit_service_record(
             raw_minutes=payload.raw_minutes,
             completion_status=payload.completion_status,
             is_after_hours=payload.is_after_hours,
+            work_description=payload.work_description,
         )
     except service_record_svc.ContractRuleViolation as e:
         raise HTTPException(status_code=422, detail=str(e))

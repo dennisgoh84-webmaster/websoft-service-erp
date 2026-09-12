@@ -33,10 +33,22 @@ interface DraftLine {
   quantity: string
   unitPrice: string
   referenceCodeId: string
+  // Costing (2026-09-12): auto-filled from the chosen product's own
+  // cost, but always open/editable -- the only source of cost for a
+  // non-product (free-text) line.
+  costSgd: string
 }
 
 function emptyLine(): DraftLine {
-  return { productId: '', description: '', unitOfMeasure: '', quantity: '1', unitPrice: '', referenceCodeId: '' }
+  return {
+    productId: '',
+    description: '',
+    unitOfMeasure: '',
+    quantity: '1',
+    unitPrice: '',
+    referenceCodeId: '',
+    costSgd: '',
+  }
 }
 
 export default function QuotationsPage() {
@@ -92,6 +104,8 @@ export default function QuotationsPage() {
       // Reference Monitor: pre-fill from the product's default, still
       // overridable via the line's own Reference code select below.
       referenceCodeId: product.default_reference_code_id ?? '',
+      // Costing: pre-fill from the product's own cost, still editable.
+      costSgd: product.cost_sgd != null ? String(product.cost_sgd) : '',
     })
   }
 
@@ -128,6 +142,7 @@ export default function QuotationsPage() {
             quantity: parseFloat(l.quantity),
             unit_price_sgd: parseFloat(l.unitPrice),
             reference_code_id: l.referenceCodeId || undefined,
+            cost_sgd: l.costSgd ? parseFloat(l.costSgd) : undefined,
           })),
       })
       setMessage(`${q.quotation_number} created (${money(q.total_amount_sgd)} incl. GST).`)
@@ -261,6 +276,7 @@ export default function QuotationsPage() {
                 <th>Unit</th>
                 <th>Qty</th>
                 <th>Unit price</th>
+                <th>Cost</th>
                 <th>Reference code</th>
                 <th>Line total</th>
                 <th></th>
@@ -313,6 +329,17 @@ export default function QuotationsPage() {
                       value={line.unitPrice}
                       onChange={(e) => updateLine(i, { unitPrice: e.target.value })}
                       style={{ width: 90 }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={line.costSgd}
+                      onChange={(e) => updateLine(i, { costSgd: e.target.value })}
+                      style={{ width: 90 }}
+                      title="Product cost, for GP reporting -- open field, doesn't affect the quotation price."
                     />
                   </td>
                   <td>

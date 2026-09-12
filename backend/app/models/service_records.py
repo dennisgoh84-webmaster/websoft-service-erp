@@ -12,7 +12,7 @@ import math
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -100,6 +100,15 @@ class ServiceRecord(Base):
     # applicable Urgent/after-hours multiplier) but the approver can
     # type any value.
     deducted_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Work description (2026-09-12): free text describing what was done
+    # this session -- previously there was no such field at all. Optional,
+    # not previously required, so this doesn't retroactively invalidate
+    # any existing record. Spellchecked in the browser as the submitter
+    # types it (see frontend/src/pages/JobOrderDetailPage.tsx) -- browser-
+    # native only, no AI/external service call (confirmed with Dennis,
+    # 2026-09-12, docs/open-business-decisions.md #35).
+    work_description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

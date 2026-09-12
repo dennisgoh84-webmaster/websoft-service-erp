@@ -102,5 +102,12 @@ class QuotationLine(Base):
     reference_code_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("reference_codes.id"), nullable=True
     )
+    # Costing (2026-09-12): the product cost behind this line, so a
+    # later GP report can compare it against unit_price_sgd/line_total_sgd.
+    # Auto-filled from the chosen product's Product.cost_sgd, but always
+    # an open, overridable field -- a non-product (free-text) line has no
+    # product to default from, so this is the only place its cost comes
+    # from. See app/services/quotations.py for the auto-fill.
+    cost_sgd: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     quotation: Mapped["Quotation"] = relationship(back_populates="lines")

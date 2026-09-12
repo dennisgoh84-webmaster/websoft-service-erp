@@ -67,6 +67,7 @@ def submit_service_record(
     raw_minutes: int,
     completion_status: ServiceRecordCompletion = ServiceRecordCompletion.UNCOMPLETED,
     is_after_hours: bool = False,
+    work_description: str | None = None,
 ) -> ServiceRecord:
     job_order = db.get(JobOrder, job_order_id)
     if job_order is None:
@@ -90,6 +91,7 @@ def submit_service_record(
         outcome=ServiceRecordOutcome.PENDING,
         completion_status=completion_status,
         is_after_hours=is_after_hours,
+        work_description=work_description,
     )
     db.add(record)
     db.flush()

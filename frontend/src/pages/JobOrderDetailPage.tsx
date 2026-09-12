@@ -24,6 +24,7 @@ export default function JobOrderDetailPage() {
   const [minutes, setMinutes] = useState('30')
   const [completionStatus, setCompletionStatus] = useState<ServiceRecordCompletion>('U')
   const [afterHours, setAfterHours] = useState(false)
+  const [workDescription, setWorkDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
 
   function refresh() {
@@ -64,9 +65,11 @@ export default function JobOrderDetailPage() {
         raw_minutes: parseInt(minutes, 10),
         completion_status: completionStatus,
         is_after_hours: afterHours,
+        work_description: workDescription || undefined,
       })
       setCompletionStatus('U')
       setAfterHours(false)
+      setWorkDescription('')
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to log service record')
@@ -280,6 +283,18 @@ export default function JobOrderDetailPage() {
               After office hours / weekend / holiday
             </label>
           </div>
+          <div className="form-row">
+            <label>Work description (optional)</label>
+            <textarea
+              value={workDescription}
+              onChange={(e) => setWorkDescription(e.target.value)}
+              rows={3}
+              style={{ minWidth: 260 }}
+              spellCheck="true"
+              lang="en"
+              placeholder="What was done this session..."
+            />
+          </div>
           <button type="submit">Submit Service Record</button>
         </form>
         <p className="muted" style={{ marginTop: 8 }}>
@@ -300,6 +315,7 @@ export default function JobOrderDetailPage() {
               <th>Completion</th>
               <th>Status</th>
               <th>Outcome</th>
+              <th>Description</th>
             </tr>
           </thead>
           <tbody>
@@ -320,11 +336,12 @@ export default function JobOrderDetailPage() {
                   {r.is_late && <span className="badge exceeded" style={{ marginLeft: 6 }}>late</span>}
                 </td>
                 <td>{r.outcome}</td>
+                <td>{r.work_description ?? <span className="muted">-</span>}</td>
               </tr>
             ))}
             {records.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={7} className="muted">
                   No Service Records yet.
                 </td>
               </tr>

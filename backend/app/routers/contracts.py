@@ -13,6 +13,7 @@ from app.models.groups import AccessLevel
 from app.schemas.schemas import (
     ContractCreate,
     ContractOut,
+    ContractProductLicenseUpdate,
     ContractRenewRequest,
     ContractUpdate,
     ExcessUsageOut,
@@ -161,6 +162,51 @@ def update_contract(
         actor_user_id=current_user.id,
         old_value=old_value or None,
         new_value=new_value or None,
+    )
+    db.commit()
+    db.refresh(contract)
+    return ContractOut.from_model(contract)
+
+
+@router.patch("/{contract_id}/products/{product_id}", response_model=ContractOut)
+def update_contract_product_license(
+    contract_id: uuid.UUID,
+    product_id: uuid.UUID,
+    payload: ContractProductLicenseUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """License tracking (2026-09-12) on one covered product -- separate
+    from PATCH /{contract_id}'s product_ids, which replaces the whole
+    coverage list wholesale (and so would otherwise wipe these two
+    fields every time coverage is edited)."""
+    contract = _get_contract_or_404(db, contract_id, current_user.company_id)
+    contract_product = next((cp for cp in contract.products if cp.product_id == product_id), None)
+    if contract_product is None:
+        raise HTTPException(status_code=404, detail="That product is not covered by this contract")
+
+    old_value = {
+        "license_type": contract_product.license_type.value if contract_product.license_type else None,
+        "number_of_licenses": contract_product.number_of_licenses,
+    }
+    fields = payload.model_dump(exclude_unset=True)
+    if "license_type" in fields:
+        contract_product.license_type = fields["license_type"]
+    if "number_of_licenses" in fields:
+        contract_product.number_of_licenses = fields["number_of_licenses"]
+
+    audit.record(
+        db,
+        entity_type="contract_product",
+        entity_id=contract_product.id,
+        action="updated",
+        actor_user_id=current_user.id,
+        details=f"{contract.contract_number}: {contract_product.product.name}",
+        old_value=old_value,
+        new_value={
+            "license_type": contract_product.license_type.value if contract_product.license_type else None,
+            "number_of_licenses": contract_product.number_of_licenses,
+        },
     )
     db.commit()
     db.refresh(contract)

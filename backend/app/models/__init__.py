@@ -19,6 +19,7 @@ from app.models.payables import (  # noqa: F401
 )
 from app.models.billing import Invoice, InvoiceStatus, InvoiceType  # noqa: F401
 from app.models.payments import (  # noqa: F401
+    CommissionSettings,
     Payment,
     PaymentAllocation,
     PaymentMethod,
@@ -33,6 +34,7 @@ from app.models.contracts import (  # noqa: F401
     ExcessTreatment,
     ExcessUsageRecord,
     ExpiredHoursRecord,
+    LicenseDeploymentType,
 )
 from app.models.core import (  # noqa: F401
     AuditLogEntry,

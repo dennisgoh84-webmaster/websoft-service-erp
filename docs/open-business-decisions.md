@@ -353,6 +353,13 @@ Management is not being worked on for now; the items below are parked
 until Service Operations (and related areas) are finalized, then
 revisited.
 
+**Partial update (2026-09-12, see #33):** a read-only Commission
+*report* (not a payment workflow) was built, which resolves 6.1 and
+6.2 for that report's purposes -- % of GP, triggered by receipt
+allocation. 6.3 (approval), 6.4 (clawback) and 6.5 (payout mechanism)
+remain fully open; there is still no commission approval or payment
+feature anywhere in this system.
+
 6.1. **How are commissions calculated?**
    e.g. flat percentage, tiered by volume, product-specific rates, split
    commissions across multiple salespeople.
@@ -1527,6 +1534,118 @@ three.
    ledger balance as at that date, and the difference) -- this history
    is never overwritten, so a past reconciliation's own numbers don't
    change even if more transactions are added/voided later.
+
+## 32. Sales GP costing: Quotation line cost -> Sales Invoice (raised 2026-09-12)
+
+Requested as: "Sales Quotation Add Costing Open Field when choose
+Non Product, Product Master per item to have costing field per line
+... Purpose of Product cost per line eventually is to produce report
+in accounting sales invoice listing detail with GP."
+
+32.1. **DECIDED by implementation.** `Invoice` is deliberately
+   single-line (see app/models/billing.py's own docstring: "A richer
+   InvoiceLine breakdown is future work ... not a business-rule
+   assumption") and is never raised directly from a Sales Quotation --
+   only from a Contract's annual billing (BILL-001) or an Excess Usage
+   record (SRV-008). Introducing a full multi-line Invoice breakdown to
+   get a literal per-line GP would have meant redoing invoice
+   generation, GST calculation, and every print/PDF template that
+   assumes one amount -- a much bigger change than "add a cost field."
+   Built the smaller, compatible version instead: `QuotationLine.cost_sgd`
+   (open field, defaults from `Product.cost_sgd` when a product is
+   picked) is summed across the quotation that converted into a
+   CONTRACT_ANNUAL invoice's contract, and stored as that invoice's own
+   `cost_sgd` at issue time (a point-in-time snapshot, not a live
+   lookup -- see app/services/billing.py's `_cost_basis_for_contract`).
+   GP is then revenue-per-invoice minus that cost, which is "sales
+   invoice listing detail with GP" at invoice granularity rather than
+   true line-item granularity.
+
+32.2. **DECIDED by implementation.** An EXCESS_USAGE invoice's
+   `cost_sgd` stays null (shown as $0 cost / 100% GP) -- excess support
+   hours have no quotation or product to trace a cost from. This is an
+   implementation default (there is no COGS concept for support labour
+   anywhere in this system), not a claim that excess usage truly costs
+   nothing; revisit if/when labour costing is ever modelled (see #7.2's
+   still-open "what labour cost rate is used for project cost
+   tracking").
+
+## 33. Commission report: formula confirmed, rate is Dennis's to set (raised 2026-09-12)
+
+Requested as: "calculation of commission based on Receipt Applied to
+Sales Invoice with GP calculation per month" -- following on from
+Commission Management being deferred wholesale at #6.
+
+33.1. **DECIDED with Dennis.** Asked which of two common formulas this
+   meant -- a percentage of GP, or a percentage of the raw receipt
+   amount. **Dennis chose % of GP per invoice**, prorated by how much
+   of that invoice a given receipt has actually settled (not the full
+   invoice value if only partially paid), grouped by the month the
+   receipt was received (`Payment.payment_date`), and credited to the
+   invoice's own `Contract.sales_staff_id` -- an existing field, not a
+   new assumption about how sales ownership works (#8.2 is otherwise
+   still open). This only partially resolves #6: it answers 6.1 (how
+   commission is calculated) and 6.2 (when it becomes payable -- on
+   receipt, not invoicing) for the purposes of this report; 6.3
+   (approval), 6.4 (clawback) and 6.5 (payout mechanism) remain open --
+   this is a report showing what commission would be, not a payment
+   workflow.
+
+33.2. **DECIDED with Dennis, built.** The percentage itself was never
+   given a number, and CLAUDE.md is explicit that a business rule like
+   this is never invented -- so it's a plain admin-editable setting
+   (`CommissionSettings.rate_percent`, one row per company, editable
+   from the Commission report screen itself) rather than a hardcoded
+   guess. Defaults to 0% (no commission calculated) until Dennis sets
+   it.
+
+## 34. Company/Individual - Product - License Type (raised 2026-09-12)
+
+Requested as: "Company/Individual - Product - License Type (LOCAL) /
+(RDP) / (WEB) - No of Licenses".
+
+34.1. **DECIDED by implementation.** There is no direct
+   Company/Individual <-> Product link anywhere in this system outside
+   of `ContractProduct` (a Contract's product coverage) -- so license
+   type and count were added there (`license_type`, `number_of_licenses`,
+   both optional) rather than inventing a new, separate link. A
+   licensed product a customer has is therefore tracked per contract
+   that covers it, which matches how every other per-customer/per-
+   product fact in this system already works (contract coverage, not a
+   standalone customer-product master). Named `LicenseDeploymentType`
+   in code to avoid colliding with the unrelated, pre-existing
+   `app.models.licensing.LicenseType` (this system's own module-
+   licensing tier: included/add-on/trial).
+
+34.2. **Known limitation, not raised as a question:** PATCH
+   `/contracts/{id}` (bulk-replacing a contract's product_ids) deletes
+   and recreates every `ContractProduct` row, which would silently wipe
+   any license_type/number_of_licenses already set. A separate PATCH
+   `/contracts/{id}/products/{product_id}` endpoint exists specifically
+   so editing license details doesn't require touching coverage at all;
+   flagged here so a future edit to the coverage-replacement endpoint
+   doesn't reintroduce data loss without noticing this interaction.
+
+## 35. Service Record grammar-check (raised 2026-09-12)
+
+Requested as: "Service record detail to have AI built in Grammar
+Checking during key in."
+
+35.1. **DECIDED with Dennis.** This would mean a live AI API call (a
+   new external dependency, with real latency and per-call cost) every
+   time a Service Record is being typed. Asked whether to use an AI
+   API, rely on the browser's own native spellcheck, or hold the
+   feature entirely. **Dennis chose browser-native only** -- no new
+   dependency, no AI API integration. Revisit once the "AI Assistant"
+   business area (already a candidate in CLAUDE.md's initial scope) is
+   properly scoped, if a real grammar-checker is still wanted then.
+
+35.2. **DECIDED by implementation.** Service Records had no free-text
+   field at all before this (see app/models/service_records.py's
+   original fields -- purely structured: minutes, completion status,
+   after-hours flag). Added an optional `work_description` so there is
+   something for the browser's spellcheck to actually check; existing
+   records simply have it null.
 
 ---
 

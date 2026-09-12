@@ -26,6 +26,7 @@ from app.models.company_individuals import CompanyIndividual
 from app.models.job_orders import JobOrder, JobOrderStatus
 from app.models.company_individuals import CompanyIndividual
 from app.models.payables import BillStatus, SupplierInvoice
+from app.models.payments import CommissionSettings, PaymentAllocation
 from app.models.service_records import ServiceRecord, ServiceRecordOutcome, ServiceRecordStatus
 from app.models.setup import SetupListItem, SetupListType
 from app.services.accounts_receivable import aging_bucket_for
@@ -335,3 +336,98 @@ def gst_return_data(
         "total_input_tax_sgd": total_input,
         "net_gst_payable_sgd": total_output - total_input,
     }
+
+
+# ---- Sales GP + Commission (2026-09-12, docs/open-business-decisions.md #32-#34) ----
+
+
+def sales_gp_rows(
+    db: Session, company_id: uuid.UUID, period_start: date, period_end: date
+) -> list[dict]:
+    """Every invoice issued in the date range with its GP -- see
+    app/models/billing.py's docstring for what cost_sgd is and isn't
+    (a point-in-time snapshot, null treated as zero cost)."""
+    invoices = (
+        db.query(Invoice)
+        .filter(
+            Invoice.company_id == company_id,
+            Invoice.issued_at >= period_start,
+            Invoice.issued_at <= period_end,
+        )
+        .order_by(Invoice.issued_at)
+        .all()
+    )
+    rows = []
+    for inv in invoices:
+        cost = Decimal(inv.cost_sgd) if inv.cost_sgd is not None else Decimal("0.00")
+        gp = Decimal(inv.amount_sgd) - cost
+        gp_percent = (gp / Decimal(inv.amount_sgd) * 100) if Decimal(inv.amount_sgd) else Decimal("0.00")
+        rows.append(
+            {
+                "invoice_id": inv.id,
+                "invoice_number": inv.invoice_number,
+                "issued_at": inv.issued_at,
+                "customer_id": inv.customer_id,
+                "revenue_sgd": Decimal(inv.amount_sgd),
+                "cost_sgd": cost,
+                "gp_sgd": gp,
+                "gp_percent": gp_percent.quantize(Decimal("0.01")),
+                "has_cost_basis": inv.cost_sgd is not None,
+            }
+        )
+    return rows
+
+
+def commission_rate_percent(db: Session, company_id: uuid.UUID) -> Decimal:
+    """The admin-set commission rate (docs/open-business-decisions.md
+    #34) -- zero until Dennis sets one, never invented."""
+    settings = db.get(CommissionSettings, company_id)
+    return Decimal(settings.rate_percent) if settings else Decimal("0.00")
+
+
+def commission_rows(
+    db: Session, company_id: uuid.UUID, period_start: date, period_end: date
+) -> list[dict]:
+    """Commission = rate% x GP, prorated by how much of the invoice a
+    receipt actually settled, one row per (salesperson, month).
+
+    Confirmed with Dennis, 2026-09-12: the formula is a flat percentage
+    of gross profit, triggered by receipt allocation (not by invoicing)
+    -- see PaymentAllocation (app/models/payments.py) for "Receipt
+    Applied to Sales Invoice". The salesperson credited is the
+    invoice's own Contract.sales_staff_id (already a first-class field,
+    not invented here) -- an EXCESS_USAGE invoice's contract is used the
+    same way. "Per month" groups by the receipt's own payment_date.
+    An allocation's amount_sgd is against total_amount_sgd (includes
+    GST), so it's first converted to its share of the invoice's *net*
+    revenue before GP is applied, so GST never inflates commission."""
+    rate = commission_rate_percent(db, company_id)
+    allocations = (
+        db.query(PaymentAllocation)
+        .join(Invoice, PaymentAllocation.invoice_id == Invoice.id)
+        .filter(
+            PaymentAllocation.company_id == company_id,
+        )
+        .all()
+    )
+    totals: dict[tuple[str, uuid.UUID | None], Decimal] = {}
+    for alloc in allocations:
+        invoice = db.get(Invoice, alloc.invoice_id)
+        payment = alloc.payment
+        if payment is None or not (period_start <= payment.payment_date <= period_end):
+            continue
+        contract = db.get(Contract, invoice.contract_id) if invoice.contract_id else None
+        sales_staff_id = contract.sales_staff_id if contract else None
+        if Decimal(invoice.total_amount_sgd) == 0:
+            continue
+        net_share = Decimal(alloc.amount_sgd) * Decimal(invoice.amount_sgd) / Decimal(invoice.total_amount_sgd)
+        gp_ratio = invoice.gp_percent / Decimal(100)
+        commission = (net_share * gp_ratio * rate / Decimal(100)).quantize(Decimal("0.01"))
+        month_key = payment.payment_date.strftime("%Y-%m")
+        key = (month_key, sales_staff_id)
+        totals[key] = totals.get(key, Decimal("0.00")) + commission
+
+    return [
+        {"month": month, "sales_staff_id": staff_id, "commission_sgd": amount}
+        for (month, staff_id), amount in sorted(totals.items())
+    ]

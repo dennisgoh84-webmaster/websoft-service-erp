@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.accounting import AccountType, JournalStatus, VoucherType
 from app.models.catalog import ProductType
 from app.models.payables import BillMatchStatus, BillStatus, PurchaseOrder, PurchaseOrderStatus
-from app.models.contracts import ContractKind, ContractStatus, ExcessTreatment
+from app.models.contracts import ContractKind, ContractStatus, ExcessTreatment, LicenseDeploymentType
 from app.models.company_individuals import CompanyIndividualType
 from app.models.quotations import QuotationStatus
 from app.models.core import UserRole
@@ -554,6 +554,15 @@ class ContractCreate(BaseModel):
 class ContractProductOut(BaseModel):
     product_id: uuid.UUID
     product_name: str
+    # License tracking (2026-09-12): set only for a covered product that
+    # is a licensed software item -- see app/models/contracts.py.
+    license_type: LicenseDeploymentType | None = None
+    number_of_licenses: int | None = None
+
+
+class ContractProductLicenseUpdate(BaseModel):
+    license_type: LicenseDeploymentType | None = None
+    number_of_licenses: int | None = Field(default=None, ge=1)
 
 
 class ContractOut(BaseModel):
@@ -592,7 +601,12 @@ class ContractOut(BaseModel):
             end_date=contract.end_date,
             renewed_from_contract_id=contract.renewed_from_contract_id,
             products=[
-                ContractProductOut(product_id=cp.product_id, product_name=cp.product.name)
+                ContractProductOut(
+                    product_id=cp.product_id,
+                    product_name=cp.product.name,
+                    license_type=cp.license_type,
+                    number_of_licenses=cp.number_of_licenses,
+                )
                 for cp in contract.products
             ],
         )
@@ -673,6 +687,9 @@ class ServiceRecordCreate(BaseModel):
     # exists to derive this from) -- feeds the suggested deduction
     # multiplier only.
     is_after_hours: bool = False
+    # Work description (2026-09-12): optional free text, spellchecked in
+    # the browser as it's typed -- see ServiceRecord.work_description.
+    work_description: str | None = None
 
 
 class ServiceRecordApprove(BaseModel):
@@ -696,6 +713,7 @@ class ServiceRecordOut(BaseModel):
     completion_status: ServiceRecordCompletion
     is_after_hours: bool
     is_late: bool
+    work_description: str | None = None
 
 
 class PendingServiceRecordOut(BaseModel):
@@ -1301,6 +1319,12 @@ class QuotationLineCreate(BaseModel):
     # Overrides the chosen product's default_reference_code_id when set;
     # left unset, create_quotation fills it from that default.
     reference_code_id: uuid.UUID | None = None
+    # Costing (2026-09-12): overrides the chosen product's Product.cost_sgd
+    # when set; left unset, create_quotation fills it from that default.
+    # A non-product line has no default to fall back on -- this is its
+    # only source of cost, so leave it unset only when the line truly has
+    # none (e.g. a discount line).
+    cost_sgd: float | None = None
 
 
 class QuotationLineOut(BaseModel):
@@ -1313,6 +1337,7 @@ class QuotationLineOut(BaseModel):
     unit_price_sgd: float
     line_total_sgd: float
     reference_code_id: uuid.UUID | None
+    cost_sgd: float | None
 
 
 class QuotationCreate(BaseModel):
@@ -1719,6 +1744,56 @@ class GSTReturn(BaseModel):
     total_output_tax_sgd: float
     total_input_tax_sgd: float
     net_gst_payable_sgd: float  # output - input; negative means reclaimable
+
+
+# ---- Sales GP + Commission (2026-09-12, docs/open-business-decisions.md #32-#34) ----
+class SalesGPRow(BaseModel):
+    invoice_id: uuid.UUID
+    invoice_number: str
+    issued_at: datetime
+    customer_id: uuid.UUID
+    customer_name: str
+    revenue_sgd: float
+    cost_sgd: float
+    gp_sgd: float
+    gp_percent: float
+    # False when cost_sgd is a stand-in zero, not a real known cost --
+    # e.g. an EXCESS_USAGE invoice, or a CONTRACT_ANNUAL invoice whose
+    # quotation never had a cost entered on any line.
+    has_cost_basis: bool
+
+
+class SalesGPReport(BaseModel):
+    period_start: date
+    period_end: date
+    rows: list[SalesGPRow]
+    total_revenue_sgd: float
+    total_cost_sgd: float
+    total_gp_sgd: float
+    total_gp_percent: float
+
+
+class CommissionSettingsOut(BaseModel):
+    rate_percent: float
+
+
+class CommissionSettingsUpdate(BaseModel):
+    rate_percent: float = Field(ge=0, le=100)
+
+
+class CommissionRow(BaseModel):
+    month: str  # "YYYY-MM"
+    sales_staff_id: uuid.UUID | None
+    sales_staff_name: str
+    commission_sgd: float
+
+
+class CommissionReport(BaseModel):
+    period_start: date
+    period_end: date
+    rate_percent: float
+    rows: list[CommissionRow]
+    total_commission_sgd: float
 
 
 # ---- Ops Dashboard (personal task tracker, confirmed 2026-09-11) ----

@@ -28,15 +28,22 @@ from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
 from app.models.job_orders import JobOrderStatus
 from app.models.service_records import ServiceRecordOutcome, ServiceRecordStatus
+from app.models.payments import CommissionSettings
 from app.schemas.schemas import (
     AgingReport,
     APAgingReport,
     APAgingRow,
     AgingRow,
+    CommissionReport,
+    CommissionRow,
+    CommissionSettingsOut,
+    CommissionSettingsUpdate,
     ContractOut,
     GSTReturn,
     GSTReturnRow,
     JobOrderOut,
+    SalesGPReport,
+    SalesGPRow,
     ServiceRecordOut,
     TrialBalance,
     TrialBalanceRow,
@@ -716,4 +723,209 @@ def gst_return_report_export_excel(
     return StreamingResponse(
         iter([data]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=gst-return.xlsx"},
+    )
+
+
+# ---- Sales GP (2026-09-12, docs/open-business-decisions.md #32) --------
+
+
+def _sales_gp_report(db: Session, company_id: uuid.UUID, period_start: date, period_end: date) -> SalesGPReport:
+    names = _customer_names(db, company_id)
+    rows = [
+        SalesGPRow(
+            invoice_id=r["invoice_id"],
+            invoice_number=r["invoice_number"],
+            issued_at=r["issued_at"],
+            customer_id=r["customer_id"],
+            customer_name=names.get(r["customer_id"], ""),
+            revenue_sgd=float(r["revenue_sgd"]),
+            cost_sgd=float(r["cost_sgd"]),
+            gp_sgd=float(r["gp_sgd"]),
+            gp_percent=float(r["gp_percent"]),
+            has_cost_basis=r["has_cost_basis"],
+        )
+        for r in reports_svc.sales_gp_rows(db, company_id, period_start, period_end)
+    ]
+    total_revenue = sum((r.revenue_sgd for r in rows), 0.0)
+    total_cost = sum((r.cost_sgd for r in rows), 0.0)
+    total_gp = total_revenue - total_cost
+    return SalesGPReport(
+        period_start=period_start,
+        period_end=period_end,
+        rows=rows,
+        total_revenue_sgd=total_revenue,
+        total_cost_sgd=total_cost,
+        total_gp_sgd=total_gp,
+        total_gp_percent=round(total_gp / total_revenue * 100, 2) if total_revenue else 0.0,
+    )
+
+
+@router.get("/accounting/sales-gp", response_model=SalesGPReport)
+def sales_gp_report(
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    return _sales_gp_report(db, current_user.company_id, period_start, period_end)
+
+
+SALES_GP_EXPORT_FIELDS = ["invoice_number", "issued_date", "customer_name", "revenue_sgd", "cost_sgd", "gp_sgd", "gp_percent"]
+
+
+def _sales_gp_export_rows(report: SalesGPReport) -> list[dict]:
+    # issued_at is a tz-aware datetime -- openpyxl can't write those
+    # ("Excel does not support timezones in datetimes"), and it's more
+    # than a listing needs anyway, so exports get the date only.
+    return [
+        {
+            "invoice_number": r.invoice_number,
+            "issued_date": r.issued_at.date().isoformat(),
+            "customer_name": r.customer_name,
+            "revenue_sgd": r.revenue_sgd,
+            "cost_sgd": r.cost_sgd,
+            "gp_sgd": r.gp_sgd,
+            "gp_percent": r.gp_percent,
+        }
+        for r in report.rows
+    ]
+
+
+@router.get("/accounting/sales-gp/export.csv")
+def sales_gp_report_export_csv(
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    report = _sales_gp_report(db, current_user.company_id, period_start, period_end)
+    rows = _sales_gp_export_rows(report)
+    _audit_export(db, current_user, "Accounting Report: Sales GP", "csv", len(rows))
+    csv_text = exports.rows_to_csv(SALES_GP_EXPORT_FIELDS, rows)
+    return StreamingResponse(
+        iter([csv_text]), media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sales-gp-report.csv"},
+    )
+
+
+@router.get("/accounting/sales-gp/export.xlsx")
+def sales_gp_report_export_excel(
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    report = _sales_gp_report(db, current_user.company_id, period_start, period_end)
+    rows = _sales_gp_export_rows(report)
+    fields = SALES_GP_EXPORT_FIELDS
+    _audit_export(db, current_user, "Accounting Report: Sales GP", "excel", len(rows))
+    data = exports.rows_to_excel(fields, rows, sheet_name="Sales GP")
+    return StreamingResponse(
+        iter([data]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=sales-gp-report.xlsx"},
+    )
+
+
+# ---- Commission (2026-09-12, docs/open-business-decisions.md #33-#34) --
+
+
+@router.get("/accounting/commission-settings", response_model=CommissionSettingsOut)
+def get_commission_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    return CommissionSettingsOut(rate_percent=float(reports_svc.commission_rate_percent(db, current_user.company_id)))
+
+
+@router.put("/accounting/commission-settings", response_model=CommissionSettingsOut)
+def update_commission_settings(
+    payload: CommissionSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.FULL)),
+):
+    settings = db.get(CommissionSettings, current_user.company_id)
+    old_rate = float(settings.rate_percent) if settings else 0.0
+    if settings is None:
+        settings = CommissionSettings(company_id=current_user.company_id, rate_percent=payload.rate_percent)
+        db.add(settings)
+    else:
+        settings.rate_percent = payload.rate_percent
+    db.flush()
+    audit.record(
+        db,
+        entity_type="commission_settings",
+        entity_id=current_user.company_id,
+        action="updated",
+        actor_user_id=current_user.id,
+        old_value={"rate_percent": old_rate},
+        new_value={"rate_percent": payload.rate_percent},
+    )
+    db.commit()
+    return CommissionSettingsOut(rate_percent=float(settings.rate_percent))
+
+
+def _commission_report(db: Session, company_id: uuid.UUID, period_start: date, period_end: date) -> CommissionReport:
+    names = _user_names(db, company_id)
+    rate = reports_svc.commission_rate_percent(db, company_id)
+    rows = [
+        CommissionRow(
+            month=r["month"],
+            sales_staff_id=r["sales_staff_id"],
+            sales_staff_name=names.get(r["sales_staff_id"], "Unassigned") if r["sales_staff_id"] else "Unassigned",
+            commission_sgd=float(r["commission_sgd"]),
+        )
+        for r in reports_svc.commission_rows(db, company_id, period_start, period_end)
+    ]
+    return CommissionReport(
+        period_start=period_start,
+        period_end=period_end,
+        rate_percent=float(rate),
+        rows=rows,
+        total_commission_sgd=sum((r.commission_sgd for r in rows), 0.0),
+    )
+
+
+@router.get("/accounting/commission", response_model=CommissionReport)
+def commission_report(
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    return _commission_report(db, current_user.company_id, period_start, period_end)
+
+
+@router.get("/accounting/commission/export.csv")
+def commission_report_export_csv(
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    report = _commission_report(db, current_user.company_id, period_start, period_end)
+    fields = ["month", "sales_staff_name", "commission_sgd"]
+    rows = [{k: v for k, v in r.model_dump().items() if k in fields} for r in report.rows]
+    _audit_export(db, current_user, "Accounting Report: Commission", "csv", len(rows))
+    csv_text = exports.rows_to_csv(fields, rows)
+    return StreamingResponse(
+        iter([csv_text]), media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=commission-report.csv"},
+    )
+
+
+@router.get("/accounting/commission/export.xlsx")
+def commission_report_export_excel(
+    period_start: date,
+    period_end: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(ACCOUNTING_MODULE, AccessLevel.VIEW)),
+):
+    report = _commission_report(db, current_user.company_id, period_start, period_end)
+    fields = ["month", "sales_staff_name", "commission_sgd"]
+    rows = [{k: v for k, v in r.model_dump().items() if k in fields} for r in report.rows]
+    _audit_export(db, current_user, "Accounting Report: Commission", "excel", len(rows))
+    data = exports.rows_to_excel(fields, rows, sheet_name="Commission")
+    return StreamingResponse(
+        iter([data]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=commission-report.xlsx"},
     )

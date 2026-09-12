@@ -18,9 +18,35 @@ from sqlalchemy.orm import Session
 from app.models.billing import Invoice, InvoiceType
 from app.models.contracts import Contract, ExcessUsageRecord
 from app.models.company_individuals import CompanyIndividual
+from app.models.quotations import Quotation
 from app.services import audit
 from app.services.numbering import next_document_number
 from app.services.tax import apply_gst
+
+
+def _cost_basis_for_contract(db: Session, contract: Contract) -> Decimal | None:
+    """GP costing (2026-09-12, docs/open-business-decisions.md #32): a
+    CONTRACT_ANNUAL invoice's cost is traced back to the Sales Quotation
+    that converted into this contract (Quotation.converted_contract_id /
+    converted_annual_contract_id -- see app/models/quotations.py), summing
+    that quotation's own QuotationLine.cost_sgd values. None (no known
+    cost basis) if this contract wasn't created from a quotation, or the
+    quotation's lines simply never had a cost entered."""
+    quotation = (
+        db.query(Quotation)
+        .filter(
+            (Quotation.converted_contract_id == contract.id)
+            | (Quotation.converted_annual_contract_id == contract.id)
+        )
+        .first()
+    )
+    if quotation is None:
+        return None
+    total = sum(
+        (Decimal(line.cost_sgd) for line in quotation.lines if line.cost_sgd is not None),
+        start=Decimal("0.00"),
+    )
+    return total if any(line.cost_sgd is not None for line in quotation.lines) else None
 
 
 def _due_date_for(db: Session, customer_id: uuid.UUID, issued_on: date) -> date | None:
@@ -42,6 +68,7 @@ def _build_invoice(
     net_amount: Decimal,
     contract_id: uuid.UUID | None = None,
     excess_usage_record_id: uuid.UUID | None = None,
+    cost_sgd: Decimal | None = None,
 ) -> Invoice:
     """Shared construction: numbering, GST, and due date."""
     issued_on = date.today()
@@ -62,6 +89,7 @@ def _build_invoice(
         gst_amount_sgd=gst_amount,
         total_amount_sgd=total,
         due_date=_due_date_for(db, customer_id, issued_on),
+        cost_sgd=cost_sgd,
     )
 
 
@@ -81,6 +109,7 @@ def issue_contract_annual_invoice(
         ),
         net_amount=Decimal(contract.contract_value_sgd),
         contract_id=contract.id,
+        cost_sgd=_cost_basis_for_contract(db, contract),
     )
     db.add(invoice)
     db.flush()
@@ -100,6 +129,7 @@ def issue_contract_annual_invoice(
             "net_sgd": str(invoice.amount_sgd),
             "gst_sgd": str(invoice.gst_amount_sgd),
             "total_sgd": str(invoice.total_amount_sgd),
+            "cost_sgd": str(invoice.cost_sgd) if invoice.cost_sgd is not None else None,
         },
     )
     return invoice

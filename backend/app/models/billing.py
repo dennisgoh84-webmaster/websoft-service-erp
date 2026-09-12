@@ -10,6 +10,16 @@ app/models/tax.py). `amount_sgd` is the NET amount excluding GST -- it
 stays the revenue figure, since GST collected is a liability owed to
 IRAS, not income. `gst_amount_sgd` and `total_amount_sgd` carry the tax
 and the amount the customer actually owes.
+
+GP costing (2026-09-12, docs/open-business-decisions.md #32): `cost_sgd`
+is a snapshot taken at issue time, not a live lookup, so a later change
+to a Product's cost never rewrites a past invoice's own GP. For a
+CONTRACT_ANNUAL invoice it is the sum of QuotationLine.cost_sgd for the
+quotation that converted into this invoice's contract (see
+app/services/billing.py); for EXCESS_USAGE it stays null (treated as
+zero cost for GP purposes) since excess support hours have no product
+cost basis in this system today -- an implementation default, not a
+claim that excess usage truly has zero cost.
 """
 import enum
 import uuid
@@ -70,6 +80,9 @@ class Invoice(Base):
     gst_amount_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     # What the customer owes: net + GST.
     total_amount_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    # GP costing -- see this module's docstring. Null means "no cost
+    # basis known" (shown as zero cost / 100% GP in reports), not "free".
+    cost_sgd: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     # AR: due date comes from the customer's payment terms (confirmed
     # 2026-09-10: terms vary per customer -- see CompanyIndividual.payment_terms_days).
@@ -95,3 +108,19 @@ class Invoice(Base):
         return max(
             Decimal(self.total_amount_sgd) - Decimal(self.amount_paid_sgd), Decimal("0.00")
         )
+
+    @property
+    def gp_sgd(self) -> Decimal:
+        """Gross profit: net revenue minus product cost. cost_sgd of
+        None is treated as zero cost (100% GP), not unknown -- see this
+        module's docstring."""
+        cost = Decimal(self.cost_sgd) if self.cost_sgd is not None else Decimal("0.00")
+        return Decimal(self.amount_sgd) - cost
+
+    @property
+    def gp_percent(self) -> Decimal:
+        """GP as a percentage of net revenue. 0 when there is no revenue
+        to divide by, rather than raising."""
+        if Decimal(self.amount_sgd) == 0:
+            return Decimal("0.00")
+        return (self.gp_sgd / Decimal(self.amount_sgd) * 100).quantize(Decimal("0.01"))

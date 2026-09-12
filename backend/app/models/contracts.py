@@ -210,11 +210,30 @@ class ExpiredHoursRecord(Base):
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class LicenseDeploymentType(str, enum.Enum):
+    """Deployment mode of a licensed software product covered by a
+    contract (2026-09-12) -- LOCAL (installed on the customer's own
+    machine), RDP (remote desktop/hosted access), WEB (browser-based).
+    Named to avoid colliding with app.models.licensing.LicenseType,
+    which is an unrelated concept (this system's own module-licensing
+    tier: included/add-on/trial)."""
+
+    LOCAL = "local"
+    RDP = "rdp"
+    WEB = "web"
+
+
 class ContractProduct(Base):
     """Product coverage (confirmed 2026-09-11): which catalog items a
     contract actually covers, e.g. "Server maintenance" and "Network
     support" but not other services. A plain link -- it doesn't change
-    how hours/value/rate work, it's what the contract is scoped to."""
+    how hours/value/rate work, it's what the contract is scoped to.
+
+    license_type/number_of_licenses (2026-09-12) are optional, set only
+    when the covered product is a licensed software item -- e.g. 5
+    (RDP) licenses of a hosted accounting package. Left null for
+    coverage that isn't a per-seat license at all (e.g. "Server
+    maintenance")."""
 
     __tablename__ = "contract_products"
     __table_args__ = (UniqueConstraint("contract_id", "product_id", name="uq_contract_product"),)
@@ -224,6 +243,10 @@ class ContractProduct(Base):
     )
     contract_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contracts.id"), nullable=False)
     product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id"), nullable=False)
+    license_type: Mapped[LicenseDeploymentType | None] = mapped_column(
+        Enum(LicenseDeploymentType, name="license_deployment_type"), nullable=True
+    )
+    number_of_licenses: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     contract: Mapped["Contract"] = relationship(back_populates="products")
     product: Mapped["Product"] = relationship()  # noqa: F821

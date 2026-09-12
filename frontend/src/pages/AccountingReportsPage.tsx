@@ -16,7 +16,9 @@ import {
   type AgingReport,
   type APAgingReport,
   type BankAccount,
+  type CommissionReport,
   type GSTReturn,
+  type SalesGPReport,
   type TaxCode,
   type TrialBalance,
 } from '../lib/api'
@@ -31,12 +33,21 @@ type ReportType =
   | 'chart-of-accounts'
   | 'tax-types'
   | 'gst-return'
+  | 'sales-gp'
+  | 'commission'
 
 const REPORT_GROUPS: { label: string; options: { value: ReportType; label: string }[] }[] = [
   { label: 'AR', options: [{ value: 'ar-aging', label: 'AR Aging' }] },
   { label: 'AP', options: [{ value: 'ap-aging', label: 'AP Aging' }] },
   { label: 'Bank', options: [{ value: 'bank-accounts', label: 'Bank Accounts Listing' }] },
   { label: 'GL', options: [{ value: 'trial-balance', label: 'Trial Balance' }] },
+  {
+    label: 'Sales',
+    options: [
+      { value: 'sales-gp', label: 'Sales Invoice Listing (GP)' },
+      { value: 'commission', label: 'Commission' },
+    ],
+  },
   {
     label: 'Supporting',
     options: [
@@ -69,8 +80,12 @@ export default function AccountingReportsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [taxCodes, setTaxCodes] = useState<TaxCode[]>([])
   const [gstReturn, setGstReturn] = useState<GSTReturn | null>(null)
+  const [salesGP, setSalesGP] = useState<SalesGPReport | null>(null)
+  const [commission, setCommission] = useState<CommissionReport | null>(null)
+  const [commissionRateInput, setCommissionRateInput] = useState('')
+  const [savingRate, setSavingRate] = useState(false)
 
-  const usesDateRange = reportType === 'gst-return'
+  const usesDateRange = reportType === 'gst-return' || reportType === 'sales-gp' || reportType === 'commission'
 
   useEffect(() => {
     setError(null)
@@ -89,8 +104,29 @@ export default function AccountingReportsPage() {
       api.listTaxCodes().then(setTaxCodes).catch((e) => setError(e.message))
     } else if (reportType === 'gst-return') {
       api.reportGstReturn(periodStart, periodEnd).then(setGstReturn).catch((e) => setError(e.message))
+    } else if (reportType === 'sales-gp') {
+      api.reportSalesGP(periodStart, periodEnd).then(setSalesGP).catch((e) => setError(e.message))
+    } else if (reportType === 'commission') {
+      api.reportCommission(periodStart, periodEnd).then((r) => {
+        setCommission(r)
+        setCommissionRateInput(String(r.rate_percent))
+      }).catch((e) => setError(e.message))
     }
   }, [reportType, asAt, periodStart, periodEnd])
+
+  async function onSaveCommissionRate() {
+    setError(null)
+    setSavingRate(true)
+    try {
+      await api.updateCommissionSettings(Number(commissionRateInput) || 0)
+      const r = await api.reportCommission(periodStart, periodEnd)
+      setCommission(r)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save commission rate')
+    } finally {
+      setSavingRate(false)
+    }
+  }
 
   async function onExport(format: string) {
     setError(null)
@@ -108,6 +144,16 @@ export default function AccountingReportsPage() {
       downloadBlob(format === 'csv' ? await api.exportAccountsCsv() : await api.exportAccountsExcel(), `chart-of-accounts.${ext}`)
     } else if (reportType === 'tax-types') {
       downloadBlob(format === 'csv' ? await api.exportTaxCodesCsv() : await api.exportTaxCodesExcel(), `tax-types.${ext}`)
+    } else if (reportType === 'sales-gp') {
+      downloadBlob(
+        format === 'csv' ? await api.exportSalesGPReportCsv(periodStart, periodEnd) : await api.exportSalesGPReportExcel(periodStart, periodEnd),
+        `sales-gp-report.${ext}`,
+      )
+    } else if (reportType === 'commission') {
+      downloadBlob(
+        format === 'csv' ? await api.exportCommissionReportCsv(periodStart, periodEnd) : await api.exportCommissionReportExcel(periodStart, periodEnd),
+        `commission-report.${ext}`,
+      )
     } else if (reportType === 'gst-return') {
       downloadBlob(
         format === 'csv' ? await api.exportGstReturnCsv(periodStart, periodEnd) : await api.exportGstReturnExcel(periodStart, periodEnd),
@@ -472,6 +518,147 @@ export default function AccountingReportsPage() {
                     <tr>
                       <td colSpan={4} className="muted">
                         No tax types yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {reportType === 'sales-gp' && salesGP && (
+          <>
+            <h2>
+              Sales Invoice Listing (GP): {salesGP.period_start} to {salesGP.period_end}
+            </h2>
+            <p className="muted">
+              GP = revenue (net of GST) minus product cost. A row without a cost basis (no dot
+              below) shows cost as $0.00 -- that's "unknown", not "free": either the invoice has no
+              linked quotation (e.g. Excess Usage) or its quotation lines never had a cost entered.
+            </p>
+            <div className="stat-grid">
+              <div className="card stat-tile">
+                <div className="stat-value stat-value-text">{money(salesGP.total_revenue_sgd)}</div>
+                <div className="stat-label">Total revenue</div>
+              </div>
+              <div className="card stat-tile">
+                <div className="stat-value stat-value-text">{money(salesGP.total_cost_sgd)}</div>
+                <div className="stat-label">Total cost</div>
+              </div>
+              <div className="card stat-tile">
+                <div className="stat-value stat-value-text">{money(salesGP.total_gp_sgd)}</div>
+                <div className="stat-label">Total GP</div>
+              </div>
+              <div className="card stat-tile">
+                <div className="stat-value stat-value-text">{salesGP.total_gp_percent}%</div>
+                <div className="stat-label">Overall GP%</div>
+              </div>
+            </div>
+            <div className="report-table-wrap" style={{ overflowX: 'auto' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Revenue</th>
+                    <th>Cost</th>
+                    <th>GP</th>
+                    <th>GP%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesGP.rows.map((r) => (
+                    <tr key={r.invoice_id}>
+                      <td>{r.invoice_number}</td>
+                      <td>{r.issued_at.slice(0, 10)}</td>
+                      <td>{r.customer_name}</td>
+                      <td>{money(r.revenue_sgd)}</td>
+                      <td>
+                        {money(r.cost_sgd)}
+                        {!r.has_cost_basis && (
+                          <span className="muted" title="No known cost basis for this invoice">
+                            {' '}
+                            *
+                          </span>
+                        )}
+                      </td>
+                      <td>{money(r.gp_sgd)}</td>
+                      <td>{r.gp_percent}%</td>
+                    </tr>
+                  ))}
+                  {salesGP.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="muted">
+                        No invoices in this date range.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {reportType === 'commission' && commission && (
+          <>
+            <h2>
+              Commission: {commission.period_start} to {commission.period_end}
+            </h2>
+            <p className="muted">
+              Formula (confirmed with Dennis, 2026-09-12): rate % of gross profit, applied to the
+              portion of an invoice a receipt has actually settled -- grouped by the month the
+              receipt was received, and credited to the invoice's own contract salesperson.
+            </p>
+            <div className="filter-bar">
+              <div className="form-row" style={{ margin: 0 }}>
+                <label>Commission rate %</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={commissionRateInput}
+                  onChange={(e) => setCommissionRateInput(e.target.value)}
+                  style={{ width: 90 }}
+                />
+              </div>
+              <button type="button" onClick={onSaveCommissionRate} disabled={savingRate}>
+                {savingRate ? 'Saving...' : 'Save rate'}
+              </button>
+            </div>
+            <div className="stat-grid">
+              <div className="card stat-tile">
+                <div className="stat-value stat-value-text">{commission.rate_percent}%</div>
+                <div className="stat-label">Current rate</div>
+              </div>
+              <div className="card stat-tile">
+                <div className="stat-value stat-value-text">{money(commission.total_commission_sgd)}</div>
+                <div className="stat-label">Total commission</div>
+              </div>
+            </div>
+            <div className="report-table-wrap" style={{ overflowX: 'auto' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Salesperson</th>
+                    <th>Commission</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commission.rows.map((r, i) => (
+                    <tr key={`${r.month}-${r.sales_staff_id ?? 'none'}-${i}`}>
+                      <td>{r.month}</td>
+                      <td>{r.sales_staff_name}</td>
+                      <td>{money(r.commission_sgd)}</td>
+                    </tr>
+                  ))}
+                  {commission.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="muted">
+                        No receipts applied to invoices in this date range.
                       </td>
                     </tr>
                   )}

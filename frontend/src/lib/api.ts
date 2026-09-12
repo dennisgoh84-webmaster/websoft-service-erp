@@ -422,9 +422,15 @@ export type ContractStatus = 'draft' | 'active' | 'exceeded' | 'expired' | 'rene
  * neither -- work is billed off the contract's reference hourly_rate_sgd. */
 export type ContractKind = 'service_support' | 'annual' | 'ad_hoc'
 
+export type LicenseDeploymentType = 'local' | 'rdp' | 'web'
+
 export interface ContractProductCoverage {
   product_id: string
   product_name: string
+  /** License tracking (2026-09-12): set only when this covered product
+   * is a licensed software item. */
+  license_type: LicenseDeploymentType | null
+  number_of_licenses: number | null
 }
 
 export interface Contract {
@@ -597,6 +603,9 @@ export interface ServiceRecord {
   completion_status: ServiceRecordCompletion
   is_after_hours: boolean
   is_late: boolean
+  /** Free text describing the work done this session (2026-09-12) --
+   * optional, spellchecked in the browser as it's typed. */
+  work_description: string | null
 }
 
 /** One row on the Service Record Approval page -- a Submitted record
@@ -918,6 +927,45 @@ export interface GSTReturn {
   net_gst_payable_sgd: number
 }
 
+// ---- Sales GP + Commission (2026-09-12) ----
+export interface SalesGPRow {
+  invoice_id: string
+  invoice_number: string
+  issued_at: string
+  customer_id: string
+  customer_name: string
+  revenue_sgd: number
+  cost_sgd: number
+  gp_sgd: number
+  gp_percent: number
+  has_cost_basis: boolean
+}
+
+export interface SalesGPReport {
+  period_start: string
+  period_end: string
+  rows: SalesGPRow[]
+  total_revenue_sgd: number
+  total_cost_sgd: number
+  total_gp_sgd: number
+  total_gp_percent: number
+}
+
+export interface CommissionRow {
+  month: string
+  sales_staff_id: string | null
+  sales_staff_name: string
+  commission_sgd: number
+}
+
+export interface CommissionReport {
+  period_start: string
+  period_end: string
+  rate_percent: number
+  rows: CommissionRow[]
+  total_commission_sgd: number
+}
+
 // ---- Ops Dashboard (personal task tracker, confirmed 2026-09-11) ----
 export type OpsTaskStatus = 'not_started' | 'in_progress' | 'watch' | 'blocked' | 'done'
 
@@ -1164,6 +1212,9 @@ export interface QuotationLine {
   unit_price_sgd: number
   line_total_sgd: number
   reference_code_id: string | null
+  /** Costing (2026-09-12): defaults from the chosen product's cost_sgd;
+   * the only source of cost for a non-product (free-text) line. */
+  cost_sgd: number | null
 }
 
 export interface Quotation {
@@ -1494,6 +1545,15 @@ export const api = {
   }) => request<Contract>('/contracts', { method: 'POST', body: JSON.stringify(payload) }),
   updateContract: (id: string, payload: { sales_staff_id?: string | null; product_ids?: string[] }) =>
     request<Contract>(`/contracts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  updateContractProductLicense: (
+    contractId: string,
+    productId: string,
+    payload: { license_type?: LicenseDeploymentType | null; number_of_licenses?: number | null },
+  ) =>
+    request<Contract>(`/contracts/${contractId}/products/${productId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
   activateContract: (id: string) => request<Contract>(`/contracts/${id}/activate`, { method: 'POST' }),
   renewContract: (
     id: string,
@@ -1607,6 +1667,7 @@ export const api = {
     raw_minutes: number
     completion_status?: ServiceRecordCompletion
     is_after_hours?: boolean
+    work_description?: string | null
   }) => request<ServiceRecord>('/service-records', { method: 'POST', body: JSON.stringify(payload) }),
   listPendingServiceRecordApprovals: () => request<PendingServiceRecord[]>('/service-records/pending-approval'),
   approveServiceRecord: (id: string, deducted_minutes: number) =>
@@ -1917,6 +1978,7 @@ export const api = {
       quantity: number
       unit_price_sgd: number
       reference_code_id?: string | null
+      cost_sgd?: number | null
     }[]
   }) => request<Quotation>('/quotations', { method: 'POST', body: JSON.stringify(payload) }),
   sendQuotation: (id: string) => request<Quotation>(`/quotations/${id}/send`, { method: 'POST' }),
@@ -1977,6 +2039,26 @@ export const api = {
     requestBlob(`/reports/accounting/gst-return/export.csv${qs({ period_start, period_end })}`),
   exportGstReturnExcel: (period_start: string, period_end: string) =>
     requestBlob(`/reports/accounting/gst-return/export.xlsx${qs({ period_start, period_end })}`),
+
+  reportSalesGP: (period_start: string, period_end: string) =>
+    request<SalesGPReport>(`/reports/accounting/sales-gp${qs({ period_start, period_end })}`),
+  exportSalesGPReportCsv: (period_start: string, period_end: string) =>
+    requestBlob(`/reports/accounting/sales-gp/export.csv${qs({ period_start, period_end })}`),
+  exportSalesGPReportExcel: (period_start: string, period_end: string) =>
+    requestBlob(`/reports/accounting/sales-gp/export.xlsx${qs({ period_start, period_end })}`),
+
+  reportCommission: (period_start: string, period_end: string) =>
+    request<CommissionReport>(`/reports/accounting/commission${qs({ period_start, period_end })}`),
+  exportCommissionReportCsv: (period_start: string, period_end: string) =>
+    requestBlob(`/reports/accounting/commission/export.csv${qs({ period_start, period_end })}`),
+  exportCommissionReportExcel: (period_start: string, period_end: string) =>
+    requestBlob(`/reports/accounting/commission/export.xlsx${qs({ period_start, period_end })}`),
+  getCommissionSettings: () => request<{ rate_percent: number }>('/reports/accounting/commission-settings'),
+  updateCommissionSettings: (rate_percent: number) =>
+    request<{ rate_percent: number }>('/reports/accounting/commission-settings', {
+      method: 'PUT',
+      body: JSON.stringify({ rate_percent }),
+    }),
 
   // ---- GL Types ----
   listGLTypes: (includeInactive = false) =>
