@@ -9,8 +9,7 @@ import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type CompanyIndividual, type PurchaseOrder } from '../lib/api'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 const PO_BADGE: Record<string, string> = {
   draft: 'draft',
@@ -118,7 +117,7 @@ export default function PurchaseOrdersPage() {
       setError(`${supplierName(po.supplier_id)} has no phone number on file -- add one on the Company/Individual page first.`)
       return
     }
-    const text = `Purchase Order ${po.po_number}, SGD ${money(po.total_amount_sgd)} -- ${po.description}. PDF to follow.`
+    const text = `Purchase Order ${po.po_number}, ${money(po.total_amount_sgd)} -- ${po.description}. PDF to follow.`
     window.open(`https://wa.me/${waNumber(supplier.phone)}?text=${encodeURIComponent(text)}`, '_blank')
   }
 

@@ -5,8 +5,7 @@ import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type CompanyIndividual, type SupplierPayment } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 export default function PaymentVoucherPrintPage() {
   const { id } = useParams<{ id: string }>()
@@ -89,7 +88,7 @@ export default function PaymentVoucherPrintPage() {
       <div className="totals-strip">
         <div className="totals-box totals-box-grand">
           <div>Amount Paid</div>
-          <div className="totals-value">S$ {money(payment.amount_sgd)}</div>
+          <div className="totals-value">{money(payment.amount_sgd)}</div>
         </div>
       </div>
 
@@ -116,7 +115,7 @@ export default function PaymentVoucherPrintPage() {
 
       {payment.unallocated_sgd > 0 && (
         <p className="muted" style={{ marginTop: 16 }}>
-          SGD {money(payment.unallocated_sgd)} unallocated.
+          {money(payment.unallocated_sgd)} unallocated.
         </p>
       )}
 

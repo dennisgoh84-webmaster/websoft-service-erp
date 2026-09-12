@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type CompanyIndividual, type SupplierInvoice, type SupplierPayment } from '../lib/api'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 export default function PaymentVoucherPage() {
   const [suppliers, setSuppliers] = useState<CompanyIndividual[]>([])
@@ -100,7 +99,7 @@ export default function PaymentVoucherPage() {
       setError(`${supplierName(p.supplier_id)} has no phone number on file -- add one on the Company/Individual page first.`)
       return
     }
-    const text = `Payment Voucher ${p.voucher_number}, SGD ${money(p.amount_sgd)}. PDF to follow.`
+    const text = `Payment Voucher ${p.voucher_number}, ${money(p.amount_sgd)}. PDF to follow.`
     window.open(`https://wa.me/${supplier.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank')
   }
 

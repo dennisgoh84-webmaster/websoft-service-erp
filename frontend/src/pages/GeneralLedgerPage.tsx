@@ -1,8 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type Account, type JournalEntry, type TrialBalance } from '../lib/api'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 interface DraftLine {
   accountId: string
@@ -301,7 +300,7 @@ export default function GeneralLedgerPage() {
                     <span className="muted">
                       {draftDebit === 0 && draftCredit === 0
                         ? 'Enter at least one debit and one matching credit.'
-                        : `Out of balance by SGD ${money(Math.abs(draftDebit - draftCredit))}.`}
+                        : `Out of balance by ${money(Math.abs(draftDebit - draftCredit))}.`}
                     </span>
                   )}
                 </td>

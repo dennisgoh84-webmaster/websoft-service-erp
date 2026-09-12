@@ -2,8 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type Product, type ProductType, type ReferenceCode } from '../lib/api'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 export default function ProductCatalogPage() {
   const [items, setItems] = useState<Product[]>([])

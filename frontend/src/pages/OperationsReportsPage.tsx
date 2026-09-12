@@ -24,6 +24,7 @@ import {
   type StaffUser,
 } from '../lib/api'
 import { isoToMonth, monthEndISO, monthStartISO } from '../lib/period'
+import { formatMoney as money } from '../lib/format'
 
 type ReportType = 'contracts' | 'job-orders' | 'service-records' | 'customer-product-usage'
 
@@ -421,7 +422,7 @@ export default function OperationsReportsPage() {
                     <td>{c.contracted_hours.toFixed(1)}</td>
                     <td>{c.consumed_hours.toFixed(1)}</td>
                     <td>{c.remaining_hours.toFixed(1)}</td>
-                    <td>{c.contract_value_sgd.toFixed(2)}</td>
+                    <td>{money(c.contract_value_sgd)}</td>
                     <td>{c.start_date}</td>
                     <td>{c.end_date}</td>
                   </tr>

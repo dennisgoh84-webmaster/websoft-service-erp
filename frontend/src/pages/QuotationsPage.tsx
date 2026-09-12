@@ -11,8 +11,7 @@ import {
   type QuotationStatus,
   type ReferenceCode,
 } from '../lib/api'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 // wa.me needs digits only (country code + number, no "+", spaces or dashes).
 function waNumber(phone: string): string {
@@ -131,7 +130,7 @@ export default function QuotationsPage() {
             reference_code_id: l.referenceCodeId || undefined,
           })),
       })
-      setMessage(`${q.quotation_number} created (SGD ${money(q.total_amount_sgd)} incl. GST).`)
+      setMessage(`${q.quotation_number} created (${money(q.total_amount_sgd)} incl. GST).`)
       setCustomerId('')
       setValidUntil('')
       setNotes('')
@@ -207,7 +206,7 @@ export default function QuotationsPage() {
       setError(`${customerName(q.customer_id)} has no phone number on file -- add one on the Company/Individual page first.`)
       return
     }
-    const text = `Quotation ${q.quotation_number}, SGD ${money(q.total_amount_sgd)}. PDF to follow.`
+    const text = `Quotation ${q.quotation_number}, ${money(q.total_amount_sgd)}. PDF to follow.`
     window.open(`https://wa.me/${waNumber(customer.phone)}?text=${encodeURIComponent(text)}`, '_blank')
   }
 

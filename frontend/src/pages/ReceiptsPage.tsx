@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type CompanyIndividual, type Invoice, type Payment } from '../lib/api'
+import { formatMoney as money } from '../lib/format'
 
 const METHODS = [
   { value: 'bank_transfer', label: 'Bank transfer' },
@@ -12,8 +13,6 @@ const METHODS = [
   { value: 'credit_card', label: 'Credit card' },
   { value: 'other', label: 'Other' },
 ]
-
-const money = (n: number) => n.toFixed(2)
 
 export default function ReceiptsPage() {
   const [customers, setCustomers] = useState<CompanyIndividual[]>([])
@@ -119,7 +118,7 @@ export default function ReceiptsPage() {
       setError(`${customerName(p.customer_id)} has no phone number on file -- add one on the Company/Individual page first.`)
       return
     }
-    const text = `Receipt ${p.voucher_number}, SGD ${money(p.amount_sgd)}. PDF to follow.`
+    const text = `Receipt ${p.voucher_number}, ${money(p.amount_sgd)}. PDF to follow.`
     window.open(`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank')
   }
 

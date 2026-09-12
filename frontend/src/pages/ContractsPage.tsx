@@ -11,6 +11,7 @@ import {
   type StaffUser,
 } from '../lib/api'
 import { isoToMonth, monthEndISO, monthStartISO } from '../lib/period'
+import { formatMoney as money } from '../lib/format'
 
 const KIND_LABELS: Record<ContractKind, string> = {
   service_support: 'Service Support (deduct hrs)',
@@ -319,7 +320,7 @@ export default function ContractsPage() {
                   </td>
                   <td>
                     {c.contract_kind === 'ad_hoc' ? (
-                      <span className="muted">SGD {c.hourly_rate_sgd?.toFixed(2)}/hr</span>
+                      <span className="muted">{c.hourly_rate_sgd != null ? money(c.hourly_rate_sgd) : '-'}/hr</span>
                     ) : c.contract_kind === 'annual' ? (
                       <span className="muted">not hour-tracked</span>
                     ) : (

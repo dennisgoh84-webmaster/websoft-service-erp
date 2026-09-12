@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type DashboardSummary } from '../lib/api'
+import { formatMoney as money } from '../lib/format'
 import { useAuth } from '../lib/AuthContext'
 
 function Stat({
@@ -74,24 +75,24 @@ export default function DashboardPage() {
         <Stat
           small
           label="AR outstanding"
-          value={`SGD ${summary.ar_outstanding_sgd.toFixed(2)}`}
-          hint={`incl. SGD ${summary.ar_overdue_sgd.toFixed(2)} overdue`}
+          value={money(summary.ar_outstanding_sgd)}
+          hint={`incl. ${money(summary.ar_overdue_sgd)} overdue`}
           to="/invoices"
         />
         <Stat
           small
           label="AP outstanding"
-          value={`SGD ${summary.ap_outstanding_sgd.toFixed(2)}`}
-          hint={`incl. SGD ${summary.ap_overdue_sgd.toFixed(2)} overdue`}
+          value={money(summary.ap_outstanding_sgd)}
+          hint={`incl. ${money(summary.ap_overdue_sgd)} overdue`}
           to="/accounts-payable"
         />
         <Stat
           small
           label="Net receivable position"
-          value={`SGD ${netReceivable.toFixed(2)}`}
+          value={money(netReceivable)}
           hint="AR outstanding less AP outstanding"
         />
-        <Stat small label="Invoiced to date" value={`SGD ${summary.invoices_total_sgd.toFixed(2)}`} to="/invoices" />
+        <Stat small label="Invoiced to date" value={money(summary.invoices_total_sgd)} to="/invoices" />
         <div className="card stat-tile">
           <span className={`badge ${summary.gl_is_balanced ? 'active' : 'exceeded'}`}>
             {summary.gl_is_balanced ? 'Balanced' : 'OUT OF BALANCE'}

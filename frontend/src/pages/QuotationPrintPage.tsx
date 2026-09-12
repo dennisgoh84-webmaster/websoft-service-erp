@@ -5,8 +5,7 @@ import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type CompanyIndividual, type Quotation } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 export default function QuotationPrintPage() {
   const { id } = useParams<{ id: string }>()
@@ -136,17 +135,17 @@ export default function QuotationPrintPage() {
       <div className="totals-strip">
         <div className="totals-box">
           <div className="muted">Subtotal</div>
-          <div className="totals-value">S$ {money(quotation.amount_sgd)}</div>
+          <div className="totals-value">{money(quotation.amount_sgd)}</div>
         </div>
         <div className="totals-box">
           <div className="muted">
             Tax {quotation.gst_rate}% ({quotation.tax_code})
           </div>
-          <div className="totals-value">S$ {money(quotation.gst_amount_sgd)}</div>
+          <div className="totals-value">{money(quotation.gst_amount_sgd)}</div>
         </div>
         <div className="totals-box totals-box-grand">
           <div>Grand Total</div>
-          <div className="totals-value">S$ {money(quotation.total_amount_sgd)}</div>
+          <div className="totals-value">{money(quotation.total_amount_sgd)}</div>
         </div>
       </div>
 

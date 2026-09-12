@@ -7,8 +7,7 @@ import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type CompanyIndividual, type PurchaseOrder } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 export default function PurchaseOrderPrintPage() {
   const { id } = useParams<{ id: string }>()
@@ -130,15 +129,15 @@ export default function PurchaseOrderPrintPage() {
       <div className="totals-strip">
         <div className="totals-box">
           <div className="muted">Subtotal</div>
-          <div className="totals-value">S$ {money(po.amount_sgd)}</div>
+          <div className="totals-value">{money(po.amount_sgd)}</div>
         </div>
         <div className="totals-box">
           <div className="muted">GST</div>
-          <div className="totals-value">S$ {money(po.gst_amount_sgd)}</div>
+          <div className="totals-value">{money(po.gst_amount_sgd)}</div>
         </div>
         <div className="totals-box totals-box-grand">
           <div>Grand Total</div>
-          <div className="totals-value">S$ {money(po.total_amount_sgd)}</div>
+          <div className="totals-value">{money(po.total_amount_sgd)}</div>
         </div>
       </div>
 

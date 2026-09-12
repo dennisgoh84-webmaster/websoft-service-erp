@@ -21,6 +21,7 @@ import {
   type TrialBalance,
 } from '../lib/api'
 import { isoToMonth, monthEndISO, monthStartISO } from '../lib/period'
+import { formatMoney as money } from '../lib/format'
 
 type ReportType =
   | 'ar-aging'
@@ -45,8 +46,6 @@ const REPORT_GROUPS: { label: string; options: { value: ReportType; label: strin
   },
   { label: 'Analysis', options: [{ value: 'gst-return', label: 'GST Return' }] },
 ]
-
-const money = (n: number) => n.toFixed(2)
 
 function firstOfMonth(): string {
   const d = new Date()
@@ -189,27 +188,27 @@ export default function AccountingReportsPage() {
             <h2>AR Aging as at {arAging.as_at}</h2>
             <div className="stat-grid">
               <div className="card stat-tile">
-                <div className="stat-value">{money(arAging.current)}</div>
+                <div className="stat-value stat-value-text">{money(arAging.current)}</div>
                 <div className="stat-label">Current / not yet due</div>
               </div>
               <div className="card stat-tile">
-                <div className="stat-value">{money(arAging.days_1_30)}</div>
+                <div className="stat-value stat-value-text">{money(arAging.days_1_30)}</div>
                 <div className="stat-label">1-30 days</div>
               </div>
               <div className="card stat-tile">
-                <div className="stat-value">{money(arAging.days_31_60)}</div>
+                <div className="stat-value stat-value-text">{money(arAging.days_31_60)}</div>
                 <div className="stat-label">31-60 days</div>
               </div>
               <div className="card stat-tile">
-                <div className="stat-value">{money(arAging.days_61_90)}</div>
+                <div className="stat-value stat-value-text">{money(arAging.days_61_90)}</div>
                 <div className="stat-label">61-90 days</div>
               </div>
               <div className="card stat-tile">
-                <div className="stat-value">{money(arAging.over_90)}</div>
+                <div className="stat-value stat-value-text">{money(arAging.over_90)}</div>
                 <div className="stat-label">Over 90 days</div>
               </div>
               <div className="card stat-tile">
-                <div className="stat-value">{money(arAging.total)}</div>
+                <div className="stat-value stat-value-text">{money(arAging.total)}</div>
                 <div className="stat-label">Total outstanding (SGD)</div>
               </div>
             </div>
@@ -494,15 +493,15 @@ export default function AccountingReportsPage() {
             </p>
             <div className="stat-grid">
               <div className="card stat-tile">
-                <div className="stat-value">{money(gstReturn.total_output_tax_sgd)}</div>
+                <div className="stat-value stat-value-text">{money(gstReturn.total_output_tax_sgd)}</div>
                 <div className="stat-label">Output tax (sales)</div>
               </div>
               <div className="card stat-tile">
-                <div className="stat-value">{money(gstReturn.total_input_tax_sgd)}</div>
+                <div className="stat-value stat-value-text">{money(gstReturn.total_input_tax_sgd)}</div>
                 <div className="stat-label">Input tax (purchases)</div>
               </div>
               <div className="card stat-tile">
-                <div className="stat-value">{money(gstReturn.net_gst_payable_sgd)}</div>
+                <div className="stat-value stat-value-text">{money(gstReturn.net_gst_payable_sgd)}</div>
                 <div className="stat-label">{gstReturn.net_gst_payable_sgd >= 0 ? 'Net GST payable' : 'Net GST reclaimable'}</div>
               </div>
             </div>

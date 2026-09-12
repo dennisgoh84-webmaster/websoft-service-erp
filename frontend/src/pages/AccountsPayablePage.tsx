@@ -2,8 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type APAgingReport, type CompanyIndividual, type PurchaseOrder, type SupplierInvoice } from '../lib/api'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 const BILL_BADGE: Record<string, string> = {
   awaiting_match: 'draft',

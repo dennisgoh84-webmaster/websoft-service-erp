@@ -5,8 +5,7 @@ import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type CompanyIndividual, type Payment } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 const METHOD_LABELS: Record<string, string> = {
   bank_transfer: 'Bank transfer',
@@ -98,7 +97,7 @@ export default function ReceiptPrintPage() {
       <div className="totals-strip">
         <div className="totals-box totals-box-grand">
           <div>Amount Received</div>
-          <div className="totals-value">S$ {money(payment.amount_sgd)}</div>
+          <div className="totals-value">{money(payment.amount_sgd)}</div>
         </div>
       </div>
 
@@ -125,7 +124,7 @@ export default function ReceiptPrintPage() {
 
       {payment.unallocated_sgd > 0 && (
         <p className="muted" style={{ marginTop: 16 }}>
-          SGD {money(payment.unallocated_sgd)} unallocated, on account.
+          {money(payment.unallocated_sgd)} unallocated, on account.
         </p>
       )}
 

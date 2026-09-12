@@ -214,6 +214,20 @@ approval workflows) without changing the shape described here.
   contract hours are deducted) — this keeps the eventual implementation
   of the decisions in [open-business-decisions.md](open-business-decisions.md)
   localized to one place per rule.
+- **Concurrent multi-user access, CONFIRMED and already true of the
+  implementation (2026-09-12).** Authentication is stateless (a JWT
+  bearer token per request, no server-side session tied to a single
+  connection), and every request opens and closes its own database
+  session (`app/core/database.py`'s `get_db()`) rather than sharing one
+  across requests -- so any number of staff can be signed in and working
+  at the same time with no architectural limit, and PostgreSQL itself
+  handles the concurrent reads/writes. On the frontend, the login token
+  lives in the browser's `localStorage`, so multiple tabs/windows of the
+  same signed-in user share one session automatically; the one thing
+  this doesn't support is two *different* users signed in in two tabs of
+  the *same* browser at once (the second login overwrites the shared
+  token) -- different browsers, or a private/incognito window alongside
+  a regular one, work fine for that.
 
 ### PostgreSQL architecture
 

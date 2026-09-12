@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, type Contract, type ExcessUsageRecord, type Invoice, type Product, type StaffUser } from '../lib/api'
+import { formatMoney as money } from '../lib/format'
 
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -114,7 +115,7 @@ export default function ContractDetailPage() {
               is deducted, exceeded, or auto-invoiced. Bill manually off the reference rate below.
             </p>
             <p>
-              <strong>Reference rate: SGD {contract.hourly_rate_sgd?.toFixed(2)}/hr</strong>
+              <strong>Reference rate: {contract.hourly_rate_sgd != null ? money(contract.hourly_rate_sgd) : '-'}/hr</strong>
             </p>
           </>
         ) : isAnnual ? (
@@ -126,7 +127,7 @@ export default function ContractDetailPage() {
               anything.
             </p>
             <p>
-              <strong>Contract value: SGD {contract.contract_value_sgd.toFixed(2)}</strong>
+              <strong>Contract value: {money(contract.contract_value_sgd)}</strong>
             </p>
           </>
         ) : (
@@ -140,8 +141,8 @@ export default function ContractDetailPage() {
               <strong>{contract.remaining_hours.toFixed(2)} hrs remaining</strong> (never goes negative)
             </p>
             <p className="muted">
-              Contract value: SGD {contract.contract_value_sgd.toFixed(2)} -- blended excess rate: SGD{' '}
-              {(contract.contract_value_sgd / contract.contracted_hours).toFixed(2)}/hr (SRV-008)
+              Contract value: {money(contract.contract_value_sgd)} -- blended excess rate:{' '}
+              {money(contract.contract_value_sgd / contract.contracted_hours)}/hr (SRV-008)
             </p>
           </>
         )}
@@ -309,7 +310,7 @@ export default function ContractDetailPage() {
               <tr key={inv.id}>
                 <td>{inv.invoice_type}</td>
                 <td>{inv.description}</td>
-                <td>{inv.amount_sgd.toFixed(2)}</td>
+                <td>{money(inv.amount_sgd)}</td>
                 <td>{new Date(inv.issued_at).toLocaleDateString()}</td>
               </tr>
             ))}

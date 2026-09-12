@@ -9,8 +9,7 @@ import { useParams } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type CompanyIndividual, type Invoice } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-
-const money = (n: number) => n.toFixed(2)
+import { formatMoney as money } from '../lib/format'
 
 export default function InvoicePrintPage() {
   const { id } = useParams<{ id: string }>()
@@ -135,17 +134,17 @@ export default function InvoicePrintPage() {
       <div className="totals-strip">
         <div className="totals-box">
           <div className="muted">Subtotal</div>
-          <div className="totals-value">S$ {money(invoice.amount_sgd)}</div>
+          <div className="totals-value">{money(invoice.amount_sgd)}</div>
         </div>
         <div className="totals-box">
           <div className="muted">
             Tax {invoice.gst_rate}% ({invoice.tax_code})
           </div>
-          <div className="totals-value">S$ {money(invoice.gst_amount_sgd)}</div>
+          <div className="totals-value">{money(invoice.gst_amount_sgd)}</div>
         </div>
         <div className="totals-box totals-box-grand">
           <div>Grand Total</div>
-          <div className="totals-value">S$ {money(invoice.total_amount_sgd)}</div>
+          <div className="totals-value">{money(invoice.total_amount_sgd)}</div>
         </div>
       </div>
 

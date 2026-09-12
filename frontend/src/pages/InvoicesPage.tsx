@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
 import { api, downloadBlob, type AgingReport, type CompanyIndividual, type CompanyIndividualStatement, type Invoice, type InvoiceStatus } from '../lib/api'
+import { formatMoney as money } from '../lib/format'
 
 const STATUS_BADGE: Record<InvoiceStatus, string> = {
   outstanding: 'draft',
@@ -10,8 +11,6 @@ const STATUS_BADGE: Record<InvoiceStatus, string> = {
   paid: 'active',
   written_off: 'expired',
 }
-
-const money = (n: number) => n.toFixed(2)
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -76,7 +75,7 @@ export default function InvoicesPage() {
       setError(`${statement.customer_name} has no phone number on file -- add one on the Company/Individual page first.`)
       return
     }
-    const text = `Statement of Accounts as at ${statement.as_at}, total outstanding SGD ${money(statement.total_outstanding_sgd)}. PDF to follow.`
+    const text = `Statement of Accounts as at ${statement.as_at}, total outstanding ${money(statement.total_outstanding_sgd)}. PDF to follow.`
     window.open(`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
@@ -100,7 +99,7 @@ export default function InvoicesPage() {
 
   async function onWriteOff(invoice: Invoice) {
     const reason = window.prompt(
-      `Write off SGD ${money(invoice.outstanding_sgd)} on ${invoice.invoice_number}?\n\n` +
+      `Write off ${money(invoice.outstanding_sgd)} on ${invoice.invoice_number}?\n\n` +
         'A reason is required and is recorded in the Event Logs (AR-002).',
     )
     if (reason === null) return
@@ -153,7 +152,7 @@ export default function InvoicesPage() {
       setError(`${customerName(invoice.customer_id)} has no phone number on file -- add one on the Company/Individual page first.`)
       return
     }
-    const text = `Invoice ${invoice.invoice_number}, SGD ${invoice.total_amount_sgd.toFixed(2)}. PDF to follow.`
+    const text = `Invoice ${invoice.invoice_number}, ${money(invoice.total_amount_sgd)}. PDF to follow.`
     window.open(`https://wa.me/${customer.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
@@ -189,27 +188,27 @@ export default function InvoicesPage() {
           </div>
           <div className="stat-grid">
             <div className="card stat-tile">
-              <div className="stat-value">{money(aging.current)}</div>
+              <div className="stat-value stat-value-text">{money(aging.current)}</div>
               <div className="stat-label">Current / not yet due</div>
             </div>
             <div className="card stat-tile">
-              <div className="stat-value">{money(aging.days_1_30)}</div>
+              <div className="stat-value stat-value-text">{money(aging.days_1_30)}</div>
               <div className="stat-label">1-30 days overdue</div>
             </div>
             <div className="card stat-tile">
-              <div className="stat-value">{money(aging.days_31_60)}</div>
+              <div className="stat-value stat-value-text">{money(aging.days_31_60)}</div>
               <div className="stat-label">31-60 days</div>
             </div>
             <div className="card stat-tile">
-              <div className="stat-value">{money(aging.days_61_90)}</div>
+              <div className="stat-value stat-value-text">{money(aging.days_61_90)}</div>
               <div className="stat-label">61-90 days</div>
             </div>
             <div className="card stat-tile">
-              <div className="stat-value">{money(aging.over_90)}</div>
+              <div className="stat-value stat-value-text">{money(aging.over_90)}</div>
               <div className="stat-label">Over 90 days</div>
             </div>
             <div className="card stat-tile">
-              <div className="stat-value">{money(aging.total)}</div>
+              <div className="stat-value stat-value-text">{money(aging.total)}</div>
               <div className="stat-label">Total outstanding (SGD)</div>
             </div>
           </div>
@@ -302,9 +301,9 @@ export default function InvoicesPage() {
             {statement.payment_terms_days === null
               ? 'no payment terms agreed'
               : `Net ${statement.payment_terms_days} days`}{' '}
-            &middot; outstanding <strong>SGD {money(statement.total_outstanding_sgd)}</strong>
+            &middot; outstanding <strong>{money(statement.total_outstanding_sgd)}</strong>
             {statement.unallocated_credit_sgd > 0 && (
-              <> &middot; SGD {money(statement.unallocated_credit_sgd)} unallocated on account</>
+              <> &middot; {money(statement.unallocated_credit_sgd)} unallocated on account</>
             )}
           </p>
           <table>
@@ -397,8 +396,8 @@ export default function InvoicesPage() {
 
         <h2>Invoices ({visible.length})</h2>
         <p className="muted">
-          Net SGD {net.toFixed(2)} + GST SGD {gst.toFixed(2)} = SGD {total.toFixed(2)} billed
-          &middot; <strong>SGD {outstanding.toFixed(2)} outstanding</strong>
+          Net {money(net)} + GST {money(gst)} = {money(total)} billed
+          &middot; <strong>{money(outstanding)} outstanding</strong>
         </p>
         <div style={{ overflowX: 'auto' }}>
         <table>
@@ -428,17 +427,17 @@ export default function InvoicesPage() {
                   {inv.description}
                   <div className="muted">{inv.invoice_type}</div>
                 </td>
-                <td>{inv.amount_sgd.toFixed(2)}</td>
+                <td>{money(inv.amount_sgd)}</td>
                 <td>
-                  {inv.gst_amount_sgd.toFixed(2)}
+                  {money(inv.gst_amount_sgd)}
                   <div className="muted">
                     {inv.tax_code} {inv.gst_rate}%
                   </div>
                 </td>
                 <td>
-                  <strong>{inv.total_amount_sgd.toFixed(2)}</strong>
+                  <strong>{money(inv.total_amount_sgd)}</strong>
                 </td>
-                <td>{inv.outstanding_sgd.toFixed(2)}</td>
+                <td>{money(inv.outstanding_sgd)}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   {inv.due_date ?? <span className="muted">no terms set</span>}
                 </td>
