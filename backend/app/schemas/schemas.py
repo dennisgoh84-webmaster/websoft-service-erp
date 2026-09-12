@@ -18,7 +18,7 @@ from app.models.quotations import QuotationStatus
 from app.models.core import UserRole
 from app.models.groups import AccessLevel
 from app.models.incidents import IncidentSource, IncidentStatus
-from app.models.job_orders import JobOrderPriority, JobOrderStatus
+from app.models.job_orders import JobOrderPriority, JobOrderStatus, JobOrderType, MilestoneStatus, MilestoneType
 from app.models.licensing import LicenseType
 from app.models.service_records import ServiceRecordCompletion, ServiceRecordOutcome, ServiceRecordStatus
 from app.models.setup import SetupListType
@@ -635,6 +635,7 @@ class JobOrderCreate(BaseModel):
     customer_id: uuid.UUID
     contract_id: uuid.UUID
     subject: str
+    job_order_type: JobOrderType = JobOrderType.SUPPORT
     priority: JobOrderPriority = JobOrderPriority.NORMAL
     # Manual, optional -- set by Sales/Coordinator after discussion with
     # Support. Confirmed 2026-09-10: not derived from priority.
@@ -659,6 +660,45 @@ class JobOrderVoid(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
+class ProjectMilestoneOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    job_order_id: uuid.UUID
+    milestone_type: MilestoneType
+    label: str
+    sort_order: int
+    planned_start: date | None
+    planned_end: date | None
+    actual_start: date | None
+    actual_end: date | None
+    assigned_user_id: uuid.UUID | None
+    status: MilestoneStatus
+    notes: str | None
+    created_at: datetime
+
+
+class ProjectMilestoneCreate(BaseModel):
+    milestone_type: MilestoneType
+    label: str
+    sort_order: int = 0
+    planned_start: date | None = None
+    planned_end: date | None = None
+    assigned_user_id: uuid.UUID | None = None
+    notes: str | None = None
+
+
+class ProjectMilestoneUpdate(BaseModel):
+    label: str | None = None
+    sort_order: int | None = None
+    planned_start: date | None = None
+    planned_end: date | None = None
+    actual_start: date | None = None
+    actual_end: date | None = None
+    assigned_user_id: uuid.UUID | None = None
+    status: MilestoneStatus | None = None
+    notes: str | None = None
+
+
 class JobOrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -666,6 +706,7 @@ class JobOrderOut(BaseModel):
     customer_id: uuid.UUID
     contract_id: uuid.UUID | None
     subject: str
+    job_order_type: JobOrderType
     priority: JobOrderPriority
     status: JobOrderStatus
     is_urgent: bool
@@ -674,6 +715,7 @@ class JobOrderOut(BaseModel):
     void_reason: str | None
     created_at: datetime
     closed_at: datetime | None
+    milestones: list[ProjectMilestoneOut] = []
 
 
 # ---- Service Records (formerly "Timesheets") ----

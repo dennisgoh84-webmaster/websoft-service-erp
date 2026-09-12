@@ -6,7 +6,10 @@ import {
   type ServiceRecord,
   type ServiceRecordCompletion,
   type JobOrder,
+  type ProjectMilestone,
+  type MilestoneStatus,
 } from '../lib/api'
+import ProjectSchedulePanel from '../components/ProjectSchedulePanel'
 import { useAuth } from '../lib/AuthContext'
 
 export default function JobOrderDetailPage() {
@@ -150,6 +153,7 @@ export default function JobOrderDetailPage() {
       <p>
         <span className="muted">{jobOrder.job_order_number}</span>{' '}
         <span className={`badge ${statusBadgeClass}`}>{jobOrder.status}</span>{' '}
+        {jobOrder.job_order_type === 'project' && <span className="badge active">PROJECT</span>}{' '}
         {jobOrder.is_urgent && <span className="badge exceeded">URGENT</span>}{' '}
         <span className="muted">Priority: {jobOrder.priority} (SRV-009: no formal SLA target yet)</span>
         {jobOrder.due_date && (
@@ -302,6 +306,16 @@ export default function JobOrderDetailPage() {
           <Link to="/service-record-approval">Service Record Approval</Link>.
         </p>
       </div>
+      )}
+
+      {jobOrder.job_order_type === 'project' && (
+        <ProjectSchedulePanel
+          jobOrderId={jobOrder.id}
+          milestones={jobOrder.milestones || []}
+          users={users}
+          editable={isOpenOrAssigned}
+          onRefresh={refresh}
+        />
       )}
 
       <div className="card">

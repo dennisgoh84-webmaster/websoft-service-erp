@@ -458,6 +458,26 @@ export type JobOrderPriority = 'low' | 'normal' | 'high' | 'critical'
  * ('C'). VOID is a manual dead-end for a job that should never have
  * been raised (duplicate, raised in error). */
 export type JobOrderStatus = 'open' | 'assigned' | 'closed' | 'void'
+export type JobOrderType = 'support' | 'project'
+
+export type MilestoneType = 'installation' | 'training' | 'repeat_training' | 'handover' | 'completion_signoff'
+export type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
+
+export interface ProjectMilestone {
+  id: string
+  job_order_id: string
+  milestone_type: MilestoneType
+  label: string
+  sort_order: number
+  planned_start: string | null
+  planned_end: string | null
+  actual_start: string | null
+  actual_end: string | null
+  assigned_user_id: string | null
+  status: MilestoneStatus
+  notes: string | null
+  created_at: string
+}
 
 export interface JobOrder {
   id: string
@@ -465,6 +485,7 @@ export interface JobOrder {
   customer_id: string
   contract_id: string | null
   subject: string
+  job_order_type: JobOrderType
   priority: JobOrderPriority
   status: JobOrderStatus
   /** "Tick as Urgent" -- suggests a x1.5 deduction-minutes multiplier on approval. */
@@ -475,6 +496,7 @@ export interface JobOrder {
   void_reason: string | null
   created_at: string
   closed_at: string | null
+  milestones: ProjectMilestone[]
 }
 
 // ---- Operations/Accounting Reports filters ----
@@ -1716,7 +1738,7 @@ export const api = {
     request<ExcessUsageRecord[]>(`/contracts/${id}/excess-usage`),
 
   listJobOrders: (
-    filters: { status?: string; priority?: string; customer_id?: string; contract_id?: string } = {},
+    filters: { status?: string; priority?: string; customer_id?: string; contract_id?: string; job_order_type?: string } = {},
   ) => request<JobOrder[]>(`/job-orders${qs(filters)}`),
   exportJobOrdersCsv: (
     filters: { status?: string; priority?: string; customer_id?: string; contract_id?: string } = {},
@@ -1729,6 +1751,7 @@ export const api = {
     customer_id: string
     contract_id: string
     subject: string
+    job_order_type?: JobOrderType
     priority?: JobOrderPriority
     due_date?: string | null
     is_urgent?: boolean
@@ -1742,6 +1765,34 @@ export const api = {
   voidJobOrder: (id: string, reason: string) =>
     request<JobOrder>(`/job-orders/${id}/void`, { method: 'POST', body: JSON.stringify({ reason }) }),
   reopenJobOrder: (id: string) => request<JobOrder>(`/job-orders/${id}/reopen`, { method: 'POST' }),
+
+  // ---- Project Milestones ----
+  listMilestones: (jobOrderId: string) =>
+    request<ProjectMilestone[]>(`/job-orders/${jobOrderId}/milestones`),
+  addMilestone: (jobOrderId: string, payload: {
+    milestone_type: MilestoneType
+    label: string
+    sort_order?: number
+    planned_start?: string | null
+    planned_end?: string | null
+    assigned_user_id?: string | null
+    notes?: string | null
+  }) => request<ProjectMilestone>(`/job-orders/${jobOrderId}/milestones`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateMilestone: (jobOrderId: string, milestoneId: string, payload: {
+    label?: string
+    sort_order?: number
+    planned_start?: string | null
+    planned_end?: string | null
+    actual_start?: string | null
+    actual_end?: string | null
+    assigned_user_id?: string | null
+    status?: MilestoneStatus
+    notes?: string | null
+  }) => request<ProjectMilestone>(`/job-orders/${jobOrderId}/milestones/${milestoneId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteMilestone: (jobOrderId: string, milestoneId: string) =>
+    request<void>(`/job-orders/${jobOrderId}/milestones/${milestoneId}`, { method: 'DELETE' }),
+  initMilestoneTemplate: (jobOrderId: string) =>
+    request<ProjectMilestone[]>(`/job-orders/${jobOrderId}/milestones/init-template`, { method: 'POST' }),
 
   supportMonitoring: () => request<SupportMonitoring>('/monitoring/support'),
 
