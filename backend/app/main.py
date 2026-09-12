@@ -35,6 +35,7 @@ from app.routers import (
     event_logs,
     excess_usage,
     groups,
+    incidents,
     job_orders,
     modules,
     monitoring,
@@ -93,6 +94,7 @@ app.include_router(contracts.router)
 app.include_router(job_orders.router)
 app.include_router(service_records.router)
 app.include_router(excess_usage.router)
+app.include_router(incidents.router)
 app.include_router(billing.router)
 app.include_router(accounts_receivable.router)
 app.include_router(accounts.router)

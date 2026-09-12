@@ -24,10 +24,11 @@ shipped and when.
   attachments, company-chop sign-off (with a hard "chop photos can't be
   reused" requirement). 8 open questions flagged.
   → [planned-work.md #1](planned-work.md#1-mobile-web-app-for-support-staff----on-site-job-order--service-record-capture-raised-2026-09-11-targeted-for-next-week)
-- [ ] **Incident Module** -- Support Staff call/issue log, routed to
-  Sales/Job Order/Software Tasks, plus an Outlook Add-in ("Convert to
-  Incident" / "Convert to Job Order"). Was deferred until
-  Company/Individual work was done -- that's done now.
+- [x] **Incident Module** -- built 2026-09-12. In-app screen (log,
+  route to Quotation/Job Order/Software Task, or a callback status) is
+  live; the Outlook Add-in half is scaffolded only -- not deployable/
+  testable without a real Microsoft 365 tenant + HTTPS host (see
+  outlook-addin/README.md).
   → [planned-work.md #2](planned-work.md#2-incident-module----support-staff-callissue-log-with-routing-to-salesjob-ordersoftware-tasks-raised-2026-09-11-deferred-until-after-companyindividual)
 - [ ] **eSignature + eDocument attachments** -- across every document
   type, one pass at the end rather than per-document.

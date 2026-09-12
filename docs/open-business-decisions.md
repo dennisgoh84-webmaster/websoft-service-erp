@@ -1647,6 +1647,68 @@ Checking during key in."
    something for the browser's spellcheck to actually check; existing
    records simply have it null.
 
+## 36. Incident Module (raised 2026-09-11, settled and built 2026-09-12)
+
+Moved from docs/planned-work.md #2 once its remaining open questions
+were settled. Requested as: Support Staff log incoming calls/issues,
+which get routed to Sales (a Quotation), Support (a Job Order),
+Software Tasks, or "someone to return call" -- converting auto-creates
+the real target record (confirmed 2026-09-11), not just an assignment.
+
+36.1. **DECIDED with Dennis.** "Someone to return the call" is a
+   status (`PENDING_CALLBACK`) plus an assignee on the Incident itself
+   -- no separate reminder/task record. Whoever it's assigned to is
+   expected to see it via the Incidents screen's own filters; there is
+   no dedicated per-staff callback queue built here (Ops Dashboard's
+   personal task tracker was the alternative considered and declined).
+
+36.2. **DECIDED with Dennis.** The Outlook Add-in's "Convert to Job
+   Order" button requires a valid contract for that customer first
+   (confirmed 2026-09-11). When the sender's email doesn't resolve to a
+   known Company/Individual, or that customer has no contract in
+   ACTIVE/EXCEEDED status, it **falls back to creating a plain Incident
+   instead of erroring** -- exactly what "Convert to Incident" would
+   have done, with the reason surfaced back to the sender rather than
+   silently swallowed (`IncidentFromEmailResult.fallback_reason`). The
+   in-app "Convert to Job Order" action on an already-logged Incident
+   uses the same ACTIVE/EXCEEDED validity check but surfaces a plain
+   422 error instead (there's no "fall back to creating an Incident"
+   case there, since the Incident already exists).
+
+36.3. **DECIDED with Dennis.** The Outlook Add-in was designed
+   alongside the in-app Incident screen rather than deferred, but
+   **cannot be sideloaded or tested** without a real Microsoft 365
+   tenant and an HTTPS host, neither of which exist in this
+   environment -- see outlook-addin/README.md. It also does not use
+   Azure AD / Office SSO as the original request's phrasing implied;
+   it reuses this app's own existing login instead, which needed no
+   Azure AD app registration to build against an environment that
+   doesn't have one. Office SSO remains a valid, undone future
+   enhancement (see the README's "known gaps").
+
+36.4. **DECIDED by implementation.** Lives under the existing
+   `service_operations` module (already labelled "Helpdesk / Service
+   Operations (Job Orders)" in `scripts/seed_demo.py`'s MODULE_CATALOG)
+   rather than a new module key -- an Incident is exactly the Helpdesk
+   front door for that same area, and every Group Authority already
+   granted for Job Orders carries over with no seed-data changes
+   needed.
+
+36.5. **DECIDED by implementation.** Converting an Incident to a
+   Quotation creates a real draft Quotation with one placeholder line
+   (description = the Incident's subject, price SGD 0) rather than no
+   line at all, since Quotation already requires at least one line
+   (existing rule, not new) and an Incident only ever carries a
+   subject/description, never product/price detail for Sales to price
+   properly afterward.
+
+36.6. **Not yet built:** the "someone to return Call" outcome is
+   exactly captured (36.1); the routing UI for "Sales decide Quote or
+   directly go to Software Tasks" is the Incidents screen's own Convert
+   buttons, not a separate decision workflow -- if Dennis wants
+   something more structured than "staff picks a button" here, that's
+   still open.
+
 ---
 
 ## How to use this document

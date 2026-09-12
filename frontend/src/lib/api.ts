@@ -581,6 +581,36 @@ export interface SoftwareTask {
   created_at: string
 }
 
+// ---- Incident Module (2026-09-12) ----
+export type IncidentSource = 'phone' | 'email' | 'other'
+export type IncidentStatus = 'open' | 'pending_callback' | 'converted' | 'closed'
+
+export interface Incident {
+  id: string
+  incident_number: string
+  customer_id: string | null
+  source: IncidentSource
+  subject: string
+  description: string | null
+  sender_name: string | null
+  sender_email: string | null
+  sender_phone: string | null
+  status: IncidentStatus
+  assigned_to_user_id: string | null
+  converted_quotation_id: string | null
+  converted_job_order_id: string | null
+  converted_software_task_id: string | null
+  close_reason: string | null
+  closed_at: string | null
+  created_at: string
+}
+
+export interface IncidentFromEmailResult {
+  incident: Incident
+  job_order_created: boolean
+  fallback_reason: string | null
+}
+
 export type ServiceRecordStatus = 'submitted' | 'approved'
 export type ServiceRecordOutcome = 'pending' | 'contract_deduction' | 'excess_usage' | 'not_hour_metered'
 /** 'C' = Completed (this visit finished the job), 'U' = Uncompleted
@@ -1653,6 +1683,35 @@ export const api = {
     request<SoftwareTask>(`/software-tasks/${id}/mark-tested`, { method: 'POST' }),
   reopenSoftwareTaskTesting: (id: string) =>
     request<SoftwareTask>(`/software-tasks/${id}/reopen-testing`, { method: 'POST' }),
+
+  // ---- Incident Module ----
+  listIncidents: (filters: { status?: IncidentStatus; customer_id?: string } = {}) =>
+    request<Incident[]>(`/incidents${qs(filters)}`),
+  getIncident: (id: string) => request<Incident>(`/incidents/${id}`),
+  createIncident: (payload: {
+    customer_id?: string | null
+    source?: IncidentSource
+    subject: string
+    description?: string
+    sender_name?: string
+    sender_email?: string
+    sender_phone?: string
+  }) => request<Incident>('/incidents', { method: 'POST', body: JSON.stringify(payload) }),
+  setIncidentCustomer: (id: string, customer_id: string) =>
+    request<Incident>(`/incidents/${id}/customer`, { method: 'PATCH', body: JSON.stringify({ customer_id }) }),
+  setIncidentCallback: (id: string, assigned_to_user_id: string) =>
+    request<Incident>(`/incidents/${id}/callback`, { method: 'POST', body: JSON.stringify({ assigned_to_user_id }) }),
+  closeIncident: (id: string, reason: string) =>
+    request<Incident>(`/incidents/${id}/close`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  convertIncidentToQuotation: (id: string, quotation_date: string) =>
+    request<Quotation>(`/incidents/${id}/convert-to-quotation`, { method: 'POST', body: JSON.stringify({ quotation_date }) }),
+  convertIncidentToJobOrder: (id: string, contract_id: string, priority: JobOrderPriority = 'normal') =>
+    request<JobOrder>(`/incidents/${id}/convert-to-job-order`, { method: 'POST', body: JSON.stringify({ contract_id, priority }) }),
+  convertIncidentToSoftwareTask: (id: string, assigned_programmer_id?: string | null) =>
+    request<SoftwareTask>(`/incidents/${id}/convert-to-software-task`, {
+      method: 'POST',
+      body: JSON.stringify({ assigned_programmer_id: assigned_programmer_id ?? null }),
+    }),
 
   listServiceRecords: (filters: { job_order_id?: string; employee_user_id?: string; status?: string } = {}) =>
     request<ServiceRecord[]>(`/service-records${qs(filters)}`),

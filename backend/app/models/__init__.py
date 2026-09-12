@@ -76,3 +76,4 @@ from app.models.treasury import BankAccount, BankReconciliation, BankTransaction
 from app.models.periods import AccountingPeriod, FiscalYearClosure, PeriodStatus  # noqa: F401
 from app.models.ops_tasks import OpsTask, OpsTaskCategory, OpsTaskStatus  # noqa: F401
 from app.models.announcements import AdBannerSettings, Announcement  # noqa: F401
+from app.models.incidents import Incident, IncidentSource, IncidentStatus  # noqa: F401

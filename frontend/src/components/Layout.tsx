@@ -81,6 +81,7 @@ export default function Layout() {
     { key: 'support-monitoring', path: '/support-monitoring', label: 'Support Monitoring', visible: can('reporting') },
     { key: 'company-individuals', path: '/company-individuals', label: 'Company / Individual', visible: can('company_individual_management') },
     { key: 'contracts', path: '/contracts', label: 'Service Contracts', visible: can('service_contracts') },
+    { key: 'incidents', path: '/incidents', label: 'Incidents', visible: can('service_operations') },
     { key: 'job-orders', path: '/job-orders', label: 'Job Orders', visible: can('service_operations') },
     { key: 'service-records', path: '/service-records', label: 'Service Records', visible: can('service_records') },
     {

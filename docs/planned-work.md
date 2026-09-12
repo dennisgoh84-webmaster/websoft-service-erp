@@ -98,6 +98,13 @@ here so it isn't lost before next week's work begins.
 
 ## 2. Incident Module -- Support Staff call/issue log, with routing to Sales/Job Order/Software Tasks (raised 2026-09-11, deferred until after Company/Individual)
 
+**Built 2026-09-12 -- see docs/open-business-decisions.md #36** for the
+settled rules and `app/models/incidents.py` / `app/routers/incidents.py`
+/ `frontend/src/pages/IncidentsPage.tsx` for the implementation. The
+Outlook Add-in half is scaffolded but not deployable/testable here --
+see `outlook-addin/README.md`. Left below for the original request
+wording and design history.
+
 Requested as: Support Staff log incoming calls/issues, which get routed
 to Sales (a Quotation), Support (a Job Order), Software Tasks, or
 "someone to return call." Explicitly deferred by Dennis until after the

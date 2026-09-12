@@ -17,6 +17,7 @@ from app.models.company_individuals import CompanyIndividualType
 from app.models.quotations import QuotationStatus
 from app.models.core import UserRole
 from app.models.groups import AccessLevel
+from app.models.incidents import IncidentSource, IncidentStatus
 from app.models.job_orders import JobOrderPriority, JobOrderStatus
 from app.models.licensing import LicenseType
 from app.models.service_records import ServiceRecordCompletion, ServiceRecordOutcome, ServiceRecordStatus
@@ -1442,6 +1443,84 @@ class SoftwareTaskOut(BaseModel):
     is_tested: bool
     tested_at: datetime | None
     created_at: datetime
+
+
+# ---- Incident Module (2026-09-12, docs/open-business-decisions.md #36) ----
+class IncidentCreate(BaseModel):
+    customer_id: uuid.UUID | None = None
+    source: IncidentSource = IncidentSource.PHONE
+    subject: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    sender_name: str | None = None
+    sender_email: str | None = None
+    sender_phone: str | None = None
+
+
+class IncidentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    incident_number: str
+    customer_id: uuid.UUID | None
+    source: IncidentSource
+    subject: str
+    description: str | None
+    sender_name: str | None
+    sender_email: str | None
+    sender_phone: str | None
+    status: IncidentStatus
+    assigned_to_user_id: uuid.UUID | None
+    converted_quotation_id: uuid.UUID | None
+    converted_job_order_id: uuid.UUID | None
+    converted_software_task_id: uuid.UUID | None
+    close_reason: str | None
+    closed_at: datetime | None
+    created_at: datetime
+
+
+class IncidentSetCustomer(BaseModel):
+    customer_id: uuid.UUID
+
+
+class IncidentCallback(BaseModel):
+    assigned_to_user_id: uuid.UUID
+
+
+class IncidentClose(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class IncidentConvertToQuotation(BaseModel):
+    quotation_date: date
+
+
+class IncidentConvertToJobOrder(BaseModel):
+    contract_id: uuid.UUID
+    priority: JobOrderPriority = JobOrderPriority.NORMAL
+
+
+class IncidentConvertToSoftwareTask(BaseModel):
+    assigned_programmer_id: uuid.UUID | None = None
+
+
+# The Outlook Add-in acts directly on an email, without an Incident
+# already existing -- see outlook-addin/README.md. "Convert to Job
+# Order" tries to resolve a customer from the sender's email and find a
+# valid (ACTIVE/EXCEEDED) contract; confirmed 2026-09-12: if either is
+# missing, it falls back to creating a plain Incident instead of erroring.
+class IncidentFromEmail(BaseModel):
+    sender_name: str | None = None
+    sender_email: str
+    subject: str = Field(min_length=1, max_length=255)
+    body: str | None = None
+
+
+class IncidentFromEmailResult(BaseModel):
+    incident: IncidentOut
+    # True only when a Job Order was actually created (the "Convert to
+    # Job Order" button's happy path); false means it fell back to a
+    # plain Incident -- `fallback_reason` says why.
+    job_order_created: bool
+    fallback_reason: str | None = None
 
 
 # ---- Setup Lists (Nationality / Country / State / Area Code / Currency) ----
