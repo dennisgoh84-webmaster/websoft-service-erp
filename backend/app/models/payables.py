@@ -48,6 +48,9 @@ class Supplier(Base):
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Free-text as entered (e.g. "+65 9123 4567") -- WhatsApp-out strips
+    # non-digits at send time rather than forcing a strict format here.
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     gst_registration_no: Mapped[str | None] = mapped_column(String(50), nullable=True)
     # Days from the supplier's invoice date. Null means terms not agreed,
@@ -95,6 +98,9 @@ class PurchaseOrder(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     supplier: Mapped["Supplier"] = relationship()
+    # Bills raised against this PO -- "confirm and import to AP" (2026-09-12)
+    # checks this to stop a PO being imported into AP twice.
+    bills: Mapped[list["SupplierInvoice"]] = relationship(back_populates="purchase_order")
 
 
 class BillMatchStatus(str, enum.Enum):
@@ -153,7 +159,7 @@ class SupplierInvoice(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     supplier: Mapped["Supplier"] = relationship()
-    purchase_order: Mapped["PurchaseOrder | None"] = relationship()
+    purchase_order: Mapped["PurchaseOrder | None"] = relationship(back_populates="bills")
 
     @property
     def outstanding_sgd(self) -> Decimal:

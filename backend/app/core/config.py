@@ -22,5 +22,18 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 8  # 8-hour session for demo convenience
 
+    # Outbound email (2026-09-12: "Email PO" -- real server-side send with a
+    # PDF attached). One shared mailbox/relay for the whole install, not
+    # per-company -- unset by default so "Email" fails with a clear message
+    # instead of silently pretending to send. Set these in backend/.env
+    # (gitignored) to a real SMTP account before using it.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_tls: bool = True
+    smtp_from_email: str | None = None
+    smtp_from_name: str = "Web Master Consultancy"
+
 
 settings = Settings()

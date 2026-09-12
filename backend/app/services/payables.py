@@ -77,6 +77,23 @@ def approve_purchase_order(
     return po
 
 
+def assert_po_importable_to_ap(po: PurchaseOrder) -> None:
+    """Guard for "confirm and import to AP" (2026-09-12): a PO must be
+    confirmed (PUR-001 approved) before it becomes a bill, and each PO
+    can only be imported once -- re-importing would double the AP
+    liability for the same spend."""
+    if po.status != PurchaseOrderStatus.APPROVED:
+        raise PayablesRuleViolation(
+            f"{po.po_number} is {po.status.value.replace('_', ' ')}, not approved -- "
+            "approve it first (PUR-001) before importing it to Accounts Payable."
+        )
+    if po.bills:
+        raise PayablesRuleViolation(
+            f"{po.po_number} was already imported to Accounts Payable as "
+            f"{po.bills[0].bill_number}."
+        )
+
+
 def match_bill_to_po(db: Session, bill: SupplierInvoice) -> SupplierInvoice:
     """PUR-002 2-way match, and PUR-003's consequence.
 

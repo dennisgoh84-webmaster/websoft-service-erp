@@ -857,6 +857,7 @@ export interface Supplier {
   id: string
   name: string
   email: string | null
+  phone: string | null
   address: string | null
   gst_registration_no: string | null
   payment_terms_days: number | null
@@ -873,6 +874,8 @@ export interface PurchaseOrder {
   gst_amount_sgd: number
   total_amount_sgd: number
   status: PurchaseOrderStatus
+  imported_bill_id: string | null
+  imported_bill_number: string | null
 }
 
 export interface SupplierInvoice {
@@ -1485,6 +1488,7 @@ export const api = {
   createSupplier: (payload: {
     name: string
     email?: string
+    phone?: string
     address?: string
     gst_registration_no?: string
     payment_terms_days?: number | null
@@ -1494,6 +1498,7 @@ export const api = {
     payload: Partial<{
       name: string
       email: string | null
+      phone: string | null
       address: string | null
       gst_registration_no: string | null
       payment_terms_days: number | null
@@ -1503,10 +1508,12 @@ export const api = {
 
   listPurchaseOrders: (filters: { supplier_id?: string; status?: string } = {}) =>
     request<PurchaseOrder[]>(`/accounts-payable/purchase-orders${qs(filters)}`),
+  getPurchaseOrder: (id: string) => request<PurchaseOrder>(`/accounts-payable/purchase-orders/${id}`),
   exportPurchaseOrdersCsv: (filters: { supplier_id?: string; status?: string } = {}) =>
     requestBlob(`/accounts-payable/purchase-orders/export.csv${qs(filters)}`),
   exportPurchaseOrdersExcel: (filters: { supplier_id?: string; status?: string } = {}) =>
     requestBlob(`/accounts-payable/purchase-orders/export.xlsx${qs(filters)}`),
+  exportPurchaseOrderDocx: (id: string) => requestBlob(`/accounts-payable/purchase-orders/${id}/export.docx`),
   createPurchaseOrder: (payload: {
     supplier_id: string
     order_date: string
@@ -1515,6 +1522,10 @@ export const api = {
   }) => request<PurchaseOrder>('/accounts-payable/purchase-orders', { method: 'POST', body: JSON.stringify(payload) }),
   approvePurchaseOrder: (id: string) =>
     request<PurchaseOrder>(`/accounts-payable/purchase-orders/${id}/approve`, { method: 'POST' }),
+  importPurchaseOrderToAP: (id: string) =>
+    request<SupplierInvoice>(`/accounts-payable/purchase-orders/${id}/import-to-ap`, { method: 'POST' }),
+  emailPurchaseOrder: (id: string) =>
+    request<{ sent: boolean; to: string }>(`/accounts-payable/purchase-orders/${id}/email`, { method: 'POST' }),
 
   listBills: (filters: { supplier_id?: string; status?: string } = {}) =>
     request<SupplierInvoice[]>(`/accounts-payable/bills${qs(filters)}`),

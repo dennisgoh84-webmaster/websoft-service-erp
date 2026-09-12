@@ -116,6 +116,7 @@ export default function Layout() {
     { key: 'quotations', path: '/quotations', label: 'Sales Quotation', visible: can('sales') },
     { key: 'invoices', path: '/invoices', label: 'Sales Invoice', visible: can('billing') },
     { key: 'receipts', path: '/receipts', label: 'Receipt Voucher', visible: can('accounts_receivable') },
+    { key: 'purchase-orders', path: '/purchase-orders', label: 'Purchase Order', visible: can('accounts_payable') },
     { key: 'accounts-payable', path: '/accounts-payable', label: 'Accounts Payable', visible: can('accounts_payable') },
     { key: 'payment-voucher', path: '/payment-voucher', label: 'Payment Voucher', visible: can('accounts_payable') },
     { key: 'general-ledger', path: '/general-ledger', label: 'Journal Voucher', visible: can('finance_accounting') },

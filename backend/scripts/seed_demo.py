@@ -1077,7 +1077,7 @@ def main():
         # (PUR-002) auto-approves for payment (PUR-003) end to end.
         supplier = Supplier(
             company_id=company.id, name="CloudHost Infrastructure Pte Ltd",
-            email="billing@cloudhost.test", payment_terms_days=30,
+            email="billing@cloudhost.test", phone="+65 6100 2200", payment_terms_days=30,
         )
         db.add(supplier)
         db.flush()
@@ -1121,6 +1121,23 @@ def main():
         db.add(payment_voucher)
         db.flush()
         ap_svc.allocate_supplier_payment(db, payment_voucher, bill, po_total)
+
+        # A second PO, approved but not yet imported -- so "Import to AP"
+        # (2026-09-12) has something to demo without unwinding the fully
+        # paid example above.
+        po2_net = Decimal("340.00")
+        _code, _rate, po2_gst, po2_total = apply_gst(db, company_id=company.id, net_amount=po2_net)
+        po2 = PurchaseOrder(
+            company_id=company.id, supplier_id=supplier.id,
+            po_number=next_document_number(db, company_id=company.id, doc_kind="purchase_order"),
+            order_date=date.today() - timedelta(days=1),
+            description="Extra storage add-on",
+            amount_sgd=po2_net, gst_amount_sgd=po2_gst, total_amount_sgd=po2_total,
+            status=PurchaseOrderStatus.PENDING_APPROVAL,
+        )
+        db.add(po2)
+        db.flush()
+        ap_svc.approve_purchase_order(db, po2, actor=dennis)
         db.commit()
 
         print("\n=== Demo dataset ready ===")

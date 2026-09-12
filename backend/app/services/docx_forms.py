@@ -14,7 +14,7 @@ from docx.shared import Pt
 from app.models.billing import Invoice
 from app.models.core import Company
 from app.models.customers import Customer
-from app.models.payables import Supplier, SupplierPayment
+from app.models.payables import PurchaseOrder, Supplier, SupplierPayment
 from app.models.payments import Payment
 from app.models.quotations import Quotation
 
@@ -243,6 +243,82 @@ def receipt_to_docx(
     if unallocated > 0:
         doc.add_paragraph()
         doc.add_paragraph(f"Unallocated (on account): SGD {unallocated:.2f}")
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def purchase_order_to_docx(po: PurchaseOrder, supplier: Supplier, company: Company) -> bytes:
+    """Same layout as frontend/src/pages/PurchaseOrderPrintPage.tsx --
+    also what "Email PO" (2026-09-12) converts to PDF and attaches."""
+    doc = Document()
+
+    header = doc.add_paragraph()
+    header.add_run(company.name).bold = True
+    if company.address:
+        doc.add_paragraph(company.address)
+    if company.phone:
+        doc.add_paragraph(f"Tel: {company.phone}")
+    if company.uen:
+        doc.add_paragraph(f"Business Reg# {company.uen}")
+    if company.gst_registration_no:
+        doc.add_paragraph(f"GST Reg# {company.gst_registration_no}")
+
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = title.add_run("PURCHASE ORDER")
+    run.bold = True
+    run.font.size = Pt(16)
+
+    meta = doc.add_paragraph()
+    meta.add_run(f"{po.po_number}\n").bold = True
+    meta.add_run(f"Date: {po.order_date.isoformat()}\n")
+    meta.add_run(f"Status: {po.status.value.replace('_', ' ').title()}\n")
+
+    doc.add_paragraph().add_run("Supplier").italic = True
+    to_p = doc.add_paragraph()
+    to_p.add_run(supplier.name + "\n").bold = True
+    if supplier.gst_registration_no:
+        to_p.add_run(f"GST Reg# {supplier.gst_registration_no}\n")
+    if supplier.email:
+        to_p.add_run(f"Email: {supplier.email}\n")
+    if supplier.phone:
+        to_p.add_run(f"Tel: {supplier.phone}\n")
+    if supplier.address:
+        to_p.add_run(supplier.address)
+
+    table = doc.add_table(rows=1, cols=2)
+    table.style = "Light Grid Accent 1"
+    hdr = table.rows[0].cells
+    hdr[0].text = "Description"
+    hdr[1].text = "Amount ($)"
+    row = table.add_row().cells
+    row[0].text = po.description
+    row[1].text = f"{float(po.amount_sgd):.2f}"
+
+    doc.add_paragraph()
+    totals = doc.add_table(rows=2, cols=2)
+    for i, (label, value) in enumerate(
+        [
+            ("GST", f"{float(po.gst_amount_sgd):.2f}"),
+            ("Grand Total (SGD)", f"{float(po.total_amount_sgd):.2f}"),
+        ]
+    ):
+        cells = totals.rows[i].cells
+        cells[0].text = label
+        cells[1].text = value
+        if label.startswith("Grand Total"):
+            for cell in cells:
+                for p in cell.paragraphs:
+                    for r in p.runs:
+                        r.bold = True
+
+    doc.add_paragraph()
+    doc.add_paragraph("Please confirm receipt of this purchase order and quote the PO number "
+                       "above on your invoice.")
+    doc.add_paragraph()
+    doc.add_paragraph("Authorised by: ______________________________")
 
     buf = io.BytesIO()
     doc.save(buf)

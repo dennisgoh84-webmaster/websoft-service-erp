@@ -33,6 +33,8 @@ import OpsDashboardPage from './pages/OpsDashboardPage'
 import PaymentVoucherPage from './pages/PaymentVoucherPage'
 import PaymentVoucherPrintPage from './pages/PaymentVoucherPrintPage'
 import ProductCatalogPage from './pages/ProductCatalogPage'
+import PurchaseOrderPrintPage from './pages/PurchaseOrderPrintPage'
+import PurchaseOrdersPage from './pages/PurchaseOrdersPage'
 import QuotationPrintPage from './pages/QuotationPrintPage'
 import QuotationsPage from './pages/QuotationsPage'
 import ReceiptPrintPage from './pages/ReceiptPrintPage'
@@ -86,6 +88,8 @@ function AppRoutes() {
         <Route path="/invoices/:id/print" element={<InvoicePrintPage />} />
         <Route path="/receipts" element={<ReceiptsPage />} />
         <Route path="/receipts/:id/print" element={<ReceiptPrintPage />} />
+        <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
+        <Route path="/purchase-orders/:id/print" element={<PurchaseOrderPrintPage />} />
         <Route path="/accounts-payable" element={<AccountsPayablePage />} />
         <Route path="/payment-voucher" element={<PaymentVoucherPage />} />
         <Route path="/payment-voucher/:id/print" element={<PaymentVoucherPrintPage />} />

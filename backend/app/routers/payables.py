@@ -38,10 +38,12 @@ from app.schemas.schemas import (
     SupplierUpdate,
 )
 from app.services import audit, docx_forms, exports
+from app.services import mailer
 from app.services import payables as ap_svc
 from app.services.accounts_receivable import aging_bucket_for
 from app.services.authority import require_module_access
 from app.services.numbering import next_document_number
+from app.services.pdf_convert import PdfConversionError, docx_bytes_to_pdf
 from app.services.periods import PeriodClosedError, require_open_period
 from app.services.tax import apply_gst
 
@@ -79,6 +81,13 @@ def _bill_or_404(db: Session, bill_id: uuid.UUID, company_id: uuid.UUID) -> Supp
     if not b or b.company_id != company_id:
         raise HTTPException(status_code=404, detail="Supplier invoice not found")
     return b
+
+
+def _po_or_404(db: Session, po_id: uuid.UUID, company_id: uuid.UUID) -> PurchaseOrder:
+    po = db.get(PurchaseOrder, po_id)
+    if not po or po.company_id != company_id:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    return po
 
 
 # ---- Suppliers ------------------------------------------------------
@@ -226,7 +235,18 @@ def list_purchase_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
 ):
-    return _filter_purchase_orders(db, current_user.company_id, supplier_id, status)
+    orders = _filter_purchase_orders(db, current_user.company_id, supplier_id, status)
+    return [PurchaseOrderOut.from_model(po) for po in orders]
+
+
+@router.get("/purchase-orders/{po_id}", response_model=PurchaseOrderOut)
+def get_purchase_order(
+    po_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    po = _po_or_404(db, po_id, current_user.company_id)
+    return PurchaseOrderOut.from_model(po)
 
 
 def _purchase_order_row(po: PurchaseOrder, supplier_name: str) -> dict:
@@ -318,7 +338,7 @@ def create_purchase_order(
     )
     db.commit()
     db.refresh(po)
-    return po
+    return PurchaseOrderOut.from_model(po)
 
 
 @router.post("/purchase-orders/{po_id}/approve", response_model=PurchaseOrderOut)
@@ -327,10 +347,9 @@ def approve_po(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
 ):
-    """PUR-001: value-based approval."""
-    po = db.get(PurchaseOrder, po_id)
-    if not po or po.company_id != current_user.company_id:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
+    """PUR-001: value-based approval -- the "confirm" step before a PO
+    can be imported to AP (see import_purchase_order_to_ap below)."""
+    po = _po_or_404(db, po_id, current_user.company_id)
     try:
         ap_svc.approve_purchase_order(db, po, actor=current_user)
     except ap_svc.PayablesRuleViolation as e:
@@ -347,7 +366,133 @@ def approve_po(
     )
     db.commit()
     db.refresh(po)
-    return po
+    return PurchaseOrderOut.from_model(po)
+
+
+@router.post("/purchase-orders/{po_id}/import-to-ap", response_model=SupplierInvoiceOut)
+def import_purchase_order_to_ap(
+    po_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """"Confirm and import to AP" (2026-09-12): turn an approved PO
+    straight into its matching bill, rather than re-typing the same
+    supplier/description/amount into "Record a supplier bill" by hand.
+    The new bill is 2-way matched against this same PO (PUR-002), and
+    since the amounts are copied exactly it auto-approves for payment
+    (PUR-003)."""
+    po = _po_or_404(db, po_id, current_user.company_id)
+    try:
+        ap_svc.assert_po_importable_to_ap(po)
+        require_open_period(db, current_user.company_id, date.today())
+    except ap_svc.PayablesRuleViolation as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except PeriodClosedError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    bill = SupplierInvoice(
+        company_id=current_user.company_id,
+        supplier_id=po.supplier_id,
+        purchase_order_id=po.id,
+        bill_number=next_document_number(
+            db, company_id=current_user.company_id, doc_kind="supplier_invoice"
+        ),
+        invoice_date=date.today(),
+        due_date=ap_svc.due_date_for_bill(db, po.supplier_id, date.today()),
+        description=po.description,
+        amount_sgd=po.amount_sgd,
+        gst_amount_sgd=po.gst_amount_sgd,
+        total_amount_sgd=po.total_amount_sgd,
+    )
+    db.add(bill)
+    db.flush()
+    ap_svc.match_bill_to_po(db, bill)
+
+    audit.record(
+        db,
+        entity_type="purchase_order",
+        entity_id=po.id,
+        action="imported_to_ap",
+        actor_user_id=current_user.id,
+        details=f"{po.po_number} -> {bill.bill_number}",
+        new_value={"bill_number": bill.bill_number},
+    )
+    db.commit()
+    db.refresh(bill)
+    return bill
+
+
+@router.get("/purchase-orders/{po_id}/export.docx")
+def export_purchase_order_docx(
+    po_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.VIEW)),
+):
+    po = _po_or_404(db, po_id, current_user.company_id)
+    supplier = _supplier_or_404(db, po.supplier_id, current_user.company_id)
+    company = db.get(Company, current_user.company_id)
+    data = docx_forms.purchase_order_to_docx(po, supplier, company)
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={po.po_number}.docx"},
+    )
+
+
+@router.post("/purchase-orders/{po_id}/email")
+def email_purchase_order(
+    po_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_module_access(MODULE, AccessLevel.EDIT)),
+):
+    """Real server-side send (2026-09-12), PO PDF attached. The PDF is
+    the same .docx form (see docx_forms.purchase_order_to_docx)
+    converted via LibreOffice headless -- see services/pdf_convert.py."""
+    po = _po_or_404(db, po_id, current_user.company_id)
+    supplier = _supplier_or_404(db, po.supplier_id, current_user.company_id)
+    if not supplier.email:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{supplier.name} has no email on file -- add one on the Accounts Payable page first.",
+        )
+    company = db.get(Company, current_user.company_id)
+
+    docx_bytes = docx_forms.purchase_order_to_docx(po, supplier, company)
+    try:
+        pdf_bytes = docx_bytes_to_pdf(docx_bytes)
+    except PdfConversionError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    body = (
+        f"Dear {supplier.name},\n\n"
+        f"Please find attached Purchase Order {po.po_number} dated {po.order_date.isoformat()} "
+        f"for SGD {float(po.total_amount_sgd):.2f}.\n\n"
+        "Please confirm receipt and quote the PO number on your invoice.\n\n"
+        f"Regards,\n{company.name if company else ''}"
+    )
+    try:
+        mailer.send_email(
+            to_email=supplier.email,
+            subject=f"Purchase Order {po.po_number} - {company.name if company else ''}",
+            body_text=body,
+            attachment_filename=f"{po.po_number}.pdf",
+            attachment_bytes=pdf_bytes,
+        )
+    except mailer.MailerNotConfigured as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except mailer.MailerError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    audit.record(
+        db,
+        entity_type="purchase_order",
+        entity_id=po.id,
+        action="emailed",
+        actor_user_id=current_user.id,
+        details=f"{po.po_number} emailed to {supplier.email}",
+    )
+    db.commit()
+    return {"sent": True, "to": supplier.email}
 
 
 # ---- Supplier invoices (bills) --------------------------------------

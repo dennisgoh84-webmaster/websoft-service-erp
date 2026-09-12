@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.accounting import AccountType, JournalStatus, VoucherType
 from app.models.catalog import ProductType
-from app.models.payables import BillMatchStatus, BillStatus, PurchaseOrderStatus
+from app.models.payables import BillMatchStatus, BillStatus, PurchaseOrder, PurchaseOrderStatus
 from app.models.contracts import ContractKind, ContractStatus, ExcessTreatment
 from app.models.customers import CustomerType
 from app.models.quotations import QuotationStatus
@@ -910,6 +910,7 @@ class SupplierOut(BaseModel):
     id: uuid.UUID
     name: str
     email: str | None
+    phone: str | None
     address: str | None
     gst_registration_no: str | None
     payment_terms_days: int | None
@@ -919,6 +920,7 @@ class SupplierOut(BaseModel):
 class SupplierCreate(BaseModel):
     name: str = Field(min_length=1)
     email: str | None = None
+    phone: str | None = None
     address: str | None = None
     gst_registration_no: str | None = None
     payment_terms_days: int | None = Field(default=None, ge=0)
@@ -927,6 +929,7 @@ class SupplierCreate(BaseModel):
 class SupplierUpdate(BaseModel):
     name: str | None = None
     email: str | None = None
+    phone: str | None = None
     address: str | None = None
     gst_registration_no: str | None = None
     payment_terms_days: int | None = Field(default=None, ge=0)
@@ -944,6 +947,28 @@ class PurchaseOrderOut(BaseModel):
     gst_amount_sgd: float
     total_amount_sgd: float
     status: PurchaseOrderStatus
+    # Set once "Import to AP" has created the matching bill -- lets the UI
+    # show "Imported -> BILL-0007" and hide the button rather than allow a
+    # second, duplicate bill for the same PO.
+    imported_bill_id: uuid.UUID | None = None
+    imported_bill_number: str | None = None
+
+    @classmethod
+    def from_model(cls, po: "PurchaseOrder") -> "PurchaseOrderOut":
+        bill = po.bills[0] if po.bills else None
+        return cls(
+            id=po.id,
+            po_number=po.po_number,
+            supplier_id=po.supplier_id,
+            order_date=po.order_date,
+            description=po.description,
+            amount_sgd=float(po.amount_sgd),
+            gst_amount_sgd=float(po.gst_amount_sgd),
+            total_amount_sgd=float(po.total_amount_sgd),
+            status=po.status,
+            imported_bill_id=bill.id if bill else None,
+            imported_bill_number=bill.bill_number if bill else None,
+        )
 
 
 class PurchaseOrderCreate(BaseModel):

@@ -1034,6 +1034,76 @@ no other page was asked for.
 
 ---
 
+## 22. Purchase Order: own nav item, confirm-and-import to AP, Email/WhatsApp (raised 2026-09-12)
+
+Requested as "let's work on purchase order on the menu bar above accounts
+payable... Eventually is to confirm and import to AP... Printing of PO
+and also email out to supplier, do u have also whatsapp out the PO."
+
+22.1. **Own page and nav item, DECIDED by implementation.** Purchase
+   Order moved off the Accounts Payable page onto its own page/route
+   (`/purchase-orders`), with its own nav item directly above Accounts
+   Payable -- matching where Dennis pointed. Suppliers (including the
+   new phone field, see 22.4) are still managed on the Accounts Payable
+   page; Purchase Order only reads that list.
+   *Where implemented:* `frontend/src/pages/PurchaseOrdersPage.tsx`,
+   `frontend/src/components/Layout.tsx`.
+
+22.2. **"Confirm" = the existing PUR-001 approval; "import to AP" is a
+   new one-click action, DECIDED by implementation.** A PO already had
+   an Approve step (PUR-001). "Import to AP" is new: once approved, it
+   creates the matching bill automatically (same supplier/description/
+   amount), 2-way matches it against the PO (PUR-002) and auto-approves
+   it for payment (PUR-003) -- instead of re-typing the same PO into
+   "Record a supplier bill" by hand. Each PO can only be imported once;
+   re-clicking (or trying via a second bill) is blocked with a clear
+   error naming the bill it was already imported as.
+   *Where implemented:* `app/services/payables.py`
+   (`assert_po_importable_to_ap`), `app/routers/payables.py`
+   (`import_purchase_order_to_ap`), `PurchaseOrder.bills` relationship
+   (no new column -- reuses the existing `purchase_order_id` FK on
+   `supplier_invoices` to detect a prior import).
+
+22.3. **Print, DECIDED by implementation, following the existing
+   Invoice/Quotation pattern exactly.** A dedicated print page
+   (`PurchaseOrderPrintPage.tsx`) with "PDF (Print)" (browser's own
+   Print -> Save as PDF) and "Word" (server-side .docx) -- no new
+   pattern introduced.
+
+22.4. **Email PO: real server-side send with the PO as a PDF attachment,
+   asked and answered.** Asked because the app had zero email-sending
+   infrastructure anywhere (Invoice/Quotation only ever offered Print).
+   Dennis chose real server-side send over a mailto: draft. Implemented
+   over plain SMTP (stdlib `smtplib`, no new pip dependency) via
+   `app/services/mailer.py`; unconfigured by default so "Email" fails
+   with a clear message until `backend/.env` carries real SMTP settings
+   (see DEV_SETUP.md) -- one shared mailbox for the whole install, not
+   per company. The PDF attached is the same `purchase_order_to_docx`
+   template used for "Word", converted via LibreOffice headless
+   (`soffice --convert-to pdf`, see `app/services/pdf_convert.py`)
+   rather than a second PDF layout built with e.g. reportlab -- one
+   template can't drift from the other. This adds LibreOffice Writer as
+   a **system** dependency on whatever machine runs the backend (not a
+   pip package) -- flagged here as a real addition to the approved
+   architecture, worth knowing about before deploying "Email PO" to a
+   production VPS. `libreoffice-core`/`-common` alone is not enough; the
+   `-writer` package specifically is required (discovered live: without
+   it, conversion fails with "source file could not be loaded").
+
+22.5. **WhatsApp PO: `wa.me` chat link, asked and answered.** Same
+   reasoning -- no WhatsApp integration existed. Dennis chose the
+   zero-dependency option over a real WhatsApp Business API integration
+   (which would need a vendor, a verified business number, and paid API
+   access -- a real vendor decision, not made here). The "WhatsApp"
+   button opens `https://wa.me/<supplier phone, digits only>?text=...`
+   with a short pre-filled message; the PDF itself is attached manually
+   in the chat, same one extra step as Email's PDF used to be before
+   22.4. Needs the supplier's phone number, so `Supplier.phone` was
+   added (new nullable column, migration `ca1ddfca6a83`) -- entered on
+   the Accounts Payable page.
+
+---
+
 ## How to use this document
 
 - Do not start detailed schema or workflow design for an area until the

@@ -24,12 +24,8 @@ export default function AccountsPayablePage() {
   // New supplier
   const [supName, setSupName] = useState('')
   const [supEmail, setSupEmail] = useState('')
+  const [supPhone, setSupPhone] = useState('')
   const [supTerms, setSupTerms] = useState('')
-
-  // New PO
-  const [poSupplier, setPoSupplier] = useState('')
-  const [poDesc, setPoDesc] = useState('')
-  const [poAmount, setPoAmount] = useState('')
 
   // New bill
   const [billSupplier, setBillSupplier] = useState('')
@@ -57,48 +53,16 @@ export default function AccountsPayablePage() {
       await api.createSupplier({
         name: supName,
         email: supEmail || undefined,
+        phone: supPhone || undefined,
         payment_terms_days: supTerms === '' ? null : parseInt(supTerms, 10),
       })
       setSupName('')
       setSupEmail('')
+      setSupPhone('')
       setSupTerms('')
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add supplier')
-    }
-  }
-
-  async function onCreatePO(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setMessage(null)
-    try {
-      const po = await api.createPurchaseOrder({
-        supplier_id: poSupplier,
-        order_date: new Date().toISOString().slice(0, 10),
-        description: poDesc,
-        amount_sgd: parseFloat(poAmount),
-      })
-      setPoDesc('')
-      setPoAmount('')
-      setMessage(
-        po.status === 'pending_approval'
-          ? `${po.po_number} needs the owner's approval (PUR-001).`
-          : `${po.po_number} created.`,
-      )
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create purchase order')
-    }
-  }
-
-  async function onApprovePO(po: PurchaseOrder) {
-    setError(null)
-    try {
-      await api.approvePurchaseOrder(po.id)
-      refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to approve purchase order')
     }
   }
 
@@ -145,15 +109,6 @@ export default function AccountsPayablePage() {
       downloadBlob(await api.exportSuppliersCsv(), 'suppliers.csv')
     } else {
       downloadBlob(await api.exportSuppliersExcel(), 'suppliers.xlsx')
-    }
-  }
-
-  async function onExportPurchaseOrders(format: string) {
-    setError(null)
-    if (format === 'csv') {
-      downloadBlob(await api.exportPurchaseOrdersCsv(), 'purchase-orders.csv')
-    } else {
-      downloadBlob(await api.exportPurchaseOrdersExcel(), 'purchase-orders.xlsx')
     }
   }
 
@@ -250,6 +205,7 @@ export default function AccountsPayablePage() {
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th>Phone</th>
               <th>Payment terms</th>
             </tr>
           </thead>
@@ -258,6 +214,7 @@ export default function AccountsPayablePage() {
               <tr key={s.id}>
                 <td>{s.name}</td>
                 <td>{s.email ?? '-'}</td>
+                <td>{s.phone ?? '-'}</td>
                 <td>
                   {s.payment_terms_days === null ? (
                     <span className="muted">not agreed</span>
@@ -269,7 +226,7 @@ export default function AccountsPayablePage() {
             ))}
             {suppliers.length === 0 && (
               <tr>
-                <td colSpan={3} className="muted">
+                <td colSpan={4} className="muted">
                   No suppliers yet.
                 </td>
               </tr>
@@ -287,6 +244,14 @@ export default function AccountsPayablePage() {
             <input type="email" value={supEmail} onChange={(e) => setSupEmail(e.target.value)} />
           </div>
           <div className="form-row">
+            <label>Phone</label>
+            <input
+              value={supPhone}
+              onChange={(e) => setSupPhone(e.target.value)}
+              placeholder="e.g. +65 9123 4567 -- used for WhatsApp"
+            />
+          </div>
+          <div className="form-row">
             <label>Payment terms (days)</label>
             <input
               type="number"
@@ -302,88 +267,10 @@ export default function AccountsPayablePage() {
         </form>
       </div>
 
-      <div className="card">
-        <div className="filter-bar">
-          <h2 style={{ margin: 0 }}>Purchase orders ({pos.length})</h2>
-          <ExportControl
-            formats={[
-              { value: 'csv', label: 'CSV' },
-              { value: 'excel', label: 'Excel' },
-            ]}
-            onExport={onExportPurchaseOrders}
-            onError={setError}
-          />
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>PO</th>
-              <th>Supplier</th>
-              <th>Description</th>
-              <th>Total</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {pos.map((po) => (
-              <tr key={po.id}>
-                <td>{po.po_number}</td>
-                <td>{supplierName(po.supplier_id)}</td>
-                <td>{po.description}</td>
-                <td>{money(po.total_amount_sgd)}</td>
-                <td>{po.status.replace('_', ' ')}</td>
-                <td>
-                  {po.status === 'pending_approval' && (
-                    <button className="secondary" onClick={() => onApprovePO(po)}>
-                      Approve (owner)
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {pos.length === 0 && (
-              <tr>
-                <td colSpan={6} className="muted">
-                  No purchase orders yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        <h2 style={{ marginTop: 18 }}>Raise a purchase order</h2>
-        <form onSubmit={onCreatePO}>
-          <div className="form-row">
-            <label>Supplier</label>
-            <select value={poSupplier} onChange={(e) => setPoSupplier(e.target.value)} required>
-              <option value="">Select...</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-row">
-            <label>Description</label>
-            <input value={poDesc} onChange={(e) => setPoDesc(e.target.value)} required />
-          </div>
-          <div className="form-row">
-            <label>Amount, net of GST (SGD)</label>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={poAmount}
-              onChange={(e) => setPoAmount(e.target.value)}
-              required
-            />
-          </div>
-          <button type="submit" disabled={!poSupplier}>
-            Raise PO
-          </button>
-        </form>
-      </div>
+      <p className="muted">
+        Purchase orders are raised, approved, printed, emailed and imported to AP on the{' '}
+        <Link to="/purchase-orders">Purchase Order</Link> page.
+      </p>
 
       <div className="card">
         <div className="filter-bar">
