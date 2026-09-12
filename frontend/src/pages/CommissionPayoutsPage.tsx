@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
+import DocumentAttachmentsPanel from '../components/DocumentAttachmentsPanel'
+import SignaturePanel from '../components/SignaturePanel'
 import {
   api,
   type CommissionPayout,
@@ -34,6 +36,7 @@ export default function CommissionPayoutsPage() {
   const [users, setUsers] = useState<CurrentUser[]>([])
   const [error, setError] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
+  const [docPanelId, setDocPanelId] = useState<string | null>(null)
 
   // Filters
   const now = new Date()
@@ -259,7 +262,8 @@ export default function CommissionPayoutsPage() {
             </thead>
             <tbody>
               {payouts.map((p) => (
-                <tr key={p.id}>
+                <Fragment key={p.id}>
+                <tr>
                   <td className="muted">{p.payout_number}</td>
                   <td>{p.period_month}</td>
                   <td>{userName(p.sales_staff_id)}</td>
@@ -294,6 +298,13 @@ export default function CommissionPayoutsPage() {
                     )}
                   </td>
                   <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button
+                      className="secondary icon-button"
+                      title="Attachments & Signatures"
+                      aria-label="Attachments & Signatures"
+                      onClick={() => setDocPanelId(docPanelId === p.id ? null : p.id)}
+                      style={{ fontSize: 12, padding: '2px 8px' }}
+                    >📎</button>
                     {p.status === 'draft' && (
                       <>
                         <button
@@ -384,6 +395,15 @@ export default function CommissionPayoutsPage() {
                     )}
                   </td>
                 </tr>
+                {docPanelId === p.id && (
+                  <tr>
+                    <td colSpan={9} style={{ padding: 16, background: 'var(--bg-muted, #f9f9f9)' }}>
+                      <DocumentAttachmentsPanel entityType="commission_payout" entityId={p.id} />
+                      <SignaturePanel entityType="commission_payout" entityId={p.id} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
               {payouts.length === 0 && (
                 <tr>

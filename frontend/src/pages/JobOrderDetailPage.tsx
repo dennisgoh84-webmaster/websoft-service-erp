@@ -7,7 +7,9 @@ import {
   type ServiceRecordCompletion,
   type JobOrder,
 } from '../lib/api'
+import DocumentAttachmentsPanel from '../components/DocumentAttachmentsPanel'
 import ProjectSchedulePanel from '../components/ProjectSchedulePanel'
+import SignaturePanel from '../components/SignaturePanel'
 import { useAuth } from '../lib/AuthContext'
 
 export default function JobOrderDetailPage() {
@@ -361,6 +363,13 @@ export default function JobOrderDetailPage() {
           </tbody>
         </table>
       </div>
+
+      {id && (
+        <div className="card">
+          <DocumentAttachmentsPanel entityType="job_order" entityId={id} />
+          <SignaturePanel entityType="job_order" entityId={id} />
+        </div>
+      )}
     </div>
   )
 }

@@ -33,12 +33,20 @@ shipped and when.
   testable without a real Microsoft 365 tenant + HTTPS host (see
   outlook-addin/README.md).
   → [planned-work.md #2](planned-work.md#2-incident-module----support-staff-callissue-log-with-routing-to-salesjob-ordersoftware-tasks-raised-2026-09-11-deferred-until-after-companyindividual)
-- [ ] **eSignature + eDocument attachments** -- across every document
-  type, one pass at the end rather than per-document.
+- [x] **eSignature + eDocument attachments** -- built 2026-09-12.
+  Backend: DocumentAttachment + DocumentSignature models, file-upload
+  service, REST routers, Alembic migration. Frontend: reusable
+  DocumentAttachmentsPanel + SignaturePanel components wired into all 12
+  document pages (Quotation, Invoice, Receipt, Payment Voucher, Purchase
+  Order, Supplier Invoice/AP Bill, Journal Entry, Job Order, Service
+  Record, Contract, Incident, Commission Payout).
   → [planned-work.md #3](planned-work.md#3-esignature--edocument-attachments----all-operations-and-accounting-documents-raised-2026-09-12-put-on-the-waiting-list-at-the-end-then-we-build-it-in)
-- [ ] **eApproval Master** -- generic, authority-based, multi-staff,
-  value-gated approval framework; would eventually absorb the one-off
-  Service Record approval logic.
+- [x] **eApproval Master** -- built 2026-09-12. Backend: generic
+  authority-based, multi-staff, value-gated approval framework with
+  ApprovalRule + ApprovalRequest + ApprovalStep models, configurable per
+  document type / value threshold, REST admin pages. Frontend admin UI
+  for managing approval rules already in place. Absorbs Service Record
+  approval logic.
   → [planned-work.md #4](planned-work.md#4-eapproval-master----authority-based-value-gated-multi-staff-approvals-across-documents-raised-2026-09-12)
 - [ ] **Product "Is Stock" flag / Stock Master** -- blocked on the
   separate Websoft Stock Distribution ERP project existing first.
@@ -75,4 +83,4 @@ shipped and when.
   → [open-business-decisions.md #7-8](open-business-decisions.md#7-projects)
 
 ---
-Last updated: 2026-09-12 (Central Command schema contract documented)
+Last updated: 2026-09-12 (eSignature/eDocument + eApproval Master built)
