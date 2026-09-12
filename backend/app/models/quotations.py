@@ -94,5 +94,13 @@ class QuotationLine(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=1)
     unit_price_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     line_total_sgd: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    # Reference Monitor (2026-09-12): which GL sub-code (see
+    # app/models/reference_codes.py) this line was for -- auto-filled
+    # from the chosen product's default_reference_code_id, but always
+    # overridable per line. Optional: a free-text line has no product to
+    # default from, and not every line needs one classified.
+    reference_code_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("reference_codes.id"), nullable=True
+    )
 
     quotation: Mapped["Quotation"] = relationship(back_populates="lines")

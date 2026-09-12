@@ -823,6 +823,32 @@ class AccountUpdate(BaseModel):
     is_active: bool | None = None
 
 
+# ---- Reference Monitor (GL sub-codes under one Chart of Accounts row) ----
+class ReferenceCodeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    account_id: uuid.UUID
+    account_code: str | None = None
+    account_name: str | None = None
+    code: str
+    name: str
+    is_active: bool
+    created_at: datetime
+
+
+class ReferenceCodeCreate(BaseModel):
+    account_id: uuid.UUID
+    code: str = Field(min_length=1, max_length=50)
+    name: str = Field(min_length=1)
+
+
+class ReferenceCodeUpdate(BaseModel):
+    account_id: uuid.UUID | None = None
+    code: str | None = None
+    name: str | None = None
+    is_active: bool | None = None
+
+
 # ---- General Ledger / vouchers ----
 class JournalLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -1124,6 +1150,7 @@ class ProductCreate(BaseModel):
     cost_sgd: float | None = Field(default=None, ge=0)
     unit_of_measure: str | None = None
     tax_code: str = "SR"
+    default_reference_code_id: uuid.UUID | None = None
 
 
 class ProductUpdate(BaseModel):
@@ -1136,6 +1163,7 @@ class ProductUpdate(BaseModel):
     cost_sgd: float | None = Field(default=None, ge=0)
     unit_of_measure: str | None = None
     tax_code: str | None = None
+    default_reference_code_id: uuid.UUID | None = None
     is_active: bool | None = None
 
 
@@ -1151,6 +1179,7 @@ class ProductOut(BaseModel):
     cost_sgd: float | None
     unit_of_measure: str | None
     tax_code: str
+    default_reference_code_id: uuid.UUID | None
     is_active: bool
     created_at: datetime
 
@@ -1162,6 +1191,9 @@ class QuotationLineCreate(BaseModel):
     unit_of_measure: str | None = None
     quantity: float = Field(gt=0)
     unit_price_sgd: float = Field(ge=0)
+    # Overrides the chosen product's default_reference_code_id when set;
+    # left unset, create_quotation fills it from that default.
+    reference_code_id: uuid.UUID | None = None
 
 
 class QuotationLineOut(BaseModel):
@@ -1173,6 +1205,7 @@ class QuotationLineOut(BaseModel):
     quantity: float
     unit_price_sgd: float
     line_total_sgd: float
+    reference_code_id: uuid.UUID | None
 
 
 class QuotationCreate(BaseModel):

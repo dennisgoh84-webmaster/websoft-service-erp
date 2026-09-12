@@ -39,6 +39,7 @@ from app.routers import (
     ops_dashboard,
     periods,
     quotations,
+    reference_codes,
     reports,
     service_records,
     setup_lists,
@@ -92,6 +93,7 @@ app.include_router(excess_usage.router)
 app.include_router(billing.router)
 app.include_router(accounts_receivable.router)
 app.include_router(accounts.router)
+app.include_router(reference_codes.router)
 app.include_router(ledger.router)
 app.include_router(payables.router)
 app.include_router(dashboard.router)

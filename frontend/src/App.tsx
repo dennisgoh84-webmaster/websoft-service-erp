@@ -39,6 +39,7 @@ import QuotationPrintPage from './pages/QuotationPrintPage'
 import QuotationsPage from './pages/QuotationsPage'
 import ReceiptPrintPage from './pages/ReceiptPrintPage'
 import ReceiptsPage from './pages/ReceiptsPage'
+import ReferenceCodesPage from './pages/ReferenceCodesPage'
 import ServiceRecordApprovalPage from './pages/ServiceRecordApprovalPage'
 import ServiceRecordPrintPage from './pages/ServiceRecordPrintPage'
 import ServiceRecordsPage from './pages/ServiceRecordsPage'
@@ -96,6 +97,7 @@ function AppRoutes() {
         <Route path="/payment-voucher" element={<PaymentVoucherPage />} />
         <Route path="/payment-voucher/:id/print" element={<PaymentVoucherPrintPage />} />
         <Route path="/chart-of-accounts" element={<ChartOfAccountsPage />} />
+        <Route path="/reference-codes" element={<ReferenceCodesPage />} />
         <Route path="/gl-types" element={<GLTypesPage />} />
         <Route path="/currency-rates" element={<CurrencyRatesPage />} />
         <Route path="/bank-accounts" element={<BankAccountsPage />} />

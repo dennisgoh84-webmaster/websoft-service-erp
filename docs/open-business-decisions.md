@@ -1234,6 +1234,56 @@ extends that rename to the identifiers themselves.
    to match:** its table now points at `app/models/company_individuals.py`
    / `CompanyIndividual` rather than the pre-rename path/name.
 
+---
+
+## 26. Reference Monitor Module -- GL sub-codes under one Chart of Accounts row (raised 2026-09-12)
+
+Requested as: a Ledger Code (e.g. GL 45001 "Sales of Software Revenue")
+needs to break down into several named sub-codes for document selection
+-- SLS-WEBSOFT-IMPLEMENTATION, SLS-WEBSOFT-SERVICE, SLS-WEBSOFT-STOCK,
+SLS-WEBSOFT-CUSTOMIZATIONS, all posting to the same account -- presettable
+on a Product, and "eventually" posting the captured code into General
+Ledger transactions.
+
+26.1. **DECIDED, first slice built.** A new `ReferenceCode` model
+   (`app/models/reference_codes.py`) is a plain child of one `Account`
+   row: `company_id`, `account_id` (FK to `accounts.id`), `code`, `name`,
+   `is_active`. Maintained on its own screen, **Reference Monitor**
+   (`frontend/src/pages/ReferenceCodesPage.tsx`, under Maintenance,
+   same `finance_accounting` module authority as Chart of Accounts) --
+   mirrors the existing Chart of Accounts screen's create/inline-rename/
+   deactivate pattern. New migration `37381fdd5ae6`.
+
+26.2. **DECIDED.** `Product` gets an optional `default_reference_code_id`
+   (set from the Product Catalog page, a new dropdown next to the
+   existing fields, also editable inline per row). `QuotationLine` gets
+   an optional `reference_code_id`, auto-filled from the chosen
+   product's default when a Sales Quotation line is created
+   (`POST /api/quotations`), but always overridable via a dropdown on
+   the line itself. Quotation is the only document type in this system
+   with real per-line item selection today (Invoice/PO/Bills are a
+   single amount + description, no lines) -- see
+   docs/module-map.md/system-architecture.md for the wider document
+   model -- so it is the only document wired up in this first slice.
+
+26.3. **NOT built, DECIDED by implementation to avoid guessing:** actual
+   posting of a captured reference code into General Ledger transactions
+   (`JournalEntry`/`JournalLine`, `app/models/accounting.py`). No
+   document type in this system auto-posts to the GL today -- Journal
+   Vouchers are entered manually only (`app/routers/ledger.py`) -- so
+   there is nothing yet for a reference code to drive. The "eventually
+   post to Chart of Accounts transactions" half of the request is
+   recorded here as confirmed future scope, not guessed at now. Real
+   open questions once GL auto-posting exists for any document: whether
+   a reference code maps 1:1 to a fixed debit/credit rule, whether every
+   document type or only some auto-post, and how a manually-entered
+   Journal Voucher interacts with a reference-coded line on the same
+   transaction.
+
+---
+
+## How to use this document
+
 - Do not start detailed schema or workflow design for an area until the
   decisions that affect it are resolved, or an explicit interim
   assumption is agreed with Dennis and recorded here.

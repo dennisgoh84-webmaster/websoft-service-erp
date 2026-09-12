@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type Product, type ProductType } from '../lib/api'
+import { api, downloadBlob, type Product, type ProductType, type ReferenceCode } from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
 export default function ProductCatalogPage() {
   const [items, setItems] = useState<Product[]>([])
+  const [referenceCodes, setReferenceCodes] = useState<ReferenceCode[]>([])
   const [showInactive, setShowInactive] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -15,12 +17,16 @@ export default function ProductCatalogPage() {
   const [productCategory, setProductCategory] = useState('')
   const [salesPrice, setSalesPrice] = useState('')
   const [unitOfMeasure, setUnitOfMeasure] = useState('')
+  const [defaultReferenceCodeId, setDefaultReferenceCodeId] = useState('')
 
   function refresh() {
     api.listCatalog(showInactive).then(setItems).catch((e) => setError(e.message))
   }
 
   useEffect(refresh, [showInactive])
+  useEffect(() => {
+    api.listReferenceCodes().then(setReferenceCodes).catch(() => setReferenceCodes([]))
+  }, [])
 
   async function onCreate(e: FormEvent) {
     e.preventDefault()
@@ -33,12 +39,14 @@ export default function ProductCatalogPage() {
         product_category: productCategory || undefined,
         sales_price_sgd: salesPrice === '' ? 0 : parseFloat(salesPrice),
         unit_of_measure: unitOfMeasure || undefined,
+        default_reference_code_id: defaultReferenceCodeId || undefined,
       })
       setName('')
       setInternalReference('')
       setProductCategory('')
       setSalesPrice('')
       setUnitOfMeasure('')
+      setDefaultReferenceCodeId('')
       refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add catalog item')
@@ -64,12 +72,25 @@ export default function ProductCatalogPage() {
     }
   }
 
+  async function onSetReferenceCode(item: Product, referenceCodeId: string) {
+    setError(null)
+    try {
+      await api.updateCatalogItem(item.id, { default_reference_code_id: referenceCodeId || null })
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update default reference code')
+    }
+  }
+
   return (
     <div>
       <h1>Product / Service Catalog</h1>
       <p className="muted">
         Sellable items a Sales Quotation line can be drawn from. Sales Price is net of GST; each
-        item sells under the tax code shown (default SR, the company's standard 9% rate).
+        item sells under the tax code shown (default SR, the company's standard 9% rate). Default
+        reference code presets which <Link to="/reference-codes">Reference Monitor</Link> GL
+        sub-code a Sales Quotation line defaults to when this item is picked -- still overridable
+        per line.
       </p>
       {error && <div className="error-banner">{error}</div>}
 
@@ -113,6 +134,17 @@ export default function ProductCatalogPage() {
               placeholder="e.g. Hours, Monthly, Yearly, Units"
             />
           </div>
+          <div className="form-row">
+            <label>Default reference code</label>
+            <select value={defaultReferenceCodeId} onChange={(e) => setDefaultReferenceCodeId(e.target.value)}>
+              <option value="">None</option>
+              {referenceCodes.map((rc) => (
+                <option key={rc.id} value={rc.id}>
+                  {rc.code} -- {rc.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <button type="submit" disabled={!name}>
             Add item
           </button>
@@ -145,6 +177,7 @@ export default function ProductCatalogPage() {
               <th>Sales price</th>
               <th>Unit</th>
               <th>Tax</th>
+              <th>Default reference code</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -160,6 +193,20 @@ export default function ProductCatalogPage() {
                 <td className="muted">{i.unit_of_measure ?? '-'}</td>
                 <td className="muted">{i.tax_code}</td>
                 <td>
+                  <select
+                    value={i.default_reference_code_id ?? ''}
+                    onChange={(e) => onSetReferenceCode(i, e.target.value)}
+                    style={{ minWidth: 160 }}
+                  >
+                    <option value="">None</option>
+                    {referenceCodes.map((rc) => (
+                      <option key={rc.id} value={rc.id}>
+                        {rc.code} -- {rc.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
                   <span className={`badge ${i.is_active ? 'active' : 'draft'}`}>
                     {i.is_active ? 'Active' : 'Inactive'}
                   </span>
@@ -173,7 +220,7 @@ export default function ProductCatalogPage() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={9} className="muted">
+                <td colSpan={10} className="muted">
                   No catalog items yet.
                 </td>
               </tr>

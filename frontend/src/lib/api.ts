@@ -644,6 +644,18 @@ export interface GLType {
   is_active: boolean
 }
 
+// ---- Reference Monitor (GL sub-codes under one Chart of Accounts row) ----
+export interface ReferenceCode {
+  id: string
+  account_id: string
+  account_code: string | null
+  account_name: string | null
+  code: string
+  name: string
+  is_active: boolean
+  created_at: string
+}
+
 // ---- Setup Lists (Nationality / Country / State / Area Code / Currency / Industry) ----
 export type SetupListType = 'nationality' | 'country' | 'state' | 'area_code' | 'currency' | 'industry'
 
@@ -978,6 +990,7 @@ export interface Product {
   cost_sgd: number | null
   unit_of_measure: string | null
   tax_code: string
+  default_reference_code_id: string | null
   is_active: boolean
   created_at: string
 }
@@ -993,6 +1006,7 @@ export interface QuotationLine {
   quantity: number
   unit_price_sgd: number
   line_total_sgd: number
+  reference_code_id: string | null
 }
 
 export interface Quotation {
@@ -1590,6 +1604,35 @@ export const api = {
     payload: { code?: string; name?: string; account_type?: AccountType; is_active?: boolean },
   ) => request<Account>(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
+  // Reference Monitor -- GL sub-codes under one Chart of Accounts row.
+  listReferenceCodes: (filters: { include_inactive?: boolean; account_id?: string } = {}) =>
+    request<ReferenceCode[]>(
+      `/reference-codes${qs({
+        include_inactive: filters.include_inactive ? 'true' : undefined,
+        account_id: filters.account_id,
+      })}`,
+    ),
+  exportReferenceCodesCsv: (filters: { include_inactive?: boolean; account_id?: string } = {}) =>
+    requestBlob(
+      `/reference-codes/export.csv${qs({
+        include_inactive: filters.include_inactive ? 'true' : undefined,
+        account_id: filters.account_id,
+      })}`,
+    ),
+  exportReferenceCodesExcel: (filters: { include_inactive?: boolean; account_id?: string } = {}) =>
+    requestBlob(
+      `/reference-codes/export.xlsx${qs({
+        include_inactive: filters.include_inactive ? 'true' : undefined,
+        account_id: filters.account_id,
+      })}`,
+    ),
+  createReferenceCode: (payload: { account_id: string; code: string; name: string }) =>
+    request<ReferenceCode>('/reference-codes', { method: 'POST', body: JSON.stringify(payload) }),
+  updateReferenceCode: (
+    id: string,
+    payload: Partial<{ account_id: string; code: string; name: string; is_active: boolean }>,
+  ) => request<ReferenceCode>(`/reference-codes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
   arAging: () => request<AgingReport>('/accounts-receivable/aging'),
   exportArAgingCsv: (as_at?: string) => requestBlob(`/accounts-receivable/aging/export.csv${qs({ as_at })}`),
   exportArAgingExcel: (as_at?: string) => requestBlob(`/accounts-receivable/aging/export.xlsx${qs({ as_at })}`),
@@ -1633,6 +1676,7 @@ export const api = {
     cost_sgd?: number
     unit_of_measure?: string
     tax_code?: string
+    default_reference_code_id?: string | null
   }) => request<Product>('/catalog', { method: 'POST', body: JSON.stringify(payload) }),
   updateCatalogItem: (
     id: string,
@@ -1646,6 +1690,7 @@ export const api = {
       cost_sgd: number | null
       unit_of_measure: string | null
       tax_code: string
+      default_reference_code_id: string | null
       is_active: boolean
     }>,
   ) => request<Product>(`/catalog/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
@@ -1671,6 +1716,7 @@ export const api = {
       unit_of_measure?: string
       quantity: number
       unit_price_sgd: number
+      reference_code_id?: string | null
     }[]
   }) => request<Quotation>('/quotations', { method: 'POST', body: JSON.stringify(payload) }),
   sendQuotation: (id: string) => request<Quotation>(`/quotations/${id}/send`, { method: 'POST' }),

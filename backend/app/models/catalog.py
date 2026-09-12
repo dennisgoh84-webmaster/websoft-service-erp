@@ -3,7 +3,7 @@
 Confirmed 2026-09-10 from the Odoo Products screens Dennis shared: a
 catalog of sellable items a Sales Quotation line can be drawn from,
 instead of free text, with Product Category, Internal Reference, Sales
-Price, Cost, Unit of Measure, Tags and a CompanyIndividual Tax code.
+Price, Cost, Unit of Measure, Tags and a Customer Tax code.
 
 Several fields visible on those Odoo screens are deliberately left out
 of this first build -- Can be Sold/Purchased, Invoicing Policy, "Create
@@ -54,5 +54,13 @@ class Product(Base):
     # against the company's current TaxCode at the time a quotation/
     # invoice line is raised (app/services/tax.py), not locked here.
     tax_code: Mapped[str] = mapped_column(String(10), nullable=False, default=DEFAULT_TAX_CODE)
+    # Reference Monitor (2026-09-12): the GL sub-code (see
+    # app/models/reference_codes.py) a document line defaults to when
+    # this product is picked -- e.g. a "Websoft Implementation" service
+    # item defaulting to SLS-WEBSOFT-IMPLEMENTATION under GL 45001.
+    # Optional and overridable per line, never required.
+    default_reference_code_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("reference_codes.id"), nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

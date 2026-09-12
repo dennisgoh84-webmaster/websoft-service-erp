@@ -127,7 +127,8 @@ def update_product(
     new_value: dict[str, object] = {}
     for field in (
         "product_type", "name", "internal_reference", "product_category", "tags",
-        "sales_price_sgd", "cost_sgd", "unit_of_measure", "tax_code", "is_active",
+        "sales_price_sgd", "cost_sgd", "unit_of_measure", "tax_code",
+        "default_reference_code_id", "is_active",
     ):
         if field not in fields:
             continue

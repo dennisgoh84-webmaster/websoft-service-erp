@@ -134,6 +134,7 @@ export default function Layout() {
     { key: 'product-catalog', path: '/product-catalog', label: 'Product Catalog', visible: can('sales') },
     { key: 'setup-lists', path: '/setup-lists', label: 'Setup Lists', visible: can('core_administration') },
     { key: 'gl-types', path: '/gl-types', label: 'GL Types', visible: can('finance_accounting') },
+    { key: 'reference-codes', path: '/reference-codes', label: 'Reference Monitor', visible: can('finance_accounting') },
     { key: 'tax-types', path: '/tax-types', label: 'Tax Types', visible: can('finance_accounting') },
     { key: 'currency-rates', path: '/currency-rates', label: 'Currency Rate Table', visible: can('finance_accounting') },
     { key: 'document-control', path: '/document-control', label: 'Document Control', visible: can('core_administration') },

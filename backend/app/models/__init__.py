@@ -50,6 +50,7 @@ from app.models.company_individuals import (  # noqa: F401
     CompanyIndividualType,
 )
 from app.models.catalog import Product, ProductType  # noqa: F401
+from app.models.reference_codes import ReferenceCode  # noqa: F401
 from app.models.quotations import Quotation, QuotationLine, QuotationStatus  # noqa: F401
 from app.models.groups import (  # noqa: F401
     ACCESS_LEVEL_ORDER,

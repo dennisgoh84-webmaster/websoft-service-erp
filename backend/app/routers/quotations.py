@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.models.core import Company, User
 from app.models.company_individuals import CompanyIndividual
 from app.models.groups import AccessLevel
+from app.models.catalog import Product
 from app.models.quotations import Quotation, QuotationLine, QuotationStatus
 from app.schemas.schemas import QuotationActionResult, QuotationCreate, QuotationOut
 from app.services import audit, docx_forms, document_email, exports
@@ -217,6 +218,14 @@ def create_quotation(
     for line in payload.lines:
         qty = Decimal(str(line.quantity))
         price = Decimal(str(line.unit_price_sgd))
+        # Reference Monitor: an explicit reference_code_id on the line
+        # always wins; otherwise fall back to the chosen product's own
+        # default (Product.default_reference_code_id), if any.
+        reference_code_id = line.reference_code_id
+        if reference_code_id is None and line.product_id:
+            product = db.get(Product, line.product_id)
+            if product and product.company_id == current_user.company_id:
+                reference_code_id = product.default_reference_code_id
         db.add(
             QuotationLine(
                 quotation_id=quotation.id,
@@ -226,6 +235,7 @@ def create_quotation(
                 quantity=qty,
                 unit_price_sgd=price,
                 line_total_sgd=(qty * price).quantize(Decimal("0.01")),
+                reference_code_id=reference_code_id,
             )
         )
     db.flush()

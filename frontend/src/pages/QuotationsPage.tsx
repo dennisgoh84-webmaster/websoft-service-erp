@@ -2,7 +2,15 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { EmailIcon, PrintIcon, WhatsAppIcon } from '../components/DocActionIcons'
 import ExportControl from '../components/ExportControl'
-import { api, downloadBlob, type CompanyIndividual, type Product, type Quotation, type QuotationStatus } from '../lib/api'
+import {
+  api,
+  downloadBlob,
+  type CompanyIndividual,
+  type Product,
+  type Quotation,
+  type QuotationStatus,
+  type ReferenceCode,
+} from '../lib/api'
 
 const money = (n: number) => n.toFixed(2)
 
@@ -25,16 +33,18 @@ interface DraftLine {
   unitOfMeasure: string
   quantity: string
   unitPrice: string
+  referenceCodeId: string
 }
 
 function emptyLine(): DraftLine {
-  return { productId: '', description: '', unitOfMeasure: '', quantity: '1', unitPrice: '' }
+  return { productId: '', description: '', unitOfMeasure: '', quantity: '1', unitPrice: '', referenceCodeId: '' }
 }
 
 export default function QuotationsPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [customers, setCustomers] = useState<CompanyIndividual[]>([])
   const [catalog, setCatalog] = useState<Product[]>([])
+  const [referenceCodes, setReferenceCodes] = useState<ReferenceCode[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -57,6 +67,7 @@ export default function QuotationsPage() {
       .catch((e) => setError(e.message))
     api.listCompanyIndividuals().then(setCustomers).catch((e) => setError(e.message))
     api.listCatalog().then(setCatalog).catch((e) => setError(e.message))
+    api.listReferenceCodes().then(setReferenceCodes).catch(() => setReferenceCodes([]))
   }
 
   useEffect(refresh, [filterStatus, filterCompanyIndividual])
@@ -79,6 +90,9 @@ export default function QuotationsPage() {
       description: product.name,
       unitOfMeasure: product.unit_of_measure ?? '',
       unitPrice: String(product.sales_price_sgd),
+      // Reference Monitor: pre-fill from the product's default, still
+      // overridable via the line's own Reference code select below.
+      referenceCodeId: product.default_reference_code_id ?? '',
     })
   }
 
@@ -114,6 +128,7 @@ export default function QuotationsPage() {
             unit_of_measure: l.unitOfMeasure || undefined,
             quantity: parseFloat(l.quantity),
             unit_price_sgd: parseFloat(l.unitPrice),
+            reference_code_id: l.referenceCodeId || undefined,
           })),
       })
       setMessage(`${q.quotation_number} created (SGD ${money(q.total_amount_sgd)} incl. GST).`)
@@ -247,6 +262,7 @@ export default function QuotationsPage() {
                 <th>Unit</th>
                 <th>Qty</th>
                 <th>Unit price</th>
+                <th>Reference code</th>
                 <th>Line total</th>
                 <th></th>
               </tr>
@@ -300,6 +316,20 @@ export default function QuotationsPage() {
                       style={{ width: 90 }}
                     />
                   </td>
+                  <td>
+                    <select
+                      value={line.referenceCodeId}
+                      onChange={(e) => updateLine(i, { referenceCodeId: e.target.value })}
+                      style={{ minWidth: 140 }}
+                    >
+                      <option value="">None</option>
+                      {referenceCodes.map((rc) => (
+                        <option key={rc.id} value={rc.id}>
+                          {rc.code}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td>{money((parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0))}</td>
                   <td>
                     {lines.length > 1 && (
@@ -314,7 +344,7 @@ export default function QuotationsPage() {
                 <td colSpan={5}>
                   <strong>Net total</strong>
                 </td>
-                <td colSpan={2}>
+                <td colSpan={3}>
                   <strong>{money(draftTotal)}</strong> (+ GST at acceptance-time rate)
                 </td>
               </tr>
