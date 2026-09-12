@@ -47,6 +47,11 @@ class Client(Base):
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Concurrent login / license cap (null = unlimited)
+    max_licenses: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, default=None
+    )
+
     # Last time Central Command successfully connected
     last_connected_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

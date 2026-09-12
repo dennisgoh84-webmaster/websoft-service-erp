@@ -61,6 +61,7 @@ export interface ClientSummary {
   name: string
   code: string
   status: string
+  max_licenses: number | null
   last_connected_at: string | null
   last_known_alembic_head: string | null
 }
@@ -247,6 +248,15 @@ export const api = {
     request<{ success: boolean }>(`/licenses/${clientId}/companies/${companyId}/modules`, {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+  updateLicenseLimit: (clientId: string, maxLicenses: number | null) =>
+    request<{ success: boolean; max_licenses: number | null }>(`/licenses/${clientId}/license-limit`, {
+      method: 'PATCH',
+      body: JSON.stringify({ max_licenses: maxLicenses }),
+    }),
+  pushLicenseLimit: (clientId: string) =>
+    request<{ success: boolean; max_licenses: number | null }>(`/licenses/${clientId}/license-limit/push`, {
+      method: 'POST',
     }),
 
   // Config Updates

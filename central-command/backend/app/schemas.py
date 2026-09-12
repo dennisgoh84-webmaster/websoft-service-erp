@@ -39,6 +39,7 @@ class ClientCreate(BaseModel):
     db_password: str
     db_use_tls: bool = True
     notes: str | None = None
+    max_licenses: int | None = None
 
 
 class ClientUpdate(BaseModel):
@@ -51,6 +52,7 @@ class ClientUpdate(BaseModel):
     db_use_tls: bool | None = None
     status: str | None = None
     notes: str | None = None
+    max_licenses: int | None = None
 
 
 class ClientOut(BaseModel):
@@ -65,6 +67,7 @@ class ClientOut(BaseModel):
     db_use_tls: bool
     status: str
     notes: str | None
+    max_licenses: int | None = None
     last_connected_at: datetime | None
     last_known_alembic_head: str | None
     created_at: datetime
@@ -77,6 +80,7 @@ class ClientSummary(BaseModel):
     name: str
     code: str
     status: str
+    max_licenses: int | None = None
     last_connected_at: datetime | None
     last_known_alembic_head: str | None
 

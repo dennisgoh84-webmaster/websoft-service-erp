@@ -264,6 +264,58 @@ def push_config_sql(
         raise ClientDBError(str(e))
 
 
+def push_license_limit(
+    cc_db: CCSession,
+    client: Client,
+    max_licenses: int | None,
+    admin_id=None,
+) -> dict:
+    """Push the concurrent-login license limit to a client DB.
+
+    Writes to the ``license_settings`` table (UPSERT).  If the table
+    does not exist yet in the client schema the push creates it
+    on the fly — a single key/value row keyed ``max_concurrent_logins``.
+    """
+    try:
+        engine = create_engine(_build_dsn(client), pool_pre_ping=True)
+        _check_alembic_version(client, engine)
+
+        with engine.begin() as conn:
+            # Ensure table exists (idempotent)
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS license_settings (
+                    key   VARCHAR(100) PRIMARY KEY,
+                    value VARCHAR(255),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """))
+            # Upsert the limit
+            val = str(max_licenses) if max_licenses is not None else None
+            conn.execute(text("""
+                INSERT INTO license_settings (key, value, updated_at)
+                VALUES ('max_concurrent_logins', :val, NOW())
+                ON CONFLICT (key) DO UPDATE SET
+                    value = EXCLUDED.value,
+                    updated_at = NOW()
+            """), {"val": val})
+
+        engine.dispose()
+        client.last_connected_at = datetime.now(timezone.utc)
+
+        label = str(max_licenses) if max_licenses else "unlimited"
+        _log_push(cc_db, client, PushType.LICENSE,
+                  f"Set max concurrent logins to {label}",
+                  True, pushed_by=admin_id)
+
+        return {"success": True, "max_licenses": max_licenses}
+
+    except Exception as e:
+        _log_push(cc_db, client, PushType.LICENSE,
+                  "Push license limit failed", False, str(e),
+                  pushed_by=admin_id)
+        raise ClientDBError(str(e))
+
+
 def read_client_modules(client: Client) -> list[dict]:
     """Read modules + company_modules from a client DB for license overview."""
     try:

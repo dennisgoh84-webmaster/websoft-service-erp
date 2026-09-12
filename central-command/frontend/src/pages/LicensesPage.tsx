@@ -7,14 +7,30 @@ export default function LicensesPage() {
   const [modules, setModules] = useState<ClientModule[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [msg, setMsg] = useState('')
   const [toggling, setToggling] = useState<string | null>(null)
 
-  useEffect(() => { api.listClients().then(setClients) }, [])
+  // License limit state
+  const [editingLimit, setEditingLimit] = useState(false)
+  const [limitValue, setLimitValue] = useState('')
+  const [savingLimit, setSavingLimit] = useState(false)
+
+  const reloadClients = async () => {
+    const c = await api.listClients()
+    setClients(c)
+    return c
+  }
+
+  useEffect(() => { reloadClients() }, [])
+
+  const selectedClientObj = clients.find(c => c.id === selectedClient)
 
   async function loadModules(clientId: string) {
     setSelectedClient(clientId)
     setModules([])
     setError('')
+    setMsg('')
+    setEditingLimit(false)
     if (!clientId) return
     setLoading(true)
     try {
@@ -36,13 +52,48 @@ export default function LicensesPage() {
         module_key: m.module_key,
         enabled: !m.enabled,
       })
-      // Refresh
       const mods = await api.getClientModules(selectedClient)
       setModules(mods)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed')
     } finally {
       setToggling(null)
+    }
+  }
+
+  async function saveLicenseLimit() {
+    if (!selectedClient) return
+    setSavingLimit(true)
+    setError('')
+    try {
+      const val = limitValue.trim() === '' ? null : parseInt(limitValue, 10)
+      if (val !== null && (isNaN(val) || val < 1)) {
+        setError('License count must be a positive number or empty for unlimited')
+        setSavingLimit(false)
+        return
+      }
+      await api.updateLicenseLimit(selectedClient, val)
+      await reloadClients()
+      setEditingLimit(false)
+      setMsg(`License limit ${val ? `set to ${val}` : 'set to unlimited'}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update')
+    } finally {
+      setSavingLimit(false)
+    }
+  }
+
+  async function pushLicenseLimit() {
+    if (!selectedClient) return
+    setSavingLimit(true)
+    setError('')
+    try {
+      await api.pushLicenseLimit(selectedClient)
+      setMsg('License limit pushed to client database')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Push failed')
+    } finally {
+      setSavingLimit(false)
     }
   }
 
@@ -73,7 +124,81 @@ export default function LicensesPage() {
         </select>
       </div>
 
-      {error && <div style={{ background: '#fdecea', color: '#c0392b', padding: '6px 12px', borderRadius: 4, fontSize: 13, marginBottom: 12 }}>{error}</div>}
+      {error && <div style={{ background: '#fdecea', color: '#c0392b', padding: '6px 12px', borderRadius: 4, fontSize: 13, marginBottom: 12 }}>{error} <button onClick={() => setError('')} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>✕</button></div>}
+      {msg && <div style={{ background: '#eafaf1', color: '#27ae60', padding: '6px 12px', borderRadius: 4, fontSize: 13, marginBottom: 12 }}>{msg} <button onClick={() => setMsg('')} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>✕</button></div>}
+
+      {/* License Limit Panel */}
+      {selectedClient && selectedClientObj && (
+        <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0', padding: '14px 16px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <span style={{ fontSize: 13, fontWeight: 600, marginRight: 8 }}>🔐 Max Concurrent Logins:</span>
+              {!editingLimit ? (
+                <>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '2px 10px',
+                    borderRadius: 12,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#fff',
+                    background: selectedClientObj.max_licenses ? '#3498db' : '#27ae60',
+                  }}>
+                    {selectedClientObj.max_licenses ? `${selectedClientObj.max_licenses} users` : 'Unlimited'}
+                  </span>
+                </>
+              ) : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Empty = unlimited"
+                    value={limitValue}
+                    onChange={e => setLimitValue(e.target.value)}
+                    style={{ width: 120, padding: '4px 8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 12 }}
+                  />
+                  <button
+                    onClick={saveLicenseLimit}
+                    disabled={savingLimit}
+                    style={{ padding: '4px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+                  >
+                    {savingLimit ? '...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => setEditingLimit(false)}
+                    style={{ padding: '4px 10px', background: '#eee', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+                  >
+                    Cancel
+                  </button>
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {!editingLimit && (
+                <button
+                  onClick={() => {
+                    setLimitValue(selectedClientObj.max_licenses ? String(selectedClientObj.max_licenses) : '')
+                    setEditingLimit(true)
+                  }}
+                  style={{ padding: '4px 12px', background: '#3498db', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+                >
+                  ✏️ Edit
+                </button>
+              )}
+              <button
+                onClick={pushLicenseLimit}
+                disabled={savingLimit}
+                style={{ padding: '4px 12px', background: '#800020', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+              >
+                {savingLimit ? '...' : '⬆ Push to Client'}
+              </button>
+            </div>
+          </div>
+          <p style={{ margin: '6px 0 0', fontSize: 11, color: '#888' }}>
+            Controls how many users can be logged in simultaneously. Leave empty for no limit. Push to apply to client's database.
+          </p>
+        </div>
+      )}
 
       {loading && <p style={{ color: '#888' }}>Loading modules from client database...</p>}
 
