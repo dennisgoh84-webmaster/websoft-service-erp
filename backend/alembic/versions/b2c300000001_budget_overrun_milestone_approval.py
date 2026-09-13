@@ -1,7 +1,7 @@
 """Add budget overrun approval fields to job_orders
 
-Revision ID: b2c3d4e5f6a7
-Revises: a1b2c3d4e5f6
+Revision ID: b2c300000001
+Revises: a1b200000001
 Create Date: 2026-09-12
 
 """
@@ -12,8 +12,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = "b2c3d4e5f6a7"
-down_revision = "a1b2c3d4e5f6"
+revision = "b2c300000001"
+down_revision = "a1b200000001"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

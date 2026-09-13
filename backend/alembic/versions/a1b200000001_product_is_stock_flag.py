@@ -1,6 +1,6 @@
 """Add is_stock flag to products table
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: a1b200000001
 Revises: f8a9b0c1d2e3
 Create Date: 2026-09-12
 
@@ -12,7 +12,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = "a1b2c3d4e5f6"
+revision = "a1b200000001"
 down_revision = "f8a9b0c1d2e3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
